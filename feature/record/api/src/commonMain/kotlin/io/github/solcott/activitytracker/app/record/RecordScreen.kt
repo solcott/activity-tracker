@@ -5,6 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.location.RecordingState
@@ -35,8 +36,16 @@ data class RecordState(
     val visibility: VisibilityFields = VisibilityFields(),
     /** The gear used; starts at the athlete's defaults for the type. */
     val gear: GearField = GearField(),
+    /**
+     * The title and description fit their limits ([ActivityTextLimits]). The presenter fills it from them as they change, so a new state
+     * follows typing over or back under a limit (a native Save redraws only on one).
+     */
+    val textsFit: Boolean = ActivityTextLimits.fits(title.text.toString(), description.text.toString()),
     val eventSink: (RecordEvent) -> Unit,
 ) : CircuitUiState {
+    /** Whether [action]'s control can be used: none while saving, and Finish & save only while the title and description fit. */
+    fun enabled(action: RecordAction): Boolean = !saving && (action != RecordAction.Finish || textsFit)
+
     /** [description] for Swift, whose export leaves out a member named `description` (dev/ios-swift-interop). */
     val about: TextFieldState
         get() = description

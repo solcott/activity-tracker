@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +15,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityDescriptionField
+import io.github.solcott.activitytracker.app.ui.ActivityTitleField
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
@@ -24,7 +24,6 @@ import io.github.solcott.activitytracker.app.ui.StatsRow
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
@@ -65,11 +64,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             StatsRow(
                 RecordTexts.stats(state, LocalUnitSystem.current).map { Stat(it.label.string(), it.value.string()) }.toImmutableList(),
             )
-            AppTextField(
-                state = state.title,
-                label = stringResource(Res.string.field_title),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            ActivityTitleField(state.title, stringResource(Res.string.field_title), enabled = !state.saving)
             ActivityDescriptionField(state.description, enabled = !state.saving)
             GearPicker(state.gear, enabled = !state.saving)
             ActivityVisibilityForm(
@@ -92,9 +87,9 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                     }
                     val label = text.string()
                     if (action == RecordAction.Discard) {
-                        AppSecondaryButton(onClick = onClick, enabled = !state.saving) { Text(label) }
+                        AppSecondaryButton(onClick = onClick, enabled = state.enabled(action)) { Text(label) }
                     } else {
-                        AppButton(onClick = onClick, enabled = !state.saving) { Text(label) }
+                        AppButton(onClick = onClick, enabled = state.enabled(action)) { Text(label) }
                     }
                 }
             }

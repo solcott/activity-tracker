@@ -60,6 +60,7 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -389,6 +390,22 @@ class EditActivityPresenterTest {
             assertEquals(listOf("bafktwo", "bafknew"), saved.media.orEmpty().map { it.cid })
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun aTitlePastItsLimitHoldsSaveBack() = runTest {
+        presenterTestOf(presenter(FakeNavigator(EditActivityScreen(uri)))) {
+            val loaded = awaitLoaded()
+            assertTrue(loaded.canSave)
+            loaded.title.setTextAndPlaceCursorAtEnd("x".repeat(101))
+            val tooLong = awaitUntil { !it.textsFit }
+            assertFalse(tooLong.canSave)
+            tooLong.eventSink(EditActivityEvent.Save)
+            loaded.title.setTextAndPlaceCursorAtEnd("Blue Hole at dawn")
+            assertTrue(awaitUntil { it.textsFit }.canSave)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(writes.isEmpty(), "Save while too long wrote nothing")
     }
 
     @Test

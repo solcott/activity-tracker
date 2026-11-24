@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
+import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.edit.DetailsEvent
 import io.github.solcott.activitytracker.app.edit.DetailsFormTexts
 import io.github.solcott.activitytracker.app.edit.EditMedia
@@ -75,14 +76,7 @@ fun ActivityDetailsForm(
     enabled: Boolean = true,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AppTextField(
-            title,
-            label = stringResource(Res.string.details_title_label),
-            placeholder = titlePlaceholder,
-            enabled = enabled,
-            lineLimits = TextFieldLineLimits.SingleLine,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        ActivityTitleField(title, stringResource(Res.string.details_title_label), placeholder = titlePlaceholder, enabled = enabled)
         fields.diveSite?.let { site ->
             AppTextField(
                 site,
@@ -98,14 +92,45 @@ fun ActivityDetailsForm(
     }
 }
 
-/** What the athlete writes about an activity: the details form's description, also on manual entry and Record. */
+/**
+ * An activity's title, on every form that writes one, with its counter under it once it nears its limit, in the error colour past it
+ * ([ActivityTextLimits]).
+ */
+@Composable
+fun ActivityTitleField(
+    state: TextFieldState,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String? = null,
+    enabled: Boolean = true,
+) {
+    val text = state.text.toString()
+    AppTextField(
+        state,
+        label = label,
+        placeholder = placeholder,
+        enabled = enabled,
+        isError = !ActivityTextLimits.titleFits(text),
+        supportingText = ActivityTextLimits.titleCounter(text)?.string(),
+        lineLimits = TextFieldLineLimits.SingleLine,
+        modifier = modifier.fillMaxWidth(),
+    )
+}
+
+/**
+ * What the athlete writes about an activity: the details form's description, also on manual entry and Record, with its counter as
+ * [ActivityTitleField] has.
+ */
 @Composable
 fun ActivityDescriptionField(state: TextFieldState, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val text = state.text.toString()
     AppTextField(
         state,
         label = stringResource(Res.string.details_description_label),
         placeholder = stringResource(Res.string.details_description_placeholder),
         enabled = enabled,
+        isError = !ActivityTextLimits.descriptionFits(text),
+        supportingText = ActivityTextLimits.descriptionCounter(text)?.string(),
         lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 3, maxHeightInLines = 10),
         modifier = modifier.fillMaxWidth(),
     )

@@ -628,6 +628,7 @@ typealias EditActivityTexts = EditPackage.EditActivityTexts
 typealias ActivityDetailsFields = EditPackage.ActivityDetailsFields
 typealias DetailsEvent = EditPackage.DetailsEvent
 typealias DetailsFormTexts = EditPackage.DetailsFormTexts
+typealias ActivityTextLimits = EditPackage.ActivityTextLimits
 typealias EditMedia = EditPackage.EditMedia
 typealias ManualActivityScreen = RecordPackage.ManualActivityScreen
 typealias ManualActivityState = RecordPackage.ManualActivityState

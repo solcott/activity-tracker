@@ -10,6 +10,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
@@ -58,8 +59,9 @@ fun ManualActivityPresenter(
             .toImmutableSet()
     val visibility = rememberNewActivityVisibility(defaults, offered)
 
-    // Read in composition, so typing a duration publishes a new state.
+    // Read in composition, so typing a duration, or over or back under a limit, publishes a new state.
     val durationEntered = (parseDecimal(duration.text.toString()) ?: 0.0) > 0
+    val textsFit = ActivityTextLimits.fits(title.text.toString(), description.text.toString())
     return ManualActivityState(
         type.field,
         title,
@@ -73,6 +75,7 @@ fun ManualActivityPresenter(
         visibility.fields,
         gear.field,
         durationEntered,
+        textsFit,
     ) { event ->
         when (event) {
             is ManualActivityEvent.UnitsChanged -> {
@@ -84,6 +87,7 @@ fun ManualActivityPresenter(
             }
 
             ManualActivityEvent.Save -> {
+                if (!textsFit) return@ManualActivityState
                 val minutes = parseDecimal(duration.text.toString()) ?: return@ManualActivityState
                 flights.launchAction(ManualActivityEvent.Save, UiError.Kind.SaveActivity, { error = it }) {
                     val saved =

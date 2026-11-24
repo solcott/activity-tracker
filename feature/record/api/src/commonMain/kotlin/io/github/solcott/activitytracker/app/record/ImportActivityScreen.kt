@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
+import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.text.TextSource
 import io.github.solcott.activitytracker.app.text.resolve
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
@@ -107,6 +108,11 @@ data class ImportActivityState(
     val savingImport: SavingImport? = null,
     /** Imports whose save stopped before every activity was saved: picking the files again imports the rest. */
     val stoppedImports: ImmutableList<StoppedImport> = persistentListOf(),
+    /**
+     * The single activity's title and description fit their limits ([ActivityTextLimits]). The presenter fills it from them as they change,
+     * so a new state follows typing over or back under a limit (a native Save redraws only on one).
+     */
+    val textsFit: Boolean = ActivityTextLimits.fits(title.text.toString(), details?.description?.text?.toString().orEmpty()),
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState {
     /** Files have been read: the screen offers Choose other files, and errors are saving's. */
@@ -115,7 +121,8 @@ data class ImportActivityState(
 
     /**
      * A single activity can be saved: not an ignored duplicate, nor an activity until the athlete's log has been checked for it, nor a
-     * recording that can't be added to the activity it's for (too far from it, or that activity still loading).
+     * recording that can't be added to the activity it's for (too far from it, or that activity still loading), nor one whose title or
+     * description is over its limit.
      */
     val canSave: Boolean
         get() =
@@ -125,7 +132,8 @@ data class ImportActivityState(
                 preview.duplicate?.action != DuplicateAction.Ignore &&
                 duplicateCheck != DuplicateCheck.Checking &&
                 !tooFarFromTarget &&
-                (!addsRecording || addingTo != null)
+                (!addsRecording || addingTo != null) &&
+                textsFit
 
     /** A batch can be saved: something selected, nothing being read, saved or checked. */
     val canSaveBatch: Boolean

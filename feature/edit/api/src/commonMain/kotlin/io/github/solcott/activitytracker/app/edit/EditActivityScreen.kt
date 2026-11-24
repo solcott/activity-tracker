@@ -50,8 +50,17 @@ data class EditActivityState(
     val leaderboardExclusion: Boolean? = null,
     /** The gear the activity lists, as edited; null while it loads. */
     val gear: GearField? = null,
+    /**
+     * The title and description fit their limits ([ActivityTextLimits]). The presenter fills it from them as they change, so a new state
+     * follows typing over or back under a limit (a native Save redraws only on one).
+     */
+    val textsFit: Boolean = ActivityTextLimits.fits(title.text.toString(), details?.description?.text?.toString().orEmpty()),
     val eventSink: (EditActivityEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** Save can be pressed: the activity has loaded, nothing is saving, and the title and description fit. */
+    val canSave: Boolean
+        get() = details != null && !saving && textsFit
+}
 
 sealed interface EditActivityEvent {
     data object Save : EditActivityEvent

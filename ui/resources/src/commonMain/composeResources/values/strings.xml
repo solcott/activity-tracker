@@ -1518,6 +1518,7 @@
     <string name="details_title_label">Title</string>
     <string name="details_description_label">Description</string>
     <string name="details_description_placeholder">How did it go?</string>
+    <string name="details_length">%1$s/%2$s</string>
     <string name="details_dive_site_label">Dive site</string>
     <string name="details_photos_heading">Photos</string>
     <string name="details_add_photos">Add photos</string>

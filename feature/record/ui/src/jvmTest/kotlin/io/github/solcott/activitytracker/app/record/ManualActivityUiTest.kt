@@ -1,11 +1,13 @@
 package io.github.solcott.activitytracker.app.record
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.test.Test
 
 /** What manual entry says when the athlete can't choose who sees an activity (spaces/client-protocol), and its description field. */
@@ -31,5 +33,12 @@ class ManualActivityUiTest {
         setContent { AppPreview { ManualActivityUi(ManualActivitySamples.variants.getValue("full")) } }
         onNodeWithText("Description").assertExists()
         onNodeWithText("Easy spin along the river.").assertExists()
+    }
+
+    @Test
+    fun aDescriptionPastItsLimitShowsItsCounterAndHoldsSaveBack() = runComposeUiTest {
+        setContent { AppPreview { ManualActivityUi(ManualActivitySamples.variants.getValue("tooLong")) } }
+        onNodeWithText("${formatWhole(1_005L)}/${formatWhole(1_000L)}").assertExists()
+        onNodeWithText("Save").assertIsNotEnabled()
     }
 }

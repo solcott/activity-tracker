@@ -28,7 +28,7 @@ struct ManualActivityView: View {
             }
             Section {
                 ActivityTypeRow(field: state.type, enabled: enabled)
-                AppTextField(label: .fieldTitle, model: title, state: state.title, layout: .row)
+                ActivityTitleField(label: .fieldTitle, model: title, state: state.title)
             }
             .disabled(!enabled)
             ActivityDescriptionSection(state: state.about, enabled: enabled)

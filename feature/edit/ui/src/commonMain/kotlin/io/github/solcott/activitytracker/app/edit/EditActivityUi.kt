@@ -106,7 +106,7 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                 }
                 state.leaderboardExclusion?.let { excluded -> LeaderboardExclusion(excluded, enabled = !state.saving, state.eventSink) }
                 state.error?.let { ErrorText(it) }
-                AppButton(onClick = { state.eventSink(EditActivityEvent.Save) }, enabled = !state.saving) {
+                AppButton(onClick = { state.eventSink(EditActivityEvent.Save) }, enabled = state.canSave) {
                     Text(LabelText.save(state.saving).string())
                 }
             }

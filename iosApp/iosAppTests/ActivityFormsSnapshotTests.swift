@@ -16,7 +16,7 @@ struct ActivityFormsSnapshotTests {
         "full", "dive", "saving", "saveFailed", "confirmDiscard", "confirmNarrowing", "confirmCoreCharts",
     ]
     nonisolated private static let manualSamples = ["loaded", "invalid", "spacesUnsupported"]
-    nonisolated private static let manualVariants = ["full", "imperial", "saving", "noSubSports"]
+    nonisolated private static let manualVariants = ["full", "imperial", "saving", "noSubSports", "tooLong"]
     nonisolated private static let siteSamples = ["loading", "failed", "loaded", "invalid", "insideZone", "duplicate"]
     nonisolated private static let siteVariants = ["namesDive", "publishing", "limitReached", "checkFailed", "noPosition"]
 

@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.app.detail.StreamUnits
 import io.github.solcott.activitytracker.app.detail.ZoneRows
 import io.github.solcott.activitytracker.app.detail.ZoneTime
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
+import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.edit.DetailsFormTexts
 import io.github.solcott.activitytracker.app.gear.GearTexts
 import io.github.solcott.activitytracker.app.icon.SportIconNames
@@ -254,6 +255,7 @@ class SharedTextNamesTest {
                 GearFieldTexts.collection(GearCollectionOption("race", "Race day", 3)),
                 GearFieldTexts.notAdded(field),
                 DetailsFormTexts.photosCount(ActivityDetailsFields(textFieldStateOf(), null, persistentListOf(), 4, {})),
+                ActivityTextLimits.titleCounter("x".repeat(ActivityTextLimits.TITLE)),
             )
         assertAllExist(texts)
     }

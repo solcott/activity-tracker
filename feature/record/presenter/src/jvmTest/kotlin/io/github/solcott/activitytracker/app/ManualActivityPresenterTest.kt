@@ -86,6 +86,37 @@ class ManualActivityPresenterTest {
         assertFalse("description" in record, "a blank description leaves the field out")
     }
 
+    @Test
+    fun aDescriptionPastItsLimitHoldsSaveBackUntilShortened() = runTest {
+        val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
+            val initial = awaitItem()
+            initial.durationMinutes.setTextAndPlaceCursorAtEnd("30")
+            initial.description.setTextAndPlaceCursorAtEnd("x".repeat(1_001))
+            val tooLong = awaitUntil { it.durationEntered && !it.textsFit }
+            assertFalse(tooLong.valid, "a new state follows typing past the limit, for a native Save")
+            tooLong.eventSink(ManualActivityEvent.Save)
+
+            initial.description.setTextAndPlaceCursorAtEnd("x".repeat(1_000))
+            assertTrue(awaitUntil { it.textsFit }.valid, "and another once it's back under")
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fixture.putRecords.isEmpty(), "Save while too long saved nothing")
+    }
+
     /** Saves a 30-minute entry with [description] and returns the record put. */
     private suspend fun saveWithDescription(description: String): JsonObject {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)

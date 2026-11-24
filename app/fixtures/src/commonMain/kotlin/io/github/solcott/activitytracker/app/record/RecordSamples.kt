@@ -123,8 +123,8 @@ object ManualActivitySamples {
             )
 
     /**
-     * The states beyond these the native form draws: a gravel ride with a description, gear and categories, in imperial, saving, and its
-     * type sheet.
+     * The states beyond these the native form draws: a gravel ride with a description, gear and categories, in imperial, saving, with a
+     * description over its limit, and its type sheet.
      */
     val variants: Map<String, ManualActivityState>
         get() {
@@ -141,6 +141,8 @@ object ManualActivitySamples {
                 "imperial" to full.copy(units = UnitSystem.Imperial, distance = textFieldStateOf("15.2")),
                 "saving" to full.copy(saving = true),
                 "noSubSports" to full.copy(type = ActivityTypeField(ActivityType(Sport.YOGA), typeField.quickTypes)),
+                // Past the description's limit: its counter in the error colour, and Save held back.
+                "tooLong" to full.copy(description = textFieldStateOf(LONG_DESCRIPTION), textsFit = false),
             )
         }
 }
@@ -447,6 +449,9 @@ object ImportActivitySamples {
 }
 
 private val ROW_ELAPSED = 52.minutes
+
+/** A description five characters past its limit. */
+private val LONG_DESCRIPTION = "Easy spin along the river. ".repeat(38).take(1_005)
 
 /** A sample's start, [local] ("2024-05-14 12:01") on a UTC clock. */
 private fun startAt(local: String): ImportStart =

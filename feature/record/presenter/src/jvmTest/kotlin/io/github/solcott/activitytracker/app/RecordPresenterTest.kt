@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.record.GearEvent
+import io.github.solcott.activitytracker.app.record.RecordAction
 import io.github.solcott.activitytracker.app.record.RecordEvent
 import io.github.solcott.activitytracker.app.record.RecordPresenter
 import io.github.solcott.activitytracker.app.record.RecordScreen
@@ -213,6 +214,25 @@ class RecordPresenterTest {
     fun aBlankDescriptionSavesNone() = runTest {
         val record = finishWithDescription("   ")
         assertFalse("description" in record, "a blank description leaves the field out")
+    }
+
+    @Test
+    fun aTitlePastItsLimitHoldsFinishBack() = runTest {
+        val repos = fixture.repos()
+        presenterTestOf(presenter(recorder(InMemoryRecordingJournal()), repos)) {
+            val initial = awaitItem()
+            initial.eventSink(RecordEvent.Start)
+            awaitUntil { it.distanceMeters > 0 }.eventSink(RecordEvent.Pause)
+            initial.title.setTextAndPlaceCursorAtEnd("x".repeat(101))
+            val tooLong = awaitUntil { it.status == RecordingState.Status.Paused && !it.textsFit }
+            assertFalse(tooLong.enabled(RecordAction.Finish))
+            assertTrue(tooLong.enabled(RecordAction.Resume), "only Finish waits")
+            tooLong.eventSink(RecordEvent.Finish)
+            initial.title.setTextAndPlaceCursorAtEnd("Morning loop")
+            assertTrue(awaitUntil { it.textsFit }.enabled(RecordAction.Finish))
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fixture.putRecords.isEmpty(), "Finish while too long published nothing")
     }
 
     /** Records [route], finishes with [description] typed, and returns the activity record put. */

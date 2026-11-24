@@ -112,6 +112,8 @@ fun EditActivityPresenter(
     }
 
     val isDive = shown?.record?.sport == Sport.DIVE
+    // Read in composition, so typing over or back under a limit publishes a new state.
+    val textsFit = ActivityTextLimits.fits(title.text.toString(), form.description.text.toString())
     return EditActivityState(
         content = loaded.formContent(seeded = shown != null),
         type = shown?.record?.activityType,
@@ -125,11 +127,12 @@ fun EditActivityPresenter(
         confirmCoreCharts = visibility.confirmingCoreCharts,
         leaderboardExclusion = exclusion.excluded.takeIf { shown != null },
         gear = gear.field.takeIf { shown != null },
+        textsFit = textsFit,
     ) { event ->
         val saveLoaded = { shown?.let(::save) ?: Unit }
         when (event) {
             // Narrowing a Public activity can't recall what's already been published: the athlete is asked first.
-            EditActivityEvent.Save -> visibility.save(saveLoaded)
+            EditActivityEvent.Save -> if (textsFit) visibility.save(saveLoaded)
 
             EditActivityEvent.ConfirmNarrowing -> visibility.narrowingAnswered(confirmed = true, saveLoaded)
 

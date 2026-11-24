@@ -38,7 +38,7 @@ struct RecordView: View {
             Section { clock }
             Section {
                 ActivityTypeRow(field: state.type, enabled: texts.typeChangeable(state: state), outdoorOnly: true)
-                AppTextField(label: .fieldTitle, model: title, state: state.title, layout: .row)
+                ActivityTitleField(label: .fieldTitle, model: title, state: state.title)
                     .disabled(!enabled)
             }
             ActivityDescriptionSection(state: state.about, enabled: enabled)
@@ -133,6 +133,7 @@ struct RecordView: View {
             AppSecondaryButton(control.label, wide: true) { perform(control.action) }
         } else {
             AppButton(control.label, wide: true) { perform(control.action) }
+                .disabled(!state.enabled(action: control.action))
         }
     }
 

@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.activityfile.localZone
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityPage
 import io.github.solcott.activitytracker.app.detail.ActivityPageContent
+import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.edit.rememberDetailsForm
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uiErrorOf
@@ -395,6 +396,8 @@ fun ImportActivityPresenter(
         openedError = null
     }
 
+    // Read in composition, so typing over or back under a limit publishes a new state.
+    val textsFit = ActivityTextLimits.fits(title.text.toString(), details.description.text.toString())
     return ImportActivityState(
         reading = flights.isRunning(ImportActivityEvent.FilePicked::class),
         preview = preview,
@@ -431,6 +434,7 @@ fun ImportActivityPresenter(
                 .filter { it.state == ImportSaveEntity.STATE_STOPPED }
                 .map { StoppedImport(it.batchId, it.done, it.total) }
                 .toImmutableList(),
+        textsFit = textsFit,
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> pick(listOf(ByteArrayImportSource(event.name, event.bytes.toByteArray())))
@@ -545,6 +549,7 @@ fun ImportActivityPresenter(
                 flights.launch(event) { runSuspendCatching { saveStore.dismiss(event.batchId) } }
 
             is ImportActivityEvent.Save -> {
+                if (!textsFit) return@ImportActivityState
                 val match = matches.firstOrNull()
                 val activity = adding.saved(placed?.activity, selection.isSelected(0, match)) ?: return@ImportActivityState
                 flights.launch(ImportActivityEvent.Save::class) {

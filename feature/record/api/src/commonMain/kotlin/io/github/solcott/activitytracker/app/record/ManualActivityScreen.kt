@@ -5,6 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -39,10 +40,15 @@ data class ManualActivityState(
      * native Save redraws only on one).
      */
     val durationEntered: Boolean = (parseDecimal(durationMinutes.text.toString()) ?: 0.0) > 0,
+    /**
+     * The title and description fit their limits ([ActivityTextLimits]). The presenter fills it from them as they change, so a new state
+     * follows typing over or back under a limit (a native Save redraws only on one).
+     */
+    val textsFit: Boolean = ActivityTextLimits.fits(title.text.toString(), description.text.toString()),
     val eventSink: (ManualActivityEvent) -> Unit,
 ) : CircuitUiState {
     val valid: Boolean
-        get() = durationEntered
+        get() = durationEntered && textsFit
 
     /** [description] for Swift, whose export leaves out a member named `description` (dev/ios-swift-interop). */
     val about: TextFieldState

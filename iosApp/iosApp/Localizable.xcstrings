@@ -3873,6 +3873,17 @@
         }
       }
     },
+    "details_length" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@/%2$@"
+          }
+        }
+      }
+    },
     "details_photo" : {
       "extractionState" : "manual",
       "localizations" : {

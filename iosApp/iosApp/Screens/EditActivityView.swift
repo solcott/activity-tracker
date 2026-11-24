@@ -15,7 +15,7 @@ struct EditActivityView: View {
             }
         }
         .pageTitle(Text(.editActivityTitle), canGoBack: false) {
-            AppBarAction(LabelText.shared.save(saving: state.saving), enabled: !state.saving && state.details != nil) {
+            AppBarAction(LabelText.shared.save(saving: state.saving), enabled: state.canSave) {
                 send(EditActivityEvent.Save.shared)
             }
         }

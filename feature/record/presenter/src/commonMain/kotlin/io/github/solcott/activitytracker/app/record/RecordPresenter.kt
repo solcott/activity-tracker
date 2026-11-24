@@ -11,6 +11,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
@@ -65,6 +66,8 @@ fun RecordPresenter(
         }
     }
 
+    // Read in composition, so typing over or back under a limit publishes a new state.
+    val textsFit = ActivityTextLimits.fits(title.text.toString(), description.text.toString())
     return RecordState(
         status = recording.status,
         elapsed = recording.elapsed(now),
@@ -81,6 +84,7 @@ fun RecordPresenter(
         error = error,
         visibility = visibility.fields,
         gear = gear.field,
+        textsFit = textsFit,
     ) { event ->
         when (event) {
             is RecordEvent.PermissionResult -> {
@@ -108,6 +112,7 @@ fun RecordPresenter(
             }
 
             RecordEvent.Finish -> {
+                if (!textsFit) return@RecordState
                 error = null
                 flights.launch(RecordEvent.Finish) {
                     // Paused and still saved: a refused publish leaves it here to try again or discard.

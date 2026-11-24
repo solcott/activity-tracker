@@ -27,8 +27,7 @@ struct ActivityDetailsSections: View {
 
     var body: some View {
         Section {
-            AppTextField(
-                label: .detailsTitleLabel, model: titleModel, state: title, layout: .row, hint: titleHint.map { Text($0) })
+            ActivityTitleField(label: .detailsTitleLabel, model: titleModel, state: title, hint: titleHint.map { Text($0) })
             if let diveSite, let site = fields.diveSite {
                 AppTextField(label: .detailsDiveSiteLabel, model: diveSite, state: site, layout: .row)
             }
@@ -40,7 +39,8 @@ struct ActivityDetailsSections: View {
 }
 
 /// What the athlete writes about an activity, a multi-line field in a section of its own (the shared `ActivityDescriptionField`): the
-/// details form's description, also on manual entry and Record. Its field follows its Kotlin state.
+/// details form's description, also on manual entry and Record. Its field follows its Kotlin state, with a counter as `ActivityTitleField`
+/// has.
 struct ActivityDescriptionSection: View {
     let state: KotlinTextFieldState
     var enabled = true
@@ -57,9 +57,28 @@ struct ActivityDescriptionSection: View {
         Section {
             AppTextField(
                 label: .detailsDescriptionLabel, model: model, state: state, layout: .multiline,
-                hint: Text(.detailsDescriptionPlaceholder))
+                hint: Text(.detailsDescriptionPlaceholder),
+                supportingText: ActivityTextLimits.shared.descriptionCounter(text: model.text).map { AppStrings.string($0) },
+                isError: !ActivityTextLimits.shared.descriptionFits(text: model.text))
         }
         .disabled(!enabled)
+    }
+}
+
+/// An activity's title in a form's row, on every form that writes one (the shared `ActivityTitleField`), with its counter under it once
+/// it nears its limit, red past it. The counter follows the text the field holds, ahead of the state, so it changes as each letter is
+/// typed; Save follows the state's own rule (`textsFit`). No rule refuses typing, so a title already too long can still be shortened.
+struct ActivityTitleField: View {
+    let label: LocalizedStringResource
+    let model: TextFieldModel
+    let state: KotlinTextFieldState
+    var hint: Text?
+
+    var body: some View {
+        AppTextField(
+            label: label, model: model, state: state, layout: .row, hint: hint,
+            supportingText: ActivityTextLimits.shared.titleCounter(text: model.text).map { AppStrings.string($0) },
+            isError: !ActivityTextLimits.shared.titleFits(text: model.text))
     }
 }
 

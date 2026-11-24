@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.ActivityDescriptionField
+import io.github.solcott.activitytracker.app.ui.ActivityTitleField
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
@@ -48,11 +49,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
     ) { padding ->
         ReadableScrollColumn(padding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ActivityTypePicker(state.type)
-            AppTextField(
-                state.title,
-                label = stringResource(Res.string.field_title),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            ActivityTitleField(state.title, stringResource(Res.string.field_title), enabled = !state.saving)
             ActivityDescriptionField(state.description, enabled = !state.saving)
             UnitSystemPicker(state.units, { state.eventSink(ManualActivityEvent.UnitsChanged(it)) }, Modifier.fillMaxWidth())
             AppTextField(
