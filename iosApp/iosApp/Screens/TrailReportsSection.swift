@@ -117,7 +117,7 @@ struct ConditionLead: View {
     var body: some View {
         HStack(spacing: 6) {
             if closed {
-                Image(systemName: "xmark.octagon.fill").accessibilityHidden(true)
+                Image(.closed).accessibilityHidden(true)
             }
             Text(text)
         }
@@ -136,7 +136,7 @@ struct ConditionTags: View {
                 // Closed in red with its symbol, as the lead and the Compose chips draw it, so it never reads as just another tag.
                 if TrailReportTexts.shared.isClosed(tag: tag) {
                     HStack(spacing: 4) {
-                        Image(systemName: "xmark.octagon.fill").accessibilityHidden(true)
+                        Image(.closed).accessibilityHidden(true)
                         Text(tag)
                     }
                     .font(.footnote.weight(.semibold))

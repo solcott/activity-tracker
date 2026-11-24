@@ -279,7 +279,7 @@ private struct SegmentsSketch: View {
 struct ClosedBadge: View {
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "xmark.octagon.fill").accessibilityHidden(true)
+            Image(.closed).accessibilityHidden(true)
             Text(.trailConditionClosed)
         }
         .font(.caption.weight(.semibold))

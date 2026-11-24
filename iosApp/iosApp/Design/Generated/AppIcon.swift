@@ -28,6 +28,7 @@ enum AppIcon: CaseIterable {
     case close
     case location
     case lock
+    case closed
     case addPhoto
     case dropDown
     case expandAll
@@ -74,6 +75,7 @@ enum AppIcon: CaseIterable {
         case .close: "xmark"
         case .location: "location"
         case .lock: "lock.fill"
+        case .closed: "xmark.octagon.fill"
         case .addPhoto: "photo.badge.plus"
         case .dropDown: "chevron.up.chevron.down"
         case .expandAll: "rectangle.expand.vertical"

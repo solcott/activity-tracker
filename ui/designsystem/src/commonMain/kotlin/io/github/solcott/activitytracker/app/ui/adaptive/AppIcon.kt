@@ -68,6 +68,8 @@ enum class AppIcon(
     Close(Icons.Filled.Close, "xmark"),
     Location(Icons.Filled.Place, "location"),
     Lock(Icons.Filled.Lock, "lock.fill"),
+    /** A trail or segment riders say is closed (segments/trail-reports), drawn in the error colour beside "Closed". */
+    Closed(Icons.Filled.Lock, "xmark.octagon.fill"),
     AddPhoto(Icons.Filled.Add, "photo.badge.plus"),
     DropDown(Icons.Filled.ArrowDropDown, "chevron.up.chevron.down"),
     ExpandAll(MaterialIcons.UnfoldMore, "rectangle.expand.vertical"),
