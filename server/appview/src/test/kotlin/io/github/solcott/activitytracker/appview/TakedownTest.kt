@@ -13,6 +13,7 @@ import io.ktor.http.encodeURLParameter
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /** `!takedown` (`moderation/labels`): gone for everyone but the author, signed out included, until negated. */
 class TakedownTest : ModerationTestBase() {
@@ -76,6 +77,27 @@ class TakedownTest : ModerationTestBase() {
         assertEquals(listOf("3ke", "3kw"), client.members(activityUri(bob, "3kc"), bob), "bob still sees his")
         assertEquals(listOf(activityUri(bob, "3kc")), client.timeline(alice).filter { it.startsWith("at://$bob") })
     }
+
+    @Test
+    fun aTakenDownCombinedActivityIsNotNamedByItsMembers() = testApplication {
+        start()
+        listOf(alice, bob).forEach(::profile)
+        post(bob, "3kw")
+        post(bob, "3ke")
+        val combined =
+            """{"sport":"run","startedAt":"2026-10-02T07:00:00Z","elapsedTime":1800,"createdAt":"2026-10-02T07:31:00Z",""" +
+                """"combined":{"members":["${activityUri(bob, "3kw")}","${activityUri(bob, "3ke")}"],"sources":[]}}"""
+        commit(bob, Nsid.FEED_ACTIVITY, "3kc", combined)
+        assertEquals(activityUri(bob, "3kc"), client.combinedInto(activityUri(bob, "3kw"), alice))
+        label(activityUri(bob, "3kc"), "!takedown")
+
+        assertNull(client.combinedInto(activityUri(bob, "3kw"), alice))
+        assertNull(client.combinedInto(activityUri(bob, "3kw"), null), "signed out too")
+        assertEquals(activityUri(bob, "3kc"), client.combinedInto(activityUri(bob, "3kw"), bob), "bob still sees his")
+    }
+
+    private suspend fun HttpClient.combinedInto(uri: String, viewer: String?): String? =
+        query(GetActivity.method, viewer, "?uri=${uri.encodeURLParameter()}").activity.combinedInto?.value
 
     private suspend fun HttpClient.recordings(uri: String, viewer: String?): List<String> =
         query(GetActivity.method, viewer, "?uri=${uri.encodeURLParameter()}").activity.recordings.orEmpty().map { it.uri.rkey!! }

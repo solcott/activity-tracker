@@ -119,6 +119,23 @@ internal fun JdbcTransaction.combinedIntoOf(members: Collection<String>): Map<St
             .associate { it[ActivityMembers.memberUri] to it[ActivityMembers.combinedUri] }
     }
 
+/**
+ * [combinedIntoOf] as [viewer] is shown it: only combined activities [served] to them, so a taken-down one isn't named to anyone but its
+ * author. The members stay out of feeds either way ([isMember]).
+ */
+internal fun JdbcTransaction.combinedIntoShownTo(members: Collection<String>, viewer: Did?): Map<String, String> {
+    val into = combinedIntoOf(members)
+    if (into.isEmpty()) return into
+    val shown =
+        Activities.select(Activities.uri)
+            .where {
+                (Activities.uri inList into.values.distinct()) and served(viewer, Activities.authorDid, Activities.uri, Activities.cid)
+            }
+            .map { it[Activities.uri] }
+            .toSet()
+    return into.filterValues { it in shown }
+}
+
 /** The URIs whose likes and comments count as [uri]'s for [viewer]: itself and, for a combined activity, the members it lists them. */
 internal fun JdbcTransaction.interactionSubjects(uri: String, viewer: Did?): List<String> =
     listOf(uri) + membersOf(listOf(uri), viewer)[uri].orEmpty().map { it.uri.value }

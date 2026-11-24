@@ -426,7 +426,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val uris = rows.map { it[Activities.uri] }
         val authors = basicProfiles(rows.map { it[Activities.authorDid] }, avatars)
         val members = membersOf(uris, viewer)
-        val combinedInto = combinedIntoOf(uris)
+        val combinedInto = combinedIntoShownTo(uris, viewer)
         // A combined activity's likes and comments include its members': each subject counts toward the activity it's shown as.
         val countedAs = uris.associateWith { it } + members.flatMap { (combined, its) -> its.map { it.uri.value to combined } }
         // Every row is one the viewer may see, and members share their combined activity's visibility, so a like counts once its giver
