@@ -54,11 +54,11 @@
     <string name="error_quote_post">Couldn't post your quote</string>
     <string name="error_delete_quote">Couldn't delete your quote</string>
     <string name="error_vote_segment_name">Couldn't send your vote</string>
-    <string name="error_suggest_trail_detail">Couldn\'t send your suggestion</string>
-    <string name="error_vote_trail_detail">Couldn\'t send your answer</string>
-    <string name="error_post_trail_report">Couldn\'t post your report</string>
-    <string name="error_delete_trail_report">Couldn\'t delete it</string>
-    <string name="error_load_trail_reports">Couldn\'t load reports</string>
+    <string name="error_suggest_trail_detail">Couldn't send your suggestion</string>
+    <string name="error_vote_trail_detail">Couldn't send your answer</string>
+    <string name="error_post_trail_report">Couldn't post your report</string>
+    <string name="error_delete_trail_report">Couldn't delete it</string>
+    <string name="error_load_trail_reports">Couldn't load reports</string>
     <string name="error_delete_segment_name">Couldn't delete the proposal</string>
     <string name="error_load_blocks">Couldn't load blocked accounts</string>
     <string name="error_load_mutes">Couldn't load muted accounts</string>
@@ -1120,7 +1120,7 @@
     <string name="trail_from">From %1$s</string>
     <string name="trail_was_it_right">Was it right when you rode?</string>
     <string name="trail_still_right">Still right</string>
-    <string name="trail_changed">It\'s changed</string>
+    <string name="trail_changed">It's changed</string>
     <string name="trail_suggested_heading">Suggested by riders</string>
     <string name="trail_suggested_by">Suggested by %1$s</string>
     <string name="trail_vote_totals">%1$s agree · %2$s disagree</string>
@@ -1229,7 +1229,7 @@
     <string name="trail_vary_dog">Dogs vary</string>
     <string name="trail_vary_season">Season varies</string>
     <string name="trail_answer_still">%1$s: still right</string>
-    <string name="trail_answer_changed">%1$s: it\'s changed</string>
+    <string name="trail_answer_changed">%1$s: it's changed</string>
     <string name="trail_surface_share">%1$s% %2$s</string>
     <string name="trail_surface_paved">paved</string>
     <string name="trail_surface_compacted">compacted</string>
