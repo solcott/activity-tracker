@@ -13,14 +13,11 @@ import io.github.solcott.activitytracker.appview.db.excludedFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.hidesFromLeaderboards
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
-import io.github.solcott.activitytracker.appview.index.TRAIL_REPORTS_PER_DAY
-import io.github.solcott.activitytracker.appview.index.dayOf
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.groupKey
 import io.github.solcott.activitytracker.appview.index.lastEffortAt
-import io.github.solcott.activitytracker.appview.index.reportsOn
+import io.github.solcott.activitytracker.appview.index.mayReport
 import io.github.solcott.activitytracker.appview.index.resolveHandoff
-import io.github.solcott.activitytracker.appview.index.rodeRecently
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validPositionE7
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
@@ -191,8 +188,7 @@ class SegmentViews(
                 canVoteOnTrailDetails = rider,
                 recentEffort = hasEffortSince(uri, it, today().minusDays(RECENT_EFFORT_DAYS - 1).toString()),
                 // The same rules the indexer applies to a report (segments/trail-reports).
-                canReportConditions =
-                    suggestable(uri) && rodeRecently(uri, it.value, now) && reportsOn(uri, it.value, dayOf(now)) < TRAIL_REPORTS_PER_DAY,
+                canReportConditions = mayReport(uri, it.value, now),
                 lastEffortAt = lastEffortAt(uri, it.value, now)?.let(Instant::fromEpochMilliseconds),
             )
         }

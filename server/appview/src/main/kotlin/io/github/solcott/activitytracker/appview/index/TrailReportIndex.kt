@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.appview.segments.suggestable
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
-import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.TrailCondition
 import io.github.solcott.activitytracker.lexicon.app.TrailReportRecord
@@ -62,11 +61,7 @@ internal fun JdbcTransaction.upsertTrailReport(json: JsonObject, author: Did, ur
         if (stored != null) deleteTrailReports(listOf(uri.value))
         return
     }
-    if (stored == null) {
-        if (segment.collection != Nsid.FEED_SEGMENT || !suggestable(segment.value)) return
-        if (!rodeRecently(segment.value, author.value, now)) return
-        if (reportsOn(segment.value, author.value, dayOf(now)) >= TRAIL_REPORTS_PER_DAY) return
-    }
+    if (stored == null && !mayReport(segment.value, author.value, now)) return
     val indexedAt = stored?.get(TrailReports.indexedAt) ?: now
     TrailReports.upsert {
         it[TrailReports.uri] = uri.value
@@ -108,8 +103,13 @@ internal fun JdbcTransaction.deleteTrailReports(uris: Collection<String>) {
 internal fun JdbcTransaction.deleteTrailReportsBy(author: Did) =
     deleteTrailReports(TrailReports.select(TrailReports.uri).where { TrailReports.authorDid eq author.value }.map { it[TrailReports.uri] })
 
-/** Whether [did] has an effort on [segment], of any visibility, that began within [TRAIL_REPORT_RIDE_WINDOW] of [now]. */
-internal fun JdbcTransaction.rodeRecently(segment: String, did: String, now: Long): Boolean = lastEffortAt(segment, did, now) != null
+/**
+ * Whether [did] may report on [segment] at [now]: it's an active run segment, never a lift ([suggestable]), they have an effort on it, of
+ * any visibility, that began within [TRAIL_REPORT_RIDE_WINDOW] of [now], and they have fewer than [TRAIL_REPORTS_PER_DAY] accepted on it
+ * that UTC day. The indexer and `getSegment`'s flag both ask this.
+ */
+internal fun JdbcTransaction.mayReport(segment: String, did: String, now: Long): Boolean =
+    suggestable(segment) && lastEffortAt(segment, did, now) != null && reportsOn(segment, did, dayOf(now)) < TRAIL_REPORTS_PER_DAY
 
 /** When [did]'s newest effort on [segment] began, only when within [TRAIL_REPORT_RIDE_WINDOW] of [now]. */
 internal fun JdbcTransaction.lastEffortAt(segment: String, did: String, now: Long): Long? {
@@ -125,7 +125,7 @@ internal fun JdbcTransaction.lastEffortAt(segment: String, did: String, now: Lon
 }
 
 /** How many reports [did] has accepted on [segment] on the UTC [day]. */
-internal fun JdbcTransaction.reportsOn(segment: String, did: String, day: String): Long =
+private fun JdbcTransaction.reportsOn(segment: String, did: String, day: String): Long =
     TrailReports.selectAll()
         .where { (TrailReports.authorDid eq did) and (TrailReports.segmentUri eq segment) and (TrailReports.dayUtc eq day) }
         .count()
