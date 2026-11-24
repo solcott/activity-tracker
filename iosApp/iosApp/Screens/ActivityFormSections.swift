@@ -14,7 +14,6 @@ struct ActivityDetailsSections: View {
     var enabled = true
 
     @State private var titleModel: TextFieldModel
-    @State private var description: TextFieldModel
     @State private var diveSite: TextFieldModel?
 
     init(title: KotlinTextFieldState, titleHint: (any AppText)?, fields: ActivityDetailsFields, enabled: Bool = true) {
@@ -23,7 +22,6 @@ struct ActivityDetailsSections: View {
         self.fields = fields
         self.enabled = enabled
         _titleModel = State(initialValue: TextFieldModel(title))
-        _description = State(initialValue: TextFieldModel(fields.about))
         _diveSite = State(initialValue: fields.diveSite.map { TextFieldModel($0) })
     }
 
@@ -36,13 +34,32 @@ struct ActivityDetailsSections: View {
             }
         }
         .disabled(!enabled)
+        ActivityDescriptionSection(state: fields.about, enabled: enabled)
+        ActivityPhotosSection(fields: fields, enabled: enabled)
+    }
+}
+
+/// What the athlete writes about an activity, a multi-line field in a section of its own (the shared `ActivityDescriptionField`): the
+/// details form's description, also on manual entry and Record. Its field follows its Kotlin state.
+struct ActivityDescriptionSection: View {
+    let state: KotlinTextFieldState
+    var enabled = true
+
+    @State private var model: TextFieldModel
+
+    init(state: KotlinTextFieldState, enabled: Bool = true) {
+        self.state = state
+        self.enabled = enabled
+        _model = State(initialValue: TextFieldModel(state))
+    }
+
+    var body: some View {
         Section {
             AppTextField(
-                label: .detailsDescriptionLabel, model: description, state: fields.about, layout: .multiline,
+                label: .detailsDescriptionLabel, model: model, state: state, layout: .multiline,
                 hint: Text(.detailsDescriptionPlaceholder))
         }
         .disabled(!enabled)
-        ActivityPhotosSection(fields: fields, enabled: enabled)
     }
 }
 

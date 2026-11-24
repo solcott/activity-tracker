@@ -93,16 +93,22 @@ fun ActivityDetailsForm(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        AppTextField(
-            fields.description,
-            label = stringResource(Res.string.details_description_label),
-            placeholder = stringResource(Res.string.details_description_placeholder),
-            enabled = enabled,
-            lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 3, maxHeightInLines = 10),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        ActivityDescriptionField(fields.description, enabled = enabled)
         PhotoGrid(fields, enabled)
     }
+}
+
+/** What the athlete writes about an activity: the details form's description, also on manual entry and Record. */
+@Composable
+fun ActivityDescriptionField(state: TextFieldState, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    AppTextField(
+        state,
+        label = stringResource(Res.string.details_description_label),
+        placeholder = stringResource(Res.string.details_description_placeholder),
+        enabled = enabled,
+        lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 3, maxHeightInLines = 10),
+        modifier = modifier.fillMaxWidth(),
+    )
 }
 
 /** The photos, each with a remove button, and a tile to pick more. */
