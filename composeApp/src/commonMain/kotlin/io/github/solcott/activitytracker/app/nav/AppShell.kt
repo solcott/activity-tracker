@@ -100,8 +100,8 @@ fun AppShell(
                             NavigationRailItem(
                                 selected = destination == current,
                                 onClick = { select(destination) },
-                                icon = { PlatformIcon(destination.icon, null, filled = destination == current) },
-                                label = { Text(destination.title.string()) },
+                                icon = { DestinationIcon(destination, current) },
+                                label = { DestinationLabel(destination) },
                                 modifier = Modifier.handCursor(),
                             )
                         }
@@ -132,8 +132,8 @@ private fun BottomBar(current: TopLevelDestination?, select: (TopLevelDestinatio
             NavigationBarItem(
                 selected = destination == current,
                 onClick = { select(destination) },
-                icon = { PlatformIcon(destination.icon, null, filled = destination == current) },
-                label = { Text(destination.title.string()) },
+                icon = { DestinationIcon(destination, current) },
+                label = { DestinationLabel(destination) },
                 modifier = Modifier.handCursor(),
             )
         }
@@ -157,16 +157,28 @@ private fun Sidebar(current: TopLevelDestination?, select: (TopLevelDestination)
             )
             TopLevelDestination.entries.forEach { destination ->
                 NavigationDrawerItem(
-                    label = { Text(destination.title.string()) },
+                    label = { DestinationLabel(destination) },
                     selected = destination == current,
                     onClick = { select(destination) },
-                    icon = { PlatformIcon(destination.icon, null, filled = destination == current) },
+                    icon = { DestinationIcon(destination, current) },
                     modifier = Modifier.handCursor(),
                 )
             }
             Box(Modifier.weight(1f))
         }
     }
+}
+
+/** [destination]'s icon in the rail, bar or sidebar, filled while it is the [current] one. */
+@Composable
+private fun DestinationIcon(destination: TopLevelDestination, current: TopLevelDestination?) {
+    PlatformIcon(destination.icon, null, filled = destination == current)
+}
+
+/** [destination]'s name in the rail, bar or sidebar. */
+@Composable
+private fun DestinationLabel(destination: TopLevelDestination) {
+    Text(destination.title.string())
 }
 
 /** Material's compact window class: phones, and narrow desktop or browser windows. */
