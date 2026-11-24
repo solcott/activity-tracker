@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.AspectRatio
 import io.github.solcott.activitytracker.lexicon.app.DecoModel
@@ -447,6 +448,28 @@ class AppViewTest {
 
         commit(bob, Nsid.FEED_ACTIVITY, "3kphotos", "", op = "delete")
         assertEquals(HttpStatusCode.NotFound, noRedirects.get("/img/media/$bob/bafkone").status)
+    }
+
+    @Test
+    fun anOverlongTitleAndDescriptionAreClamped() = testApplication {
+        application { appView(config, db, verifier, PdsLookup { "http://pds.test" }) }
+        val uri = "at://$bob/${Nsid.FEED_ACTIVITY}/3klong"
+        // A whole emoji is two UTF-16 units: the clamp counts it once and never cuts it in half.
+        val description = "😀".repeat(1_200)
+        commit(
+            bob,
+            Nsid.FEED_ACTIVITY,
+            "3klong",
+            """{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":2700,"createdAt":"2026-09-30T10:50:00Z",""" +
+                """"title":"${"t".repeat(150)}","description":"$description"}""",
+        )
+
+        val record =
+            AtJson.decodeFromString(GetActivity.Output.serializer(), client.get("/xrpc/${GetActivity.method.nsid}?uri=$uri").bodyAsText())
+                .activity
+                .record
+        assertEquals("t".repeat(ActivityRecord.MAX_TITLE_GRAPHEMES), record.title, "an overlong title is clamped")
+        assertEquals("😀".repeat(ActivityRecord.MAX_DESCRIPTION_GRAPHEMES), record.description, "an overlong description is clamped whole")
     }
 
     @Test

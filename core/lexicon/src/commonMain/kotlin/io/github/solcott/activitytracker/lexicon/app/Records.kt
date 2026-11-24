@@ -330,6 +330,37 @@ data class ActivityRecord(
         /** Minutes east of UTC: UTC−12:00 to UTC+14:00. */
         const val MIN_UTC_OFFSET = -720
         const val MAX_UTC_OFFSET = 840
+
+        /** The lexicon's `maxGraphemes` for [title]. */
+        const val MAX_TITLE_GRAPHEMES = 100
+
+        /** The lexicon's `maxGraphemes` for [description]. */
+        const val MAX_DESCRIPTION_GRAPHEMES = 1000
+
+        /**
+         * How long [text] is against those limits: its characters (code points), counted as written. A grapheme is one or more of them, so
+         * text within a limit counted this way is within it in graphemes too, and at most four bytes each keeps it under `maxLength`.
+         */
+        fun textLength(text: String): Int = text.count { !it.isLowSurrogate() }
+
+        /** [text] cut to its first [max] characters as [textLength] counts them, never splitting a surrogate pair. */
+        fun clampText(text: String, max: Int): String {
+            if (textLength(text) <= max) return text
+            var kept = 0
+            var end = 0
+            while (end < text.length && kept < max) {
+                end += if (text[end].isHighSurrogate() && end + 1 < text.length && text[end + 1].isLowSurrogate()) 2 else 1
+                kept++
+            }
+            return text.substring(0, end)
+        }
+
+        /** A title as published: trimmed, at most [MAX_TITLE_GRAPHEMES] characters, null when blank. */
+        fun publishedTitle(title: String?): String? = title?.trim()?.ifEmpty { null }?.let { clampText(it, MAX_TITLE_GRAPHEMES).trimEnd() }
+
+        /** A description as published: trimmed, at most [MAX_DESCRIPTION_GRAPHEMES] characters, null when blank. */
+        fun publishedDescription(description: String?): String? =
+            description?.trim()?.ifEmpty { null }?.let { clampText(it, MAX_DESCRIPTION_GRAPHEMES).trimEnd() }
     }
 }
 

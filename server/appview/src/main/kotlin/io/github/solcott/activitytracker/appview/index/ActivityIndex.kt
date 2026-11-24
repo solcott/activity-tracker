@@ -175,6 +175,8 @@ private fun JdbcTransaction.upsertActivity(
             AtJson.encodeToString(
                 ActivityRecord.serializer(),
                 record.copy(
+                    title = record.title?.let { t -> ActivityRecord.clampText(t, ActivityRecord.MAX_TITLE_GRAPHEMES) },
+                    description = record.description?.let { d -> ActivityRecord.clampText(d, ActivityRecord.MAX_DESCRIPTION_GRAPHEMES) },
                     sensors = boundedSensors(record.sensors),
                     dive = boundedDive(record.dive),
                     media = photos,

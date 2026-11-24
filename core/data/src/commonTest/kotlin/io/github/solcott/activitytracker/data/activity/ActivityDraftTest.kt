@@ -93,6 +93,17 @@ class ActivityDraftTest {
     }
 
     @Test
+    fun aTitleAndDescriptionFromAFileAreTrimmedAndCutToTheirLimits() {
+        val draft =
+            ActivityDraft.fromImport(imported(emptyList()), ActivityType(Sport.RUN), title = "  ${"t".repeat(140)}")
+                .withDetails(description = "n".repeat(1_500), diveSite = null, photos = emptyList())
+        val record = draft.toRecord(start)
+        assertEquals("t".repeat(ActivityRecord.MAX_TITLE_GRAPHEMES), record.title)
+        assertEquals("n".repeat(ActivityRecord.MAX_DESCRIPTION_GRAPHEMES), record.description)
+        assertNull(draft.copy(title = " ", description = "\n").toRecord(start).title, "blank saves none")
+    }
+
+    @Test
     fun aPoolSwimsLengthsGoInTheStreamsAndItsPoolLengthOnTheRecord() {
         val streams = ActivityStreamData(time = listOf(0, 30), lengths = listOf(Length(0, 30, SwimStroke.FREESTYLE, 15)))
         val swim = imported(emptyList()).copy(poolLengthCentimeters = 2500, streams = streams)

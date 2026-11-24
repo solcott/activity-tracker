@@ -162,8 +162,8 @@ data class ActivityDraft(
         ActivityRecord(
             sport = type.sport,
             subSport = type.subSport,
-            title = title?.takeIf { it.isNotBlank() },
-            description = description?.takeIf { it.isNotBlank() },
+            title = ActivityRecord.publishedTitle(title),
+            description = ActivityRecord.publishedDescription(description),
             startedAt = startedAt,
             elapsedTime = elapsed.inWholeSeconds,
             movingTime = movingSeconds,

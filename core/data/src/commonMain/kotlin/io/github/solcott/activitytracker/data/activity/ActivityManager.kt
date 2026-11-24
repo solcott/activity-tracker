@@ -93,8 +93,8 @@ class ActivityManager(
                 }
             val unknown = have.filterIsInstance<ActivityMedia.Unknown>()
             current.copy(
-                title = edit.title.trim().ifEmpty { null },
-                description = edit.description.trim().ifEmpty { null },
+                title = ActivityRecord.publishedTitle(edit.title),
+                description = ActivityRecord.publishedDescription(edit.description),
                 dive =
                     edit.diveSite?.let { site ->
                         (current.dive ?: ActivityDive()).copy(site = site.trim().take(ActivityDive.MAX_SITE_LENGTH).ifEmpty { null })
