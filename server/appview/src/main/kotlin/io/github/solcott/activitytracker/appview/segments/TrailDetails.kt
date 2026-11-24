@@ -28,7 +28,6 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.not
-import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
@@ -171,9 +170,6 @@ internal fun JdbcTransaction.effectiveTrailOf(segment: String, importer: Did?): 
 
 /** Suggestions with no `!hide` or `!takedown` on their record (at any version) or their author's account. */
 internal fun unlabelledSuggestion(): Op<Boolean> = TRAIL_SUGGESTIONS.unlabelled()
-
-/** The open suggestions a list shows [viewer]: as [listedProposal] for names, their own staying listed to them under `!hide`. */
-internal fun listedSuggestion(viewer: Did?): Op<Boolean> = TRAIL_SUGGESTIONS.listedTo(viewer?.let { stringParam(it.value) })
 
 /**
  * No [value] label on the suggestion, at any version (a same-value rewrite keeps the stored CID, so a label on the new one must still

@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.segments.NAME_PROPOSALS
 import io.github.solcott.activitytracker.appview.segments.ProposalState
 import io.github.solcott.activitytracker.appview.segments.Tally
-import io.github.solcott.activitytracker.appview.segments.listedProposal
 import io.github.solcott.activitytracker.appview.segments.openProposalRows
 import io.github.solcott.activitytracker.appview.segments.tallies
 import io.github.solcott.activitytracker.appview.segments.unlabelledProposal
@@ -69,16 +68,12 @@ internal fun JdbcTransaction.nameHistory(viewer: Did?, segment: String, avatars:
 }
 
 /**
- * [segment]'s open proposals the viewer may see, oldest first: not labelled and by a served account ([listedProposal]: their own stay under
- * `!hide`), and not by an athlete the viewer blocks, mutes or is blocked by. Totals come from [tallies]; who voted is never served, except
- * the viewer's own vote on the version listed.
+ * [segment]'s open proposals the viewer may see, oldest first ([ProposalTable.shownTo]): not labelled and by a served account (their own
+ * stay under `!hide`), and not by an athlete the viewer blocks, mutes or is blocked by. Totals come from [tallies]; who voted is never
+ * served, except the viewer's own vote on the version listed.
  */
 internal fun JdbcTransaction.nameProposals(viewer: Did?, segment: String, avatars: AvatarUrls): List<SegmentNameProposalView> {
-    val listed =
-        listedProposal(viewer) and
-            notBlocked(viewer, SegmentNameProposals.proposerDid) and
-            notMuted(viewer, SegmentNameProposals.proposerDid)
-    val rows = openProposalRows(NAME_PROPOSALS, segment, listed, MAX_NAME_ROWS)
+    val rows = openProposalRows(NAME_PROPOSALS, segment, NAME_PROPOSALS.shownTo(viewer), MAX_NAME_ROWS)
     if (rows.isEmpty()) return emptyList()
     val uris = rows.map { it[SegmentNameProposals.uri] }
     val tallies = tallies(segment, uris)

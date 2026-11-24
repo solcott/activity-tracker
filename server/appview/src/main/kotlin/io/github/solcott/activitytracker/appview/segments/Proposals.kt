@@ -3,8 +3,11 @@
 package io.github.solcott.activitytracker.appview.segments
 
 import io.github.solcott.activitytracker.appview.api.LabelValues
+import io.github.solcott.activitytracker.appview.api.notBlocked
+import io.github.solcott.activitytracker.appview.api.notMuted
 import io.github.solcott.activitytracker.appview.api.served
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.lexicon.Did
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -21,6 +24,7 @@ import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -155,6 +159,13 @@ internal class ProposalTable(
         val own = viewer?.let { author eq it } ?: Op.FALSE
         return notLabelled(LabelValues.TAKEDOWN) and (own or notLabelled(LabelValues.HIDE)) and served(viewer, author, null, null)
     }
+
+    /**
+     * The proposals a list shows a known [viewer]: [listedTo], and not by an athlete the viewer blocks, mutes or is blocked by.
+     * `getSegment`'s name proposals and trail detail suggestions both list by it.
+     */
+    fun shownTo(viewer: Did?): Op<Boolean> =
+        listedTo(viewer?.let { stringParam(it.value) }) and notBlocked(viewer, author) and notMuted(viewer, author)
 
     /** Proposals on [subject], and on [topic] too when this kind has topics and it's given. */
     fun on(subject: String, topic: String? = null): Op<Boolean> {

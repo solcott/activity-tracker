@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
 import io.github.solcott.activitytracker.appview.segments.TRAIL_SUGGESTIONS
-import io.github.solcott.activitytracker.appview.segments.listedSuggestion
 import io.github.solcott.activitytracker.appview.segments.openProposalRows
 import io.github.solcott.activitytracker.appview.segments.suggestionVotes
 import io.github.solcott.activitytracker.appview.segments.tally
@@ -22,16 +21,12 @@ import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 private const val MAX_SUGGESTION_ROWS = 200
 
 /**
- * [segment]'s open trail detail suggestions the viewer may see (segments/trail-detail-suggestions), oldest first: not labelled and by a
- * served account ([listedSuggestion]: their own stay under `!hide`), and not by an athlete the viewer blocks, mutes or is blocked by.
+ * [segment]'s open trail detail suggestions the viewer may see (segments/trail-detail-suggestions), oldest first ([ProposalTable.shownTo]):
+ * not labelled and by a served account (their own stay under `!hide`), and not by an athlete the viewer blocks, mutes or is blocked by.
  * Totals come from [suggestionVotes]; who voted is never served, except the viewer's own counted vote.
  */
 internal fun JdbcTransaction.trailSuggestions(viewer: Did?, segment: String, avatars: AvatarUrls): List<TrailDetailSuggestionView> {
-    val listed =
-        listedSuggestion(viewer) and
-            notBlocked(viewer, TrailDetailSuggestions.authorDid) and
-            notMuted(viewer, TrailDetailSuggestions.authorDid)
-    val rows = openProposalRows(TRAIL_SUGGESTIONS, segment, listed, MAX_SUGGESTION_ROWS)
+    val rows = openProposalRows(TRAIL_SUGGESTIONS, segment, TRAIL_SUGGESTIONS.shownTo(viewer), MAX_SUGGESTION_ROWS)
     if (rows.isEmpty()) return emptyList()
     val uris = rows.map { it[TrailDetailSuggestions.uri] }
     val votes = suggestionVotes(segment, uris)
