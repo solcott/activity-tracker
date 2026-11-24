@@ -127,6 +127,7 @@ private fun ReportSheetContent(sheet: ReportSheet, fields: ReportFields) {
             state = sheet.note,
             label = stringResource(Res.string.trail_report_note),
             supportingText = sheet.noteCount.string(),
+            isError = !sheet.noteFits,
             lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 2),
             modifier = Modifier.fillMaxWidth(),
         )

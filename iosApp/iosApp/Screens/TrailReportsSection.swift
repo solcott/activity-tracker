@@ -268,7 +268,8 @@ struct TrailReportSheetView: View {
                 Section {
                     AppTextField(
                         label: .trailReportNote, model: note, state: sheet.note, layout: .multiline,
-                        supportingText: AppStrings.string(sheet.noteCount))
+                        supportingText: AppStrings.string(sheet.noteCount),
+                        isError: !sheet.noteFits)
                 }
                 photos
                 if let error = fields.error {

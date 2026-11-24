@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.GetPathConditions
 import io.github.solcott.activitytracker.lexicon.app.GetTrailPhotos
 import io.github.solcott.activitytracker.lexicon.app.GetTrailReports
@@ -72,8 +73,9 @@ class TrailReports(
         get() = clients.did
 
     /**
-     * Posts a report on [segment] (its URI and CID) with the known [tags], [note] and [photos], at most [TrailReportRecord.MAX_IMAGES], and
-     * returns its URI. Needs a tag or a photo.
+     * Posts a report on [segment] (its URI and CID) with the known [tags], [note] (trimmed and cut to
+     * [TrailReportRecord.MAX_NOTE_GRAPHEMES] characters) and [photos], at most [TrailReportRecord.MAX_IMAGES], and returns its URI. Needs a
+     * tag or a photo.
      */
     suspend fun post(segment: StrongRef, tags: Collection<String>, note: String?, photos: List<ReportPhoto>): AtUri {
         val known = TrailCondition.known(tags)
@@ -83,7 +85,7 @@ class TrailReports(
         val rkey = Tid.next(clock)
         val uri = AtUri.of(clients.did, Nsid.FEED_TRAIL_REPORT, rkey)
         val now = clock.now()
-        val text = note?.trim()?.ifEmpty { null }
+        val text = note?.trim()?.let { ActivityRecord.clampText(it, TrailReportRecord.MAX_NOTE_GRAPHEMES) }?.ifEmpty { null }
         val record = TrailReportRecord(segment, known, text, images, now)
         val view =
             TrailReportView(

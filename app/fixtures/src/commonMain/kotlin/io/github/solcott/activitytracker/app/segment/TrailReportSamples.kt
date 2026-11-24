@@ -169,7 +169,7 @@ object TrailReportSamples {
                                 surface = TrailReportTexts.toggles(TrailCondition.surface, chosen),
                                 onTrail = TrailReportTexts.toggles(TrailCondition.onTrail, chosen),
                                 note = textFieldStateOf(note),
-                                noteCount = TrailReportTexts.noteCount(note.length),
+                                noteCount = TrailReportTexts.noteCount(TrailReportTexts.noteLength(note)),
                                 photos = persistentListOf(ReportPhotoChoice("p1", photoUrl(1), "A fallen tree")),
                             ),
                     ),

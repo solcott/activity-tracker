@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.moderation.ModerationTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailCondition
@@ -96,10 +97,14 @@ data class ReportSheet(
     val noteCount: AppText,
     val photos: ImmutableList<ReportPhotoChoice> = persistentListOf(),
     val posting: Boolean = false,
+    /**
+     * Whether the [note] fits [TrailReportRecord.MAX_NOTE_GRAPHEMES] ([TrailReportTexts.noteFits]); its counter shows as an error if not.
+     */
+    val noteFits: Boolean = true,
 ) {
-    /** Post report needs a tag or a photo, and nothing being sent. */
+    /** Post report needs a tag or a photo, a note that fits, and nothing being sent. */
     val canPost: Boolean
-        get() = !posting && (surface.any { it.selected } || onTrail.any { it.selected } || photos.isNotEmpty())
+        get() = !posting && noteFits && (surface.any { it.selected } || onTrail.any { it.selected } || photos.isNotEmpty())
 
     /** How many more photos may be added, for a picker's limit. */
     val room: Int
@@ -312,6 +317,12 @@ object TrailReportTexts {
     /** The sheet's tag toggles: [TrailCondition.surface] or [TrailCondition.onTrail], with [selected] on. */
     fun toggles(values: List<String>, selected: Set<String>): ImmutableList<TagToggle> =
         values.map { TagToggle(it, tag(it), it in selected) }.toImmutableList()
+
+    /** How long a [note] is as it posts: trimmed, in characters ([ActivityRecord.textLength], never more than its graphemes). */
+    fun noteLength(note: String): Int = ActivityRecord.textLength(note.trim())
+
+    /** Whether [note] fits the lexicon's [TrailReportRecord.MAX_NOTE_GRAPHEMES]; nothing refuses typing, so Post is held back instead. */
+    fun noteFits(note: String): Boolean = noteLength(note) <= TrailReportRecord.MAX_NOTE_GRAPHEMES
 
     /** "82 / 300" under the note. */
     fun noteCount(length: Int): AppText =

@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.TrailCondition
 import io.github.solcott.activitytracker.lexicon.app.TrailReportRecord
 import java.time.Instant
@@ -72,7 +73,7 @@ internal fun JdbcTransaction.upsertTrailReport(json: JsonObject, author: Did, ur
         it[TrailReports.cid] = cid
         it[authorDid] = author.value
         it[segmentUri] = segment.value.take(MAX_URI_LENGTH)
-        it[note] = record.note?.trim()?.take(TrailReportRecord.MAX_NOTE_LENGTH)?.ifEmpty { null }
+        it[note] = record.note?.trim()?.let { ActivityRecord.clampText(it, TrailReportRecord.MAX_NOTE_GRAPHEMES) }?.ifEmpty { null }
         it[hasConditions] = tags.isNotEmpty()
         it[TrailReports.indexedAt] = indexedAt
         it[dayUtc] = stored?.get(TrailReports.dayUtc) ?: dayOf(now)

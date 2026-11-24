@@ -78,7 +78,7 @@ fun rememberReportFields(
 
     fun post(view: SegmentView) {
         val chosen = tags
-        val text = note.text.toString().take(TrailReportRecord.MAX_NOTE_LENGTH)
+        val text = note.text.toString()
         val sent = photos.map { it.photo }
         posting = true
         error = null
@@ -122,7 +122,8 @@ fun rememberReportFields(
                         surface = TrailReportTexts.toggles(TrailCondition.surface, tags),
                         onTrail = TrailReportTexts.toggles(TrailCondition.onTrail, tags),
                         note = note,
-                        noteCount = TrailReportTexts.noteCount(note.text.length),
+                        noteCount = TrailReportTexts.noteCount(TrailReportTexts.noteLength(note.text.toString())),
+                        noteFits = TrailReportTexts.noteFits(note.text.toString()),
                         photos = photos.map { it.choice }.toImmutableList(),
                         posting = posting,
                     )
@@ -170,7 +171,7 @@ fun rememberReportFields(
             }
             ReportEvent.Post ->
                 when {
-                    posting || (tags.isEmpty() && photos.isEmpty()) -> Unit
+                    posting || (tags.isEmpty() && photos.isEmpty()) || !TrailReportTexts.noteFits(note.text.toString()) -> Unit
                     // A public copy of a photo from a ride that isn't public is asked about every time (segments/trail-reports).
                     photos.any { it.choice.fromNonPublic } -> confirming = true
                     else -> post(view)

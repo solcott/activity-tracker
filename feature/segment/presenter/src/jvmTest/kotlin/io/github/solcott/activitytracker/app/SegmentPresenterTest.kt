@@ -1063,6 +1063,25 @@ class SegmentPresenterTest {
         }
     }
 
+    /** segments/trail-reports: a note past the lexicon's 300 holds Post back until it's shortened. */
+    @Test
+    fun aNoteTooLongHoldsPostBack() = runTest {
+        naming = ""","viewer":{"canReportConditions":true,"lastEffortAt":"2026-11-22T10:00:00Z"}"""
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars, names, trail, reports, feed, Clock.System) }) {
+            val loaded = awaitUntil { it.reports.card != null }
+            loaded.reports.eventSink(ReportEvent.Open)
+            awaitUntil { it.reports.sheet != null }.reports.eventSink(ReportEvent.Toggle(TrailCondition.MUDDY))
+            val chosen = awaitUntil { it.reports.sheet?.canPost == true }
+            chosen.reports.sheet!!.note.edit { replace(0, length, "x".repeat(301)) }
+            val over = awaitUntil { it.reports.sheet?.noteFits == false }
+            assertFalse(over.reports.sheet!!.canPost)
+            over.reports.sheet!!.note.edit { replace(0, length, "x".repeat(300)) }
+            awaitUntil { it.reports.sheet?.noteFits == true && it.reports.sheet?.canPost == true }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     /** segments/trail-reports: a viewer who hasn't ridden it lately gets no card and no sheet. */
     @Test
     fun aViewerWhoMayNotReportGetsNoSheet() = runTest {
