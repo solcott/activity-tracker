@@ -13,13 +13,13 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.EmptyListText
-import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
@@ -64,7 +64,7 @@ fun GearCollectionUi(state: GearCollectionState, modifier: Modifier = Modifier) 
         },
     ) { detail ->
         item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadGearCollection, onRetry = retry) }
-        state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(16.dp)) } }
+        errorItem(state.error)
         detail.notes?.let { notes ->
             item(key = "notes") { Text(notes, Modifier.fillMaxWidth().padding(16.dp), style = MaterialTheme.typography.bodyMedium) }
         }

@@ -20,13 +20,14 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.EmptyListText
-import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
+import io.github.solcott.activitytracker.app.ui.adaptive.AppListSectionTitle
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_confirm
@@ -114,7 +115,7 @@ private fun LazyListScope.queueItems(state: UploadsState, view: UploadQueueView)
 
 /** The pauses, the time left, where uploads go on, and why the last action failed. */
 private fun LazyListScope.banners(state: UploadsState) {
-    state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
+    errorItem(state.error)
     if (state.importsPaused) {
         item(key = "paused") {
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -141,7 +142,7 @@ private fun LazyListScope.banners(state: UploadsState) {
 }
 
 private fun LazyListScope.header(key: String, title: StringResource) {
-    item(key = "header:$key") { SectionTitle(stringResource(title)) }
+    item(key = "header:$key") { AppListSectionTitle(stringResource(title)) }
 }
 
 /** An import's header, its live items (the first [UploadsState.IMPORT_PREVIEW] until Show all), then its finished ones. */

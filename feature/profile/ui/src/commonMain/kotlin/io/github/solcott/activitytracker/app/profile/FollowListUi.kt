@@ -1,21 +1,18 @@
 package io.github.solcott.activitytracker.app.profile
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.AccountActionRow
 import io.github.solcott.activitytracker.app.ui.AccountRow
 import io.github.solcott.activitytracker.app.ui.EmptyListText
-import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
+import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.pagedRows
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -37,7 +34,7 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
         subtitle = FollowListTexts.subtitle(state.subject)?.string(),
         edgeToEdge = true,
     ) {
-        state.actionError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
+        errorItem(state.actionError, key = "action-error")
         pagedRows(
             state.accounts,
             state.loadErrorKind,

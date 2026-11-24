@@ -36,6 +36,12 @@ fun EmptyListText(text: String, modifier: Modifier = Modifier, color: Color = Co
     Box(modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text(text, color = color) }
 }
 
+/** Why a list's action failed, as an item inset like its rows (as [ListNote] is), under [key]. Nothing when there's no [error]. */
+fun LazyListScope.errorItem(error: UiError?, key: String = "error") {
+    if (error == null) return
+    item(key = key) { ErrorText(error, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) }
+}
+
 /**
  * Why a list's action failed, or that the session must sign in again ([needsSignIn]) when there's no [error], with Sign in again
  * ([onSignInAgain]) where [SignInAgainNotice] offers it. Nothing when there's neither.

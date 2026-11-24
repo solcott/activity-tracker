@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
@@ -34,6 +33,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.DateBounds
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
+import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.pickedDate
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.toPickerMillis
@@ -62,17 +62,15 @@ internal fun LazyListScope.componentItems(state: GearState, page: GearPage, sect
     if (state.showsComponents) {
         item(key = "components-header") { section(stringResource(Res.string.gear_components)) }
         items(page.components, key = { "component/${it.gear.uri.value}" }) { component ->
-            ComponentRow(
-                component.gear,
-                line = GearPageTexts.componentLine(component, LocalUnitSystem.current).string(),
-                dates = GearPageTexts.componentDates(component, LocalTimeZone.current).string(),
-                onClick = { state.eventSink(GearEvent.OpenGear(component.gear.uri.value)) },
+            ComponentEntry(
+                component,
+                send = state.eventSink,
                 actions =
                     if (state.managesComponents) ({ ComponentMenu(component, enabled = state.mountEnabled, send = state.eventSink) })
                     else null,
             )
         }
-        state.componentsError?.let { error -> item(key = "components-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
+        errorItem(state.componentsError, key = "components-error")
         if (state.managesComponents) {
             item(key = "components-mount") {
                 AppTextButton(onClick = { state.eventSink(GearEvent.Mount) }, enabled = state.mountEnabled) {
@@ -89,12 +87,7 @@ internal fun LazyListScope.componentItems(state: GearState, page: GearPage, sect
                 )
             }
             items(page.previous, key = { "previous/${it.gear.uri.value}/${it.from}" }) { component ->
-                ComponentRow(
-                    component.gear,
-                    line = GearPageTexts.componentLine(component, LocalUnitSystem.current).string(),
-                    dates = GearPageTexts.componentDates(component, LocalTimeZone.current).string(),
-                    onClick = { state.eventSink(GearEvent.OpenGear(component.gear.uri.value)) },
-                )
+                ComponentEntry(component, send = state.eventSink)
             }
         }
     }
@@ -116,6 +109,18 @@ internal fun LazyListScope.componentItems(state: GearState, page: GearPage, sect
 internal fun MountDialogs(state: GearState) {
     state.picker?.let { MountSheet(it, state.eventSink) }
     if (state.unmounting != null) UnmountDatePicker(state)
+}
+
+/** A component, mounted now or before, as its row: its main total and its dates, opening its page. */
+@Composable
+private fun ComponentEntry(component: GearComponent, send: (GearEvent) -> Unit, actions: (@Composable () -> Unit)? = null) {
+    ComponentRow(
+        component.gear,
+        line = GearPageTexts.componentLine(component, LocalUnitSystem.current).string(),
+        dates = GearPageTexts.componentDates(component, LocalTimeZone.current).string(),
+        onClick = { send(GearEvent.OpenGear(component.gear.uri.value)) },
+        actions = actions,
+    )
 }
 
 @Composable

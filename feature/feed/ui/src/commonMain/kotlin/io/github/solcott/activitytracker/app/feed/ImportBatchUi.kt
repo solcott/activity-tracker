@@ -1,12 +1,9 @@
 package io.github.solcott.activitytracker.app.feed
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -15,10 +12,11 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.EmptyListText
-import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
+import io.github.solcott.activitytracker.app.ui.adaptive.AppListSectionTitle
+import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.app.ui.string
@@ -41,17 +39,10 @@ fun ImportBatchUi(state: ImportBatchState, modifier: Modifier = Modifier) {
         modifier = modifier,
         listState = listState,
     ) {
-        state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
+        errorItem(state.error)
         pagedRefreshStatus(state.activities, UiError.Kind.LoadImportBatch) { state.eventSink(ImportBatchEvent.Retry) }
         months.forEach { month ->
-            item(key = month.key) {
-                Text(
-                    month.heading.string(),
-                    Modifier.padding(top = 16.dp, bottom = 4.dp),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            item(key = month.key) { AppListSectionTitle(month.heading.string()) }
             items(month.activities, key = { it.uri.value }) { activity ->
                 ActivityListCard(
                     activity,

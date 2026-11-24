@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
@@ -33,6 +32,7 @@ import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -125,7 +125,7 @@ private fun LazyListScope.pageItems(state: GearState, page: GearPage, onRetry: (
     breakdown("sport", Res.string.gear_page_by_sport) { GearPageTexts.bySport(page, it) }
     breakdown("year", Res.string.gear_page_by_year) { GearPageTexts.byYear(page, it) }
     item(key = "activities-header") { Section(stringResource(Res.string.gear_page_activities)) }
-    state.activitiesError?.let { error -> item(key = "action-error") { ErrorText(error, Modifier.padding(vertical = 8.dp)) } }
+    errorItem(state.activitiesError, key = "action-error")
     activityItems(
         state.activities.items.toImmutableList(),
         state.viewerDid,

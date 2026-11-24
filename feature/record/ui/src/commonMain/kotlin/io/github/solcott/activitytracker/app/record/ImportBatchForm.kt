@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
+import io.github.solcott.activitytracker.app.ui.adaptive.AppListSectionTitle
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -60,14 +61,7 @@ internal fun BatchContent(state: ImportActivityState, batch: ImportBatch, paddin
             item(key = "summary") { BatchSummary(state, batch, enabled) }
             item(key = "filters") { BatchFilters(state, batch, enabled) }
             months.forEach { month ->
-                item(key = "month-${month.month}") {
-                    Text(
-                        month.heading.string(),
-                        Modifier.padding(top = 16.dp, bottom = 4.dp),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                item(key = "month-${month.month}") { AppListSectionTitle(month.heading.string()) }
                 items(month.rows, key = { it.index }) { row -> BatchRow(row, batch, enabled, state.eventSink) }
             }
             item(key = "settings") { BatchSettings(state, batch, enabled, Modifier.padding(vertical = 16.dp)) }

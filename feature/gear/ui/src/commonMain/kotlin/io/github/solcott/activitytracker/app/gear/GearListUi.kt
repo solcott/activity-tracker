@@ -37,6 +37,7 @@ import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppListSectionTitle
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -115,6 +116,7 @@ private fun LazyListScope.collections(lists: GearLists, eventSink: (GearListEven
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Not AppListSectionTitle: centred beside New collection, the heading takes no padding of its own.
             Text(
                 stringResource(Res.string.gear_collections),
                 Modifier.weight(1f),
@@ -153,14 +155,7 @@ private fun LazyListScope.collections(lists: GearLists, eventSink: (GearListEven
 
 /** A header ([type]'s name, or Retired when it's null), then a row per item. */
 private fun LazyListScope.section(key: String, type: String?, rows: List<GearRow>, eventSink: (GearListEvent) -> Unit) {
-    item(key = "header/$key") {
-        Text(
-            GearListTexts.section(type).string(),
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+    item(key = "header/$key") { AppListSectionTitle(GearListTexts.section(type).string(), Modifier.padding(horizontal = 16.dp)) }
     items(rows, key = { "$key/${it.rkey}" }) { row ->
         GearRowItem(row, onOpen = { eventSink(GearListEvent.Open(row.rkey)) })
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

@@ -22,12 +22,12 @@ import io.github.solcott.activitytracker.app.interactions.SocialCountsRow
 import io.github.solcott.activitytracker.app.posts.PostCard
 import io.github.solcott.activitytracker.app.posts.QuoteSheetHost
 import io.github.solcott.activitytracker.app.report.ReportingHost
-import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.post_page_title
@@ -78,7 +78,7 @@ private fun LazyListScope.pageItems(state: PostPageState, page: PostPage, onRetr
             showCounts = false,
         )
     }
-    page.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.padding(horizontal = CARD_PADDING)) } }
+    errorItem(page.error)
     item(key = "social") { Social(state, page, Modifier.padding(horizontal = CARD_PADDING).padding(top = 12.dp)) }
 }
 

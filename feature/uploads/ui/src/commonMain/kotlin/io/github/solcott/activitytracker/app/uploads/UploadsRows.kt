@@ -95,16 +95,6 @@ private fun CancelButton(name: AppText, busy: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-internal fun SectionTitle(text: String) {
-    Text(
-        text,
-        Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-    )
-}
-
-@Composable
 internal fun Note(text: String) {
     Text(
         text,

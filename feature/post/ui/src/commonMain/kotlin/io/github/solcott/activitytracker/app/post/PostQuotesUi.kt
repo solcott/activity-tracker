@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.post
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -13,9 +12,9 @@ import io.github.solcott.activitytracker.app.posts.PostCard
 import io.github.solcott.activitytracker.app.posts.QuoteSheetHost
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.EmptyListText
-import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.ListScreen
 import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
+import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -37,7 +36,7 @@ fun PostQuotesUi(state: PostQuotesState, modifier: Modifier = Modifier) {
         modifier = modifier,
         listState = listState,
     ) {
-        state.error?.let { error -> item(key = "error") { ErrorText(error, Modifier.fillMaxWidth().padding(16.dp)) } }
+        errorItem(state.error)
         if (state.notFound) {
             item(key = "not-found") { EmptyListText(stringResource(Res.string.post_unavailable)) }
             return@ListScreen

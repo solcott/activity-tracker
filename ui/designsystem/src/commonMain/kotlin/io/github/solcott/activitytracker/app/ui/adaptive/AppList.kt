@@ -25,16 +25,23 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AppListSection(title: String?, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(modifier.fillMaxWidth()) {
-        title?.let {
-            Text(
-                it,
-                Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleSmall,
-            )
-        }
+        title?.let { AppListSectionTitle(it, Modifier.padding(horizontal = 16.dp)) }
         content()
     }
+}
+
+/**
+ * An [AppListSection]'s coloured heading on its own, for a list that lays its sections out as items (a month of a batch). It pads only
+ * above and below; [modifier] insets it where the list's rows are inset.
+ */
+@Composable
+fun AppListSectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        modifier.padding(top = 16.dp, bottom = 4.dp),
+        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.titleSmall,
+    )
 }
 
 /**
