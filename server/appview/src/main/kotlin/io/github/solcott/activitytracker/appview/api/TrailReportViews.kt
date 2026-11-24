@@ -20,7 +20,6 @@ import io.github.solcott.activitytracker.lexicon.app.TrailConditions
 import io.github.solcott.activitytracker.lexicon.app.TrailPhotoView
 import io.github.solcott.activitytracker.lexicon.app.TrailReportView
 import kotlin.time.Instant
-import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -309,7 +308,7 @@ internal fun JdbcTransaction.isServedTrailReportPhoto(did: String, cid: String):
         .where {
             (TrailReportBlobs.authorDid eq did) and
                 (TrailReportBlobs.cid eq cid) and
-                served(null as Expression<String>?, TrailReports.authorDid, TrailReports.uri, TrailReports.cid)
+                servedToAll(TrailReports.authorDid, TrailReports.uri, TrailReports.cid)
         }
         .limit(1)
         .empty()

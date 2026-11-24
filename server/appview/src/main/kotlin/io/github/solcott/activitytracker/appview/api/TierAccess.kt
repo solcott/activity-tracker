@@ -30,7 +30,7 @@ internal fun visibleTo(
     record: Column<String>? = Activities.uri,
     cid: Column<String>? = Activities.cid,
 ): Op<Boolean> =
-    if (viewer == null) (visibility eq Visibility.PUBLIC) and served(null as Expression<String>?, author, record, cid)
+    if (viewer == null) (visibility eq Visibility.PUBLIC) and servedToAll(author, record, cid)
     else admits(stringParam(viewer.value), visibility, author) and served(stringParam(viewer.value), author, record, cid)
 
 /**

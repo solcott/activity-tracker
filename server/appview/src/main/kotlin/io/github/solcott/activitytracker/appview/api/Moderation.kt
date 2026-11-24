@@ -81,6 +81,10 @@ internal fun served(viewer: Expression<String>?, author: Column<String>, record:
     return if (viewer == null) served else (author eq viewer) or served
 }
 
+/** [served] to everyone, signed out included: the account is served and the record isn't taken down, with no author's exemption. */
+internal fun servedToAll(author: Column<String>, record: Column<String>? = null, cid: Column<String>? = null): Op<Boolean> =
+    served(null as Expression<String>?, author, record, cid)
+
 /** [served] for a known [viewer]. */
 internal fun served(viewer: Did?, author: Column<String>, record: Column<String>? = null, cid: Column<String>? = null): Op<Boolean> =
     served(viewer?.let { stringParam(it.value) }, author, record, cid)

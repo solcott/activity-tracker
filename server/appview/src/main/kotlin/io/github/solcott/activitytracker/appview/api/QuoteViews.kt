@@ -80,7 +80,7 @@ internal fun postServed(posts: Alias<Posts>): Op<Boolean> {
     val author = posts[Posts.authorDid]
     val uri = posts[Posts.uri]
     val proposal = posts[Posts.proposalUri]
-    return served(null as Did?, author, uri, posts[Posts.cid]) and
+    return servedToAll(author, uri, posts[Posts.cid]) and
         unhidden(null, author, uri) and
         (proposal.isNull() or liveProposal(proposal, author, unlabelledProposal(), null))
 }

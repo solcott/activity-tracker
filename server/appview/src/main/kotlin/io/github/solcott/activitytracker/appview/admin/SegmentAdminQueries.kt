@@ -1,7 +1,7 @@
 package io.github.solcott.activitytracker.appview.admin
 
 import io.github.solcott.activitytracker.appview.api.NameMatch
-import io.github.solcott.activitytracker.appview.api.served
+import io.github.solcott.activitytracker.appview.api.servedToAll
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
@@ -309,7 +309,7 @@ class SegmentAdminQueries(
         if (uris.isEmpty()) emptySet()
         else Segments.select(Segments.uri).where { (Segments.uri inList uris) and servedSignedOut() }.map { it[Segments.uri] }.toSet()
 
-    private fun servedSignedOut(): Op<Boolean> = served(SIGNED_OUT, Segments.authorDid, Segments.uri, Segments.cid)
+    private fun servedSignedOut(): Op<Boolean> = servedToAll(Segments.authorDid, Segments.uri, Segments.cid)
 
     /** An exact AT-URI, or a bare record key matching any segment's. */
     private fun byUri(q: String): Op<Boolean> =

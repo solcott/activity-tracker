@@ -32,7 +32,6 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import org.jetbrains.exposed.v1.core.Column
-import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.and
@@ -202,7 +201,11 @@ private fun JdbcTransaction.isPublicActivityMedia(did: String, cid: String): Boo
  * opened. A taken-down activity's photos are refused even to its athlete, as its public ones are: nothing here tells the routes apart.
  */
 private fun JdbcTransaction.visibleMediaOrigin(did: String, cid: String, viewer: Did): String? =
-    mediaRows(did, cid) { (visibleTo(viewer) or openedByModerator(viewer)) and servedToAll() and (Activities.origin neq Origins.REPO) }
+    mediaRows(did, cid) {
+            (visibleTo(viewer) or openedByModerator(viewer)) and
+                servedToAll(Activities.authorDid, Activities.uri, Activities.cid) and
+                (Activities.origin neq Origins.REPO)
+        }
         .firstOrNull()
         ?.get(Activities.origin)
         ?: gearPhotoRows(did, cid) {
@@ -233,16 +236,13 @@ private fun openedByModerator(viewer: Did, gear: Column<String>? = null): Op<Boo
 /** The longest a signed photo URL lives (`PrivateMediaTokens`). */
 private val MODERATOR_GRANT = 30.minutes
 
-/** The activity and its account are served to anyone at all: [served] without the author's exemption. */
-private fun servedToAll(): Op<Boolean> = served(null as Expression<String>?, Activities.authorDid, Activities.uri, Activities.cid)
-
 /** [did]'s served gear items whose photo is [cid] and that [where] admits (`gearView.photo`). */
 private fun JdbcTransaction.gearPhotoRows(did: String, cid: String, where: () -> Op<Boolean>) =
     GearItems.select(GearItems.origin)
         .where {
             (GearItems.authorDid eq did) and
                 (GearItems.photoCid eq cid) and
-                served(null as Expression<String>?, GearItems.authorDid, GearItems.uri, GearItems.cid) and
+                servedToAll(GearItems.authorDid, GearItems.uri, GearItems.cid) and
                 where()
         }
         .limit(1)
