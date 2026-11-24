@@ -25,6 +25,8 @@ A Kotlin Multiplatform activity tracker for athletes, backed by ATProtocol. Clie
 ./gradlew :composeApp:jvmTest --tests "*.ContentLoadingConformanceTest"   # every content-loading screen's samples against ui/content-loading
 ./gradlew :androidApp:testDebugScreenshotTestDefaultTestSuite     # screenshots vs references (part of check); report in androidApp/build/reports/tests/
 ./gradlew :androidApp:updateDebugScreenshotTestDefaultTestSuite   # rewrite references in androidApp/src/screenshotTestDefaultDebug/reference after an intended UI change
+scripts/gradlew-queued.sh <tasks>                 # ./gradlew once one of GRADLE_SLOTS (default 2) machine-wide build slots frees, so parallel sessions queue instead of swapping (gradle-runner uses it)
+./gradlew :androidApp:testDebugScreenshotTestDefaultTestSuite -PscreenshotTest.forks=4   # screenshot forks, 2g each (default 2)
 scripts/check-agent-sync.sh                       # Claude Code <-> Antigravity config symlinks, hook and command parity
 scripts/check-public-safety.sh                    # no un-noted activity files, openspec/ screenshots or home-folder paths in tracked files (CI runs it)
 scripts/ci-code-changed.sh <base> <head>          # CI's build gate: false when only *.md, openspec/, .agents/ or .claude/ changed, so CI skips the Gradle job

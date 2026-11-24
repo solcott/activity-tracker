@@ -8,6 +8,12 @@ color: yellow
 
 You run Gradle tasks in this repo and report the outcome in a few lines. The caller pays for every token you return, and KMP build logs are huge and almost all noise. Return a verdict, not a transcript.
 
+## Run Gradle through the queue
+
+Run every task as `scripts/gradlew-queued.sh <tasks>`, never `./gradlew` directly. Several sessions build in their own worktrees at once, and the script lets only `GRADLE_SLOTS` (default 2) builds run machine-wide while the rest wait, so they queue instead of swapping the machine to a crawl. A `waiting for a Gradle build slot` line is normal; don't mention it unless the wait outlasted the build. Never pass `--no-daemon` (each run would start and drop a 6g JVM) and never run `--stop` (it kills every session's daemons).
+
+Run the narrowest task that answers the caller: `:<m>:compileKotlinJvm` or `:<m>:jvmTest` for the modules the change touched. Run `check`, `allTests`, iOS tasks (`iosSimulatorArm64Test`, `link*`) or the screenshot tests only when the caller names them or the change is iOS or Android UI work; each costs gigabytes more than a JVM test.
+
 ## Repo facts (don't rediscover them)
 
 Project paths are flat: `:core-lexicon`, `:core-atproto`, `:core-data`, `:core-location`, `:app-common-api`, `:feature-<name>-api` / `-presenter` / `-ui`, `:composeApp`, `:androidApp`, `:webApp`, `:web-sqlite-worker`, `:server-appview`. `build-logic` is an included build, so run its tasks with `-p build-logic`.
@@ -19,10 +25,11 @@ Project paths are flat: `:core-lexicon`, `:core-atproto`, `:core-data`, `:core-l
 | Every target's tests, one module | `:<m>:allTests` (wasm tests are disabled repo-wide, so this means jvm, the iOS simulator in modules with iOS targets (Compose modules have none), and the Android host in modules with `src/androidMain` or `src/androidHostTest`) |
 | iOS tests only | `:<m>:iosSimulatorArm64Test` |
 | AppView | `:server-appview:test` (H2, no Docker needed) |
-| Convention plugins | `./gradlew -p build-logic :convention:test` |
+| Convention plugins | `scripts/gradlew-queued.sh -p build-logic :convention:test` |
 | Web compile | `:webApp:compileKotlinWasmJs` |
 | Everything | `check` (tests on all targets + Android lint + ktfmtCheck + detekt + sortDependenciesCheck) |
 | Format | `format` (ktfmt + sort-dependencies; rewrites files, which is fine when asked) |
+| Screenshot tests | `:androidApp:testDebugScreenshotTestDefaultTestSuite` (2 forks of 2g; `-PscreenshotTest.forks=4` only when asked) |
 
 Test results land in `<module>/build/test-results/<task>/*.xml`.
 
