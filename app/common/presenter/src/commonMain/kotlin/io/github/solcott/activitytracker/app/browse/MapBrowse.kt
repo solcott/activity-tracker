@@ -1,10 +1,13 @@
 package io.github.solcott.activitytracker.app.browse
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -12,12 +15,22 @@ import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.PlaceLocator
 import io.github.solcott.activitytracker.location.e7ToDegrees
 import io.github.solcott.activitytracker.textfield.TextFieldState
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.OnKeyChange
+import io.github.solcott.uistate.Page
+import io.github.solcott.uistate.circuit.Paging
+import io.github.solcott.uistate.circuit.produceRetainedContentState
+import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** How long typing must pause before a browse screen's name search runs, so each keystroke isn't a request. */
@@ -190,5 +203,50 @@ class MapBrowse(permission: Boolean?) : MapSelection() {
         /** Whether this viewport is centred on [at], as the map reports a camera sent there. */
         fun MapViewport.centres(at: GeoPoint): Boolean =
             abs(centerLat.e7ToDegrees() - at.lat) < ARRIVED_DEGREES && abs(centerLng.e7ToDegrees() - at.lng) < ARRIVED_DEGREES
+    }
+}
+
+/**
+ * The area's content for a browse screen: [load]ed for the map's [MapBrowse.areaRequest] while no name is searched ([searching]), the map
+ * is close enough and browsing has started. A new area keeps the last one's content until it answers; a change of [keys] (or a Retry,
+ * [MapBrowse.areaRetry]) restarts it (ui/content-loading). A presenter wanting a new key to drop the old content wraps this in `key(…)`.
+ */
+@Composable
+fun <T> MapBrowse.areaContent(
+    initial: T,
+    searching: Boolean,
+    vararg keys: Any?,
+    load: suspend (MapViewport) -> Outcome<T>,
+): ContentState<T> {
+    val currentAreaRequest by rememberUpdatedState(areaRequest(searching))
+    return snapshotFlow { currentAreaRequest }
+        .filterNotNull()
+        .produceRetainedContentState(initial, *keys, areaRetry) { request -> flow { emit(load(request)) } }
+}
+
+/**
+ * A browse screen's name results for [query], while it isn't blank: a new query keeps the last results until it answers, a new
+ * [MapBrowse.scope] or one of [keys] restarts them. The first page waits for typing to pause ([NAME_SEARCH_DEBOUNCE]) and then reads the
+ * map's area and centre ([MapBrowse.nameViewport]), so moving the map doesn't restart a search; later pages, whose cursor is an offset into
+ * the first page's query, search the same. [load] gets the box searched ([MapBrowse.nameBox], null for everywhere), the viewport to order
+ * by, and the cursor.
+ */
+@Composable
+fun <T, M> MapBrowse.nameResults(
+    query: String,
+    vararg keys: Any?,
+    idOf: (T) -> Any?,
+    load: suspend (box: MapViewport?, viewport: MapViewport?, cursor: String?) -> Outcome<Page<T, M>>,
+): Paging<T, M> {
+    val currentViewport by rememberUpdatedState(viewport)
+    return rememberRetainedPaging(query, scope, *keys, idOf = idOf, onKeyChange = OnKeyChange.KeepItems, enabled = query.isNotEmpty()) {
+        cursor ->
+        flow {
+            if (cursor == null) {
+                delay(NAME_SEARCH_DEBOUNCE)
+                nameViewport = currentViewport
+            }
+            emit(load(nameBox(nameViewport), nameViewport, cursor))
+        }
     }
 }

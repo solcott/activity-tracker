@@ -4,15 +4,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.app.browse.MapBrowse
-import io.github.solcott.activitytracker.app.browse.NAME_SEARCH_DEBOUNCE
+import io.github.solcott.activitytracker.app.browse.areaContent
+import io.github.solcott.activitytracker.app.browse.nameResults
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -25,14 +24,8 @@ import io.github.solcott.activitytracker.location.pointE7
 import io.github.solcott.activitytracker.location.siteOutline
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.mapData
-import io.github.solcott.uistate.OnKeyChange
-import io.github.solcott.uistate.circuit.produceRetainedContentState
-import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flow
 
 @CircuitInject(DiveSiteBrowseScreen::class, SessionScope::class)
 @Composable
@@ -51,34 +44,15 @@ fun DiveSiteBrowsePresenter(
     LaunchedEffect(browse.permission) { browse.locate(locator) { feed.latestOwnStart() } }
 
     // The area's sites, while no name is searched and the map is close enough. A new area keeps the last one's outlines until it answers.
-    val currentAreaRequest by rememberUpdatedState(browse.areaRequest(searching = trimmed.isNotEmpty()))
-    val area = snapshotFlow {
-        currentAreaRequest
-    }
-        .filterNotNull()
-        .produceRetainedContentState(SiteArea(), browse.areaRetry) { request ->
-            flow { emit(sites.areaSites(request.toSearchBox()).mapData { siteAreaOf(it.sites, request, it.capped) }) }
+    val area =
+        browse.areaContent(SiteArea(), searching = trimmed.isNotEmpty()) { request ->
+            sites.areaSites(request.toSearchBox()).mapData { siteAreaOf(it.sites, request, it.capped) }
         }
 
-    // Name results: a new query keeps the last results until it answers; a new scope drops them. The area and centre are read when the
-    // first page loads, so moving the map doesn't restart a search, and kept for the later pages, whose cursor is an offset into it.
-    val currentViewport by rememberUpdatedState(browse.viewport)
-    val scope = browse.scope
+    // Name results: a new query keeps the last results until it answers; a new scope drops them.
     val results =
-        rememberRetainedPaging(
-            trimmed,
-            scope,
-            idOf = DiveSiteView::uri,
-            onKeyChange = OnKeyChange.KeepItems,
-            enabled = trimmed.isNotEmpty(),
-        ) { cursor ->
-            flow {
-                if (cursor == null) {
-                    delay(NAME_SEARCH_DEBOUNCE)
-                    browse.nameViewport = currentViewport
-                }
-                emit(sites.namesPage(siteNameParams(trimmed, browse.nameBox(browse.nameViewport), browse.nameViewport, cursor)))
-            }
+        browse.nameResults(trimmed, idOf = DiveSiteView::uri) { box, viewport, cursor ->
+            sites.namesPage(siteNameParams(trimmed, box, viewport, cursor))
         }
 
     val searching = trimmed.isNotEmpty()

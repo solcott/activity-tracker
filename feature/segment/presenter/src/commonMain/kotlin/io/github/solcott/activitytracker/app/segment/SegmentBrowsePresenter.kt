@@ -6,9 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
@@ -16,7 +14,8 @@ import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.MapSegmentLine
 import io.github.solcott.activitytracker.app.MapViewport
 import io.github.solcott.activitytracker.app.browse.MapBrowse
-import io.github.solcott.activitytracker.app.browse.NAME_SEARCH_DEBOUNCE
+import io.github.solcott.activitytracker.app.browse.areaContent
+import io.github.solcott.activitytracker.app.browse.nameResults
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
@@ -33,15 +32,9 @@ import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.pointE7
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.dataresult.mapData
-import io.github.solcott.uistate.OnKeyChange
 import io.github.solcott.uistate.Page
-import io.github.solcott.uistate.circuit.produceRetainedContentState
-import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flow
 
 @CircuitInject(SegmentBrowseScreen::class, SessionScope::class)
 @Composable
@@ -63,50 +56,20 @@ fun SegmentBrowsePresenter(
 
     // The area's segments, while no name is searched and the map is close enough. A new area keeps the last one's lines until it answers;
     // a new sport group drops them (ui/content-loading).
-    val areaRequest = browse.areaRequest(searching = trimmed.isNotEmpty())
-    val currentAreaRequest by rememberUpdatedState(areaRequest)
     val area =
         key(sport) {
-            snapshotFlow { currentAreaRequest }
-                .filterNotNull()
-                .produceRetainedContentState(AreaRuns(), sport, browse.areaRetry) { request ->
-                    flow {
-                        emit(
-                            segments.areaSegments(request.toSearchBox(sport)).mapData {
-                                areaRunsOf(it.segments, request, it.capped, sport, it.paths)
-                            },
-                        )
-                    }
-                }
+            browse.areaContent(AreaRuns(), searching = trimmed.isNotEmpty(), sport) { request ->
+                segments.areaSegments(request.toSearchBox(sport)).mapData { areaRunsOf(it.segments, request, it.capped, sport, it.paths) }
+            }
         }
 
-    // Name results: a new query keeps the last results until it answers; a new scope or sport group drops them. The area and centre are
-    // read when the first page loads, so moving the map doesn't restart a search, and kept for the later pages, whose cursor is an offset
-    // into that first page's query.
-    val currentViewport by rememberUpdatedState(browse.viewport)
-    val scope = browse.scope
+    // Name results: a new query keeps the last results until it answers; a new scope or sport group drops them.
     val results =
-        key(scope, sport) {
-            rememberRetainedPaging(
-                trimmed,
-                scope,
-                sport,
-                idOf = BrowseRow::key,
-                onKeyChange = OnKeyChange.KeepItems,
-                enabled = trimmed.isNotEmpty(),
-            ) { cursor ->
-                flow {
-                    if (cursor == null) {
-                        delay(NAME_SEARCH_DEBOUNCE)
-                        browse.nameViewport = currentViewport
-                    }
-                    val params = nameParams(trimmed, browse.nameBox(browse.nameViewport), sport, browse.nameViewport, cursor)
-                    // The AppView pages by result, a path or a segment group whole, so none spans two pages (segments/segment-paths).
-                    emit(
-                        segments.pathNamesPage(params).mapData { page ->
-                            Page(page.items.mapNotNull { rowOf(it, sport) }, page.meta, page.next)
-                        },
-                    )
+        key(browse.scope, sport) {
+            browse.nameResults(trimmed, sport, idOf = BrowseRow::key) { box, viewport, cursor ->
+                // The AppView pages by result, a path or a segment group whole, so none spans two pages (segments/segment-paths).
+                segments.pathNamesPage(nameParams(trimmed, box, sport, viewport, cursor)).mapData { page ->
+                    Page(page.items.mapNotNull { rowOf(it, sport) }, page.meta, page.next)
                 }
             }
         }
