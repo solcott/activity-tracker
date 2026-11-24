@@ -19,6 +19,8 @@ import io.github.solcott.activitytracker.textfield.TextFieldState
 data class ManualActivityState(
     val type: ActivityTypeField,
     val title: TextFieldState,
+    /** What the athlete writes about it; blank saves none. */
+    val description: TextFieldState,
     /** In kilometers or miles, per [units]. */
     val distance: TextFieldState,
     val durationMinutes: TextFieldState,
@@ -41,6 +43,10 @@ data class ManualActivityState(
 ) : CircuitUiState {
     val valid: Boolean
         get() = durationEntered
+
+    /** [description] for Swift, whose export leaves out a member named `description` (dev/ios-swift-interop). */
+    val about: TextFieldState
+        get() = description
 }
 
 /** What manual entry says (dev/shared-display-text), chosen here for the shared and the native form. */

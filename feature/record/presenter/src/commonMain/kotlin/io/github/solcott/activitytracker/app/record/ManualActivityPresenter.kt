@@ -42,6 +42,7 @@ fun ManualActivityPresenter(
     val type = typeChoices.produce(ActivityType(Sport.RUN))
     val gear = gearChoices.produce(type.selected)
     val title = rememberTextFieldState()
+    val description = rememberTextFieldState()
     val distance = rememberTextFieldState()
     val duration = rememberTextFieldState()
     val temperature = rememberTextFieldState()
@@ -62,6 +63,7 @@ fun ManualActivityPresenter(
     return ManualActivityState(
         type.field,
         title,
+        description,
         distance,
         duration,
         temperature,
@@ -87,7 +89,7 @@ fun ManualActivityPresenter(
                     val saved =
                         activities.publish(
                             manualDraft(type.selected, title.text, distance.text, minutes, temperature.text, units, clock)
-                                .copy(gear = gear.selected)
+                                .copy(gear = gear.selected, description = description.text.toString().trim().ifEmpty { null })
                                 .withVisibility(visibility.current),
                         )
                     // The saved activity opens, asking whether to combine it with another of the athlete's.

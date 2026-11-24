@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.ActivityDescriptionField
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
@@ -69,6 +70,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                 label = stringResource(Res.string.field_title),
                 modifier = Modifier.fillMaxWidth(),
             )
+            ActivityDescriptionField(state.description, enabled = !state.saving)
             GearPicker(state.gear, enabled = !state.saving)
             ActivityVisibilityForm(
                 state.visibility,

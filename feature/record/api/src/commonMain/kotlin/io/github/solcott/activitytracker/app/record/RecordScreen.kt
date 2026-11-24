@@ -26,6 +26,8 @@ data class RecordState(
     val saveFailed: Boolean = false,
     val type: ActivityTypeField,
     val title: TextFieldState,
+    /** What the athlete writes about it; blank saves none. */
+    val description: TextFieldState,
     val hasPermission: Boolean,
     val saving: Boolean,
     val error: UiError?,
@@ -34,7 +36,11 @@ data class RecordState(
     /** The gear used; starts at the athlete's defaults for the type. */
     val gear: GearField = GearField(),
     val eventSink: (RecordEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** [description] for Swift, whose export leaves out a member named `description` (dev/ios-swift-interop). */
+    val about: TextFieldState
+        get() = description
+}
 
 sealed interface RecordEvent {
     data class PermissionResult(val granted: Boolean) : RecordEvent

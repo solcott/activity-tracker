@@ -8,7 +8,7 @@ import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import kotlin.test.Test
 
-/** What manual entry says when the athlete can't choose who sees an activity (spaces/client-protocol). */
+/** What manual entry says when the athlete can't choose who sees an activity (spaces/client-protocol), and its description field. */
 @OptIn(ExperimentalTestApi::class)
 class ManualActivityUiTest {
     @Test
@@ -24,5 +24,12 @@ class ManualActivityUiTest {
         val state = ManualActivitySamples.all.getValue(SampleKind.LOADED).copy(visibility = VisibilityFields(canChoose = false))
         setContent { AppPreview { ManualActivityUi(state) } }
         onNodeWithText("Sign in again to choose who sees your activities", substring = true).assertExists()
+    }
+
+    @Test
+    fun theDescriptionIsShownToEdit() = runComposeUiTest {
+        setContent { AppPreview { ManualActivityUi(ManualActivitySamples.variants.getValue("full")) } }
+        onNodeWithText("Description").assertExists()
+        onNodeWithText("Easy spin along the river.").assertExists()
     }
 }

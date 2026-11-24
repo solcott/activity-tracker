@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
@@ -9,6 +10,7 @@ import io.github.solcott.activitytracker.app.record.RecordPresenter
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.record.RecordState
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearType
@@ -33,6 +35,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class RecordPresenterTest {
     private val fixture = SessionTestFixture()
@@ -198,6 +201,33 @@ class RecordPresenterTest {
             assertTrue(journal.saved.isEmpty(), "queued for publishing, so removed from the journal")
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun aFinishedRecordingSavesItsDescription() = runTest {
+        val record = finishWithDescription(" Dusty climbs, then a tailwind home. ")
+        assertEquals("Dusty climbs, then a tailwind home.", record.getValue("description").jsonPrimitive.content)
+    }
+
+    @Test
+    fun aBlankDescriptionSavesNone() = runTest {
+        val record = finishWithDescription("   ")
+        assertFalse("description" in record, "a blank description leaves the field out")
+    }
+
+    /** Records [route], finishes with [description] typed, and returns the activity record put. */
+    private suspend fun TestScope.finishWithDescription(description: String): JsonObject {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(RecordScreen)
+        presenterTestOf(presenter(recorder(InMemoryRecordingJournal()), repos, navigator)) {
+            val initial = awaitItem()
+            initial.description.setTextAndPlaceCursorAtEnd(description)
+            initial.eventSink(RecordEvent.Start)
+            awaitUntil { it.distanceMeters > 0 }.eventSink(RecordEvent.Finish)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        return fixture.putRecords.first { it["\$type"]?.jsonPrimitive?.content == Nsid.FEED_ACTIVITY }
     }
 
     @Test

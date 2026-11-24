@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Logging an activity by hand (feed/activity-visibility), a grouped form over the states `ManualActivityPresenter` publishes: the type
-/// (`ActivityTypeRow`), the title, the units, distance, duration and temperature with the units in their labels, the gear and who sees
-/// it, with a failed save at the top and Save in the bar, held back until a duration is entered (`ManualActivityState.valid`). What
-/// follows a rule is Kotlin's (`ManualActivityTexts`), shared with the Compose form.
+/// (`ActivityTypeRow`), the title, the description, the units, distance, duration and temperature with the units in their labels, the gear
+/// and who sees it, with a failed save at the top and Save in the bar, held back until a duration is entered (`ManualActivityState.valid`).
+/// What follows a rule is Kotlin's (`ManualActivityTexts`), shared with the Compose form.
 struct ManualActivityView: View {
     let state: ManualActivityState
 
@@ -31,6 +31,7 @@ struct ManualActivityView: View {
                 AppTextField(label: .fieldTitle, model: title, state: state.title, layout: .row)
             }
             .disabled(!enabled)
+            ActivityDescriptionSection(state: state.about, enabled: enabled)
             Section {
                 Picker(
                     selection: Binding(get: { state.units }, set: { send(ManualActivityEvent.UnitsChanged(value: $0)) })

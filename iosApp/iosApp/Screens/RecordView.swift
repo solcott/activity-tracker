@@ -2,12 +2,12 @@ import SwiftUI
 import UIKit
 
 /// Recording an activity (record/gps-recording), a grouped form over the states `RecordPresenter` publishes: a failed finish and the
-/// recording's notices first, then the elapsed time large with its figures in the athlete's units, then the type (outdoor types only,
-/// fixed once recording starts), the title, the gear and who sees it, as the native forms draw them. The controls for the recording's
-/// status sit in a bar at the bottom, where a phone's thumb finds them mid-ride: Start; Pause; Resume, Finish & save and Discard, which
-/// asks first. Recording is Kotlin's (`ActivityRecorder`); this draws the state and sends events. Start without location access asks
-/// Core Location (`LocationAuthorization`) and sends the answer; a refused access says so, with Open Settings. What follows a rule is
-/// Kotlin's (`RecordTexts`), shared with the Compose screen.
+/// recording's notices first, then the elapsed time large with its figures in the athlete's units, then the type (outdoor types only, fixed
+/// once recording starts), the title, the description, the gear and who sees it, as the native forms draw them. The controls for the
+/// recording's status sit in a bar at the bottom, where a phone's thumb finds them mid-ride: Start; Pause; Resume, Finish & save and
+/// Discard, which asks first. Recording is Kotlin's (`ActivityRecorder`); this draws the state and sends events. Start without location
+/// access asks Core Location (`LocationAuthorization`) and sends the answer; a refused access says so, with Open Settings. What follows a
+/// rule is Kotlin's (`RecordTexts`), shared with the Compose screen.
 struct RecordView: View {
     let state: RecordState
 
@@ -41,6 +41,7 @@ struct RecordView: View {
                 AppTextField(label: .fieldTitle, model: title, state: state.title, layout: .row)
                     .disabled(!enabled)
             }
+            ActivityDescriptionSection(state: state.about, enabled: enabled)
             Section { GearFieldRow(field: state.gear, enabled: enabled) }
             VisibilityFormSections(
                 fields: state.visibility, heading: Text(.activityVisibilityHeading),

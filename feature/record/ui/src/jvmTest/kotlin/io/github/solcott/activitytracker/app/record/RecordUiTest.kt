@@ -6,7 +6,10 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
 
-/** What the recording screen says about a recording offered back or one that couldn't be saved (record/gps-recording). */
+/**
+ * What the recording screen says about a recording offered back or one that couldn't be saved, and the description it saves
+ * (record/gps-recording).
+ */
 @OptIn(ExperimentalTestApi::class)
 class RecordUiTest {
     @Test
@@ -23,5 +26,12 @@ class RecordUiTest {
     fun aFailedSaveIsShown() = runComposeUiTest {
         setContent { AppPreview { RecordUi(RecordSamples.all.getValue("saveFailed")) } }
         onNodeWithText("Couldn't save the recording on this device", substring = true).assertExists()
+    }
+
+    @Test
+    fun theDescriptionIsShownToEdit() = runComposeUiTest {
+        setContent { AppPreview { RecordUi(RecordSamples.variants.getValue("full")) } }
+        onNodeWithText("Description").assertExists()
+        onNodeWithText("Dusty climbs, then a tailwind home.").assertExists()
     }
 }

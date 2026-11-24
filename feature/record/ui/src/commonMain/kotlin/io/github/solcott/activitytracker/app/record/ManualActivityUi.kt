@@ -13,6 +13,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.text.LabelText
+import io.github.solcott.activitytracker.app.ui.ActivityDescriptionField
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
@@ -52,6 +53,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
                 label = stringResource(Res.string.field_title),
                 modifier = Modifier.fillMaxWidth(),
             )
+            ActivityDescriptionField(state.description, enabled = !state.saving)
             UnitSystemPicker(state.units, { state.eventSink(ManualActivityEvent.UnitsChanged(it)) }, Modifier.fillMaxWidth())
             AppTextField(
                 state.distance,

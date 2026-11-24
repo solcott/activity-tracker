@@ -48,6 +48,7 @@ object RecordSamples {
             elevationGainMeters = if (status == RecordingState.Status.Idle) 0.0 else 180.0,
             type = typeField,
             title = textFieldStateOf(),
+            description = textFieldStateOf(),
             hasPermission = true,
             saving = false,
             error = null,
@@ -66,8 +67,8 @@ object RecordSamples {
             )
 
     /**
-     * The states beyond these the native screen draws: before location access is given, a paused gravel ride with a title, gear and
-     * categories ready to finish, finishing it, a refused finish, and the same run in imperial units.
+     * The states beyond these the native screen draws: before location access is given, a paused gravel ride with a title, description,
+     * gear and categories ready to finish, finishing it, a refused finish, and the same run in imperial units.
      */
     val variants: Map<String, RecordState>
         get() {
@@ -76,6 +77,7 @@ object RecordSamples {
                     .copy(
                         type = ActivityTypeField(ActivityType(Sport.RIDE, SubSport.GRAVEL), typeField.quickTypes),
                         title = textFieldStateOf("Gravel loop"),
+                        description = textFieldStateOf("Dusty climbs, then a tailwind home."),
                         visibility = FormSamples.visibility,
                         gear = FormSamples.gear,
                     )
@@ -95,6 +97,7 @@ object ManualActivitySamples {
         ManualActivityState(
             type = typeField,
             title = textFieldStateOf("Evening Ride"),
+            description = textFieldStateOf(),
             distance = textFieldStateOf("24.5"),
             durationMinutes = textFieldStateOf(duration),
             temperature = textFieldStateOf(),
@@ -119,13 +122,17 @@ object ManualActivitySamples {
                     ),
             )
 
-    /** The states beyond these the native form draws: a gravel ride with gear and categories, in imperial, saving, and its type sheet. */
+    /**
+     * The states beyond these the native form draws: a gravel ride with a description, gear and categories, in imperial, saving, and its
+     * type sheet.
+     */
     val variants: Map<String, ManualActivityState>
         get() {
             val full =
                 state("55", visibility = FormSamples.visibility)
                     .copy(
                         type = ActivityTypeField(ActivityType(Sport.RIDE, SubSport.GRAVEL), typeField.quickTypes),
+                        description = textFieldStateOf("Easy spin along the river."),
                         temperature = textFieldStateOf("18"),
                         gear = FormSamples.gear,
                     )

@@ -46,6 +46,7 @@ fun RecordPresenter(
     val did = profiles.did
     val recording by recorder.state.collectAsState()
     val title = rememberTextFieldState()
+    val description = rememberTextFieldState()
     var hasPermission by remember { mutableStateOf(tracker.hasPermission()) }
     var error by remember { mutableStateOf<UiError?>(null) }
     var now by remember { mutableStateOf(clock.now()) }
@@ -74,6 +75,7 @@ fun RecordPresenter(
         saveFailed = recording.saveFailed,
         type = type.field,
         title = title,
+        description = description,
         hasPermission = hasPermission,
         saving = saving,
         error = error,
@@ -117,7 +119,7 @@ fun RecordPresenter(
                                         result,
                                         type.selected,
                                         title.text.toString().ifBlank { null },
-                                        null,
+                                        description.text.toString().trim().ifEmpty { null },
                                     )
                                     .copy(gear = gear.selected)
                                     .withVisibility(visibility.current),

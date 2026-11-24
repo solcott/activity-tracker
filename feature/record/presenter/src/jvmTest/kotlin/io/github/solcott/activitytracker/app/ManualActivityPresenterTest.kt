@@ -75,6 +75,45 @@ class ManualActivityPresenterTest {
     }
 
     @Test
+    fun descriptionIsSavedTrimmed() = runTest {
+        val record = saveWithDescription("  Easy spin along the river.\n")
+        assertEquals("Easy spin along the river.", record.getValue("description").jsonPrimitive.content)
+    }
+
+    @Test
+    fun blankDescriptionSavesNone() = runTest {
+        val record = saveWithDescription("  \n ")
+        assertFalse("description" in record, "a blank description leaves the field out")
+    }
+
+    /** Saves a 30-minute entry with [description] and returns the record put. */
+    private suspend fun saveWithDescription(description: String): JsonObject {
+        val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf(
+            {
+                ManualActivityPresenter(
+                    navigator,
+                    repos.activities,
+                    repos.units,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    Clock.System,
+                )
+            },
+        ) {
+            val initial = awaitItem()
+            initial.description.setTextAndPlaceCursorAtEnd(description)
+            initial.durationMinutes.setTextAndPlaceCursorAtEnd("30")
+            initial.eventSink(ManualActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        return fixture.putRecords.single()
+    }
+
+    @Test
     fun typingADurationPublishesAStateThatCanSave() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
