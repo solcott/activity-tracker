@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.profile
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.yearsUntil
 
@@ -11,16 +12,20 @@ import kotlinx.datetime.yearsUntil
  * uses (as UTC midnight millis).
  */
 object CalendarDate {
-    private const val MILLIS_PER_DAY = 86_400_000L
-
     /** Days since 1970-01-01, or null when [date] isn't a real `YYYY-MM-DD` date. */
     fun toEpochDay(date: String): Long? = parse(date)?.toEpochDays()
 
     fun fromEpochDay(epochDay: Long): String = LocalDate.fromEpochDays(epochDay).toString()
 
-    fun fromPickerMillis(utcMillis: Long): String = fromEpochDay(utcMillis.floorDiv(MILLIS_PER_DAY))
+    fun fromPickerMillis(utcMillis: Long): String = pickedDate(utcMillis).toString()
 
-    fun toPickerMillis(date: String): Long? = toEpochDay(date)?.let { it * MILLIS_PER_DAY }
+    fun toPickerMillis(date: String): Long? = parse(date)?.let(::pickerMillis)
+
+    /** [date] as a date picker holds it (Material's): UTC midnight at its start, in milliseconds. */
+    fun pickerMillis(date: LocalDate): Long = date.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+
+    /** The day a date picker's [utcMillis] (UTC midnight at its start, or any moment of it) stand for. */
+    fun pickedDate(utcMillis: Long): LocalDate = Instant.fromEpochMilliseconds(utcMillis).toLocalDateTime(TimeZone.UTC).date
 
     /** [date] as a calendar day, for a date control that takes one (the native iOS form's); null when it isn't a real `YYYY-MM-DD` date. */
     fun toLocalDate(date: String): LocalDate? = parse(date)

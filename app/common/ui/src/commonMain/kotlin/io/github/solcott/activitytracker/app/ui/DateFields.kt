@@ -15,16 +15,15 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.DateBounds
+import io.github.solcott.activitytracker.data.profile.CalendarDate
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
 
-private const val MILLIS_PER_DAY = 86_400_000L
+/** [this] as the date picker's milliseconds: UTC midnight at its start ([CalendarDate.pickerMillis]). */
+fun LocalDate.toPickerMillis(): Long = CalendarDate.pickerMillis(this)
 
-/** [this] as the date picker's milliseconds: UTC midnight at its start. */
-fun LocalDate.toPickerMillis(): Long = toEpochDays() * MILLIS_PER_DAY
-
-/** The day the date picker's [millis] (UTC midnight at its start) stand for. */
-fun pickedDate(millis: Long): LocalDate = LocalDate.fromEpochDays(millis.floorDiv(MILLIS_PER_DAY))
+/** The day the date picker's [millis] (UTC midnight at its start) stand for ([CalendarDate.pickedDate]). */
+fun pickedDate(millis: Long): LocalDate = CalendarDate.pickedDate(millis)
 
 /**
  * A past date, shown as [shown], picked from a calendar that opens on [pickedMillis] (the picker's milliseconds, null for today) by the
