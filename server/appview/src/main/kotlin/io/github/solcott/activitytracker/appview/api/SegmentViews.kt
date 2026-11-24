@@ -374,7 +374,8 @@ class SegmentViews(
 
     /** A segment's trail reports [viewer] is listed, newest first (segments/trail-reports). */
     suspend fun trailReports(viewer: Did?, params: GetTrailReports.Params): GetTrailReports.Output = db.tx {
-        val segment = servedSegment(viewer, params.segment.value)
+        val segment = params.segment.value
+        requireServedPlace(SegmentPlace, viewer, segment)
         val limit = Paging.clamp(params.limit)
         val rows =
             TrailReports.selectAll()
@@ -398,7 +399,8 @@ class SegmentViews(
         val path = params.path
         val where =
             when {
-                segment != null && path == null -> TrailReports.segmentUri eq servedSegment(viewer, segment.value)
+                segment != null && path == null ->
+                    TrailReports.segmentUri eq segment.value.also { requireServedPlace(SegmentPlace, viewer, it) }
                 path != null && segment == null -> TrailReports.segmentUri inList listedOnPath(viewer, path.value)
                 else -> invalidRequest("Give exactly one of segment and path")
             }
@@ -432,11 +434,6 @@ class SegmentViews(
             photos = trailPhotos(onPath, viewer, PATH_PHOTOS, null, avatars, media).photos,
         )
     }
-
-    /** [uri] if it's a segment served to [viewer], else `NotFound`. */
-    private fun JdbcTransaction.servedSegment(viewer: Did?, uri: String): String =
-        Segments.select(Segments.uri).where { (Segments.uri eq uri) and SegmentPlace.servedTo(viewer) }.firstOrNull()?.get(Segments.uri)
-            ?: throw notFound("Segment not found")
 
     /** The segments [path] lists to [viewer], as [path] (the Trail page) does; `NotFound` for a path that isn't indexed. */
     private fun JdbcTransaction.listedOnPath(viewer: Did?, path: String): List<String> {
