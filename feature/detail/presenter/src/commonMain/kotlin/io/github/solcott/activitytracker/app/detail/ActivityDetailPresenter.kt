@@ -38,6 +38,7 @@ import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.segment.CreateSegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen

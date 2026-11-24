@@ -11,12 +11,12 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -58,10 +58,7 @@ fun MediaGalleryPresenter(
     val shown = loaded.data?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }
     val items = remember(shown) { shown?.mediaItems() ?: persistentListOf() }
     val flights = rememberSingleFlight()
-    val reporting =
-        rememberReporting(reports) { author, _ ->
-            flights.launchAction(author, UiError.Kind.UpdateBlock, { error = it }) { blocks.setBlocked(author, true) }
-        }
+    val reporting = rememberReporting(reports) { author, _ -> flights.blockReported(author, blocks) { error = it } }
     val shownPage = page.coerceIn(0, (items.size - 1).coerceAtLeast(0))
     val canReport = shown != null && shown.author.did != profiles.did && items.isNotEmpty()
     val (takenDown, blur) = shown.moderation(profiles.did)

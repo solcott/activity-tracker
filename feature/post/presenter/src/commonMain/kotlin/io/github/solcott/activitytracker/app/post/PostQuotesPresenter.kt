@@ -10,10 +10,10 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
 import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -57,13 +57,7 @@ fun PostQuotesPresenter(
     val page = rememberRetainedPaging(screen, idOf = PostView::uri) { cursor -> flow { emit(feed.quotesPage(uri, cursor)) } }
     var error by rememberRetained { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
-    val reporting =
-        rememberReporting(reports) { author, _ ->
-            flights.launchAction(BlockQuoteAuthor, UiError.Kind.UpdateBlock, { error = it }) {
-                blocks.setBlocked(author, true)
-                error = null
-            }
-        }
+    val reporting = rememberReporting(reports) { author, _ -> flights.blockReported(author, blocks) { error = it } }
     val quoting = rememberQuoting(quotes) { error = it }
     val postEvents = rememberPostEventSink(navigator, names, activities, reporting, quoting) { error = it }
     val nameChanges by names.changes.collectAsState()
@@ -103,8 +97,5 @@ fun PostQuotesPresenter(
         }
     }
 }
-
-/** The single-flight key of blocking a quote's author from the report sheet. */
-private object BlockQuoteAuthor
 
 private const val QUOTED_NOT_FOUND = "NotFound"

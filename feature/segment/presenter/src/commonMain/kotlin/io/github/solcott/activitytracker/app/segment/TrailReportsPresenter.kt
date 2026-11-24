@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberShownName
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
@@ -81,10 +82,7 @@ fun TrailReportsPresenter(
             }
         }
 
-    val reporting =
-        rememberReporting(moderation) { author, _ ->
-            flights.launchAction("block", UiError.Kind.UpdateBlock, onError) { blocks.setBlocked(author, true) }
-        }
+    val reporting = rememberReporting(moderation) { author, _ -> flights.blockReported(author, blocks) { error = it } }
 
     /** The row at [uri] shown in the list, if [own] says whose it is. */
     fun find(uri: String, own: Boolean) = shown.items.firstOrNull { it.uri == uri }?.takeIf { it.own == own }

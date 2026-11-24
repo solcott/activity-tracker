@@ -19,13 +19,13 @@ import io.github.solcott.activitytracker.app.interactions.rememberCommentCountMo
 import io.github.solcott.activitytracker.app.interactions.rememberComments
 import io.github.solcott.activitytracker.app.interactions.rememberLikesList
 import io.github.solcott.activitytracker.app.interactions.rememberRepostsList
-import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
 import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -96,13 +96,7 @@ fun PostPagePresenter(
 
     // The block's first page, loaded again after each comment action on the Comments screen.
     val comments = rememberComments(uri, profiles.did, loadKey + rememberCommentChanges(uri, feed.commentMoves), feed)
-    val reporting =
-        rememberReporting(reports) { author, _ ->
-            flights.launchAction(BlockReportedAuthor, UiError.Kind.UpdateBlock, { error = it }) {
-                blocks.setBlocked(author, true)
-                error = null
-            }
-        }
+    val reporting = rememberReporting(reports) { author, _ -> flights.blockReported(author, blocks) { error = it } }
     // Deleting the page's own quote leaves the page, which would only say it's gone.
     val quoting = rememberQuoting(quotes, onDelete = { if (it.uri == uri) navigator.pop() }) { error = it }
     val postEvents = rememberPostEventSink(navigator, names, activities, reporting, quoting) { error = it }
@@ -150,8 +144,5 @@ fun PostPagePresenter(
         eventSink = sink,
     )
 }
-
-/** The single-flight key of blocking the post's author from the report sheet. */
-private object BlockReportedAuthor
 
 private const val NOT_FOUND = "NotFound"

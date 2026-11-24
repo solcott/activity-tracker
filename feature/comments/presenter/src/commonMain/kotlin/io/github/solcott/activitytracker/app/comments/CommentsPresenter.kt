@@ -15,9 +15,9 @@ import io.github.solcott.activitytracker.app.interactions.CommentEvent
 import io.github.solcott.activitytracker.app.interactions.CommentsState
 import io.github.solcott.activitytracker.app.interactions.rememberCommentCountMoved
 import io.github.solcott.activitytracker.app.interactions.rememberComments
-import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -82,10 +82,7 @@ fun CommentsPresenter(
             if (target is ReportTarget.Comment && current != null) {
                 actions.on(CommentEvent.BlockAuthor(target.uri), current.interaction)
             } else {
-                flights.launchAction(BlockReportedAuthor, UiError.Kind.UpdateBlock, { error = it }) {
-                    blocks.setBlocked(author, true)
-                    error = null
-                }
+                flights.blockReported(author, blocks) { error = it }
             }
         }
 
@@ -134,6 +131,3 @@ private class Subject(val interaction: InteractionSubject, val author: ProfileVi
         fun of(post: PostView) = Subject(post.asSubject(), post.author, post.commentCount, title = null)
     }
 }
-
-/** The single-flight key of blocking a reported account from the report sheet. */
-private object BlockReportedAuthor

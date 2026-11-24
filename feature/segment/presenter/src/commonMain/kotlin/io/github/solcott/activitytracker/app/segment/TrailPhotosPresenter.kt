@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
@@ -69,10 +70,7 @@ fun TrailPhotosPresenter(
     /** The next page, or the one that failed again. */
     fun loadMore() = if (page.state.append is LoadStatus.Failed) page.retry() else page.loadMore()
 
-    val reporting =
-        rememberReporting(moderation) { author, _ ->
-            flights.launchAction("block", UiError.Kind.UpdateBlock, { error = it }) { blocks.setBlocked(author, true) }
-        }
+    val reporting = rememberReporting(moderation) { author, _ -> flights.blockReported(author, blocks) { error = it } }
 
     val now = clock.now()
     return TrailPhotosState(

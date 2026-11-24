@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
@@ -105,10 +106,7 @@ fun FeedPresenter(
             }
         }
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
-    val reporting =
-        rememberReporting(reports) { author, _ ->
-            flights.launchAction(FeedEvent.Post::class, UiError.Kind.UpdateBlock, { error = it }) { blocks.setBlocked(author, true) }
-        }
+    val reporting = rememberReporting(reports) { author, _ -> flights.blockReported(author, blocks) { error = it } }
     val quoting = rememberQuoting(quotes) { error = it }
     val postEvents = rememberPostEventSink(navigator, names, activities, reporting, quoting) { error = it }
     // Asked once: answering saves the setting, which hides the card here and on every device. A failed save leaves it to ask again.
