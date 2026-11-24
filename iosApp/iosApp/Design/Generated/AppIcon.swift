@@ -41,6 +41,7 @@ enum AppIcon: CaseIterable {
     case crown
     case repost
     case quote
+    case comment
     case star
     case feed
     case you
@@ -86,6 +87,7 @@ enum AppIcon: CaseIterable {
         case .crown: "crown.fill"
         case .repost: "arrow.2.squarepath"
         case .quote: "quote.bubble"
+        case .comment: "bubble.left"
         case .star: "star"
         case .feed: "house"
         case .you: "person"

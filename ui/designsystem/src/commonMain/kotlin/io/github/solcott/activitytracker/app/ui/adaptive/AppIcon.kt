@@ -86,6 +86,7 @@ enum class AppIcon(
     Crown(MaterialIcons.Crown, "crown.fill"),
     Repost(MaterialIcons.Repeat, "arrow.2.squarepath"),
     Quote(MaterialIcons.FormatQuote, "quote.bubble"),
+    Comment(MaterialIcons.ChatBubbleOutline, "bubble.left"),
     Star(MaterialIcons.StarBorder, "star", Icons.Filled.Star, "star.fill"),
     Feed(Icons.Outlined.Home, "house", Icons.Filled.Home, "house.fill"),
     You(Icons.Outlined.Person, "person", Icons.Filled.Person, "person.fill"),
