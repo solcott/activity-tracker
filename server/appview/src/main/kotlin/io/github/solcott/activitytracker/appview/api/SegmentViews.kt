@@ -383,23 +383,98 @@ class SegmentViews(
     /**
      * Each of [segments]' default leaderboard, all time and everyone, as [leaderboard] serves it with no filters: its type, first entry and
      * [viewer]'s own (segments/segment-leaderboards); a segment with no entries is left out. [segments] are active runs already served.
+     * Every segment is read at once: one grouped query for each athlete's best per segment and type (which also picks each board as
+     * [boardsOf] does), one for the efforts shown, then their views and profiles, so a long trail costs no more round trips than a short
+     * one. Ranks are counted from the same bests, as [entries] counts them.
      */
-    private fun JdbcTransaction.leadersOf(viewer: Did?, segments: List<ResultRow>): List<GetPath.SegmentLeader> =
-        segments.mapNotNull { row ->
-            val uri = row[Segments.uri]
-            val served = boardsOf(viewer, uri, null).first ?: return@mapNotNull null
-            val board = boardOf(viewer, uri, served, since = null, following = false)
-            val first =
-                bests(board, Op.TRUE)
-                    .orderBy(BEST to SortOrder.ASC, SegmentEfforts.authorDid to SortOrder.ASC)
-                    .limit(1)
-                    .firstNotNullOfOrNull { r -> r[BEST]?.let { r[SegmentEfforts.authorDid] to it } } ?: return@mapNotNull null
-            val leader = entries(viewer, board, listOf(first)).singleOrNull() ?: return@mapNotNull null
-            val own = viewer?.let { me ->
-                bests(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.get(BEST)?.let { me.value to it }
-            }
-            GetPath.SegmentLeader(AtUri(uri), served, leader, own?.let { entries(viewer, board, listOf(it)).singleOrNull() })
+    private fun JdbcTransaction.leadersOf(viewer: Did?, segments: List<ResultRow>): List<GetPath.SegmentLeader> {
+        val uris = segments.map { it[Segments.uri] }
+        if (uris.isEmpty()) return emptyList()
+        // What boardOf picks for every segment and type at once, all time and everyone.
+        val visible = (SegmentEfforts.segmentUri inList uris) and effortsVisibleTo(viewer) and rankable()
+        val picks = pathBests(visible).groupBy { it.board.segment }.mapNotNull { (_, rows) -> boardPick(viewer, rows) }
+        val wanted =
+            picks.flatMap { pick -> listOfNotNull(pick.board to pick.leader.first, pick.own?.let { pick.board to it.first }) }.toSet()
+        val chosen = chosenEfforts(visible, wanted)
+        val efforts = effortViews(viewer, SegmentEfforts.id inList chosen.values.distinct()).associateBy(::effortId)
+        val profiles = basicProfiles(wanted.map { it.second }.distinct(), avatars)
+        fun entry(board: BoardKey, athlete: String, rank: Int): LeaderboardEntry? =
+            chosen[board to athlete]?.let(efforts::get)?.let { LeaderboardEntry(rank, profiles[athlete] ?: unknownProfile(athlete), it) }
+        val byUri = picks.associateBy { it.board.segment }
+        return uris.mapNotNull { uri ->
+            val pick = byUri[uri] ?: return@mapNotNull null
+            val leader = entry(pick.board, pick.leader.first, 1) ?: return@mapNotNull null
+            val own = pick.own?.let { (me, _, rank) -> entry(pick.board, me, rank) }
+            GetPath.SegmentLeader(AtUri(uri), pick.board.type, leader, own)
         }
+    }
+
+    /** Each athlete's best and effort count on [visible] efforts, per segment, board type and sport: one grouped query for every board. */
+    private fun pathBests(visible: Op<Boolean>): List<PathBest> {
+        val count = SegmentEfforts.id.count()
+        return rankedEfforts()
+            .select(SegmentEfforts.segmentUri, SegmentEfforts.eBike, Activities.sport, SegmentEfforts.authorDid, BEST, count)
+            .where { visible }
+            .groupBy(SegmentEfforts.segmentUri, SegmentEfforts.eBike, Activities.sport, SegmentEfforts.authorDid)
+            .mapNotNull { r -> r[BEST]?.let { best -> PathBest(boardKeyOf(r), r[SegmentEfforts.authorDid], best, r[count]) } }
+            .filter { it.board.type in SegmentBoard.all }
+    }
+
+    /**
+     * One segment's board from its [rows] ([pathBests]): the busiest type, ties by token, as [boardsOf] serves it, its leader, and
+     * [viewer]'s own best with its rank as [entries] counts it; null when it has none.
+     */
+    private fun boardPick(viewer: Did?, rows: List<PathBest>): BoardPick? {
+        val served =
+            rows
+                .groupBy { it.board }
+                .mapValues { (_, r) -> r.sumOf { it.efforts } }
+                .entries
+                .sortedWith(compareByDescending<Map.Entry<BoardKey, Long>> { it.value }.thenBy { it.key.type })
+                .firstOrNull()
+                ?.key ?: return null
+        // Each athlete's best on that board: an e-bike board takes every sport, so an athlete may have several rows.
+        val athletes = rows.filter { it.board == served }.groupBy { it.athlete }.mapValues { (_, r) -> r.minOf { it.best } }
+        val leader = athletes.entries.minWith(compareBy({ it.value }, { it.key }))
+        val own = viewer?.value?.let { me -> athletes[me]?.let { best -> Triple(me, best, athletes.values.count { it < best } + 1) } }
+        return BoardPick(served, leader.key to leader.value, own)
+    }
+
+    /** For each of [wanted] (a board and an athlete), the effort shown: the earliest of their fastest on it, as [entries] chooses it. */
+    private fun chosenEfforts(visible: Op<Boolean>, wanted: Set<Pair<BoardKey, String>>): Map<Pair<BoardKey, String>, String> {
+        if (wanted.isEmpty()) return emptyMap()
+        return rankedEfforts()
+            .select(
+                SegmentEfforts.id,
+                SegmentEfforts.segmentUri,
+                SegmentEfforts.eBike,
+                Activities.sport,
+                SegmentEfforts.authorDid,
+                SegmentEfforts.elapsedS,
+                SegmentEfforts.startedOn,
+            )
+            .where { visible and (SegmentEfforts.authorDid inList wanted.map { it.second }.distinct()) }
+            .groupBy { r -> boardKeyOf(r) to r[SegmentEfforts.authorDid] }
+            .filterKeys { it in wanted }
+            .mapValues { (_, rows) ->
+                rows
+                    .minWith(compareBy({ it[SegmentEfforts.elapsedS] }, { it[SegmentEfforts.startedOn] }, { it[SegmentEfforts.id] }))[
+                        SegmentEfforts.id]
+            }
+    }
+
+    /** The board an effort row counts on: its segment, and [SegmentBoard.E_BIKE] or its activity's sport. */
+    private fun boardKeyOf(r: ResultRow) =
+        BoardKey(r[SegmentEfforts.segmentUri], if (r[SegmentEfforts.eBike]) SegmentBoard.E_BIKE else r[Activities.sport])
+
+    /** One segment's board: the segment and its [SegmentBoard] type. */
+    private data class BoardKey(val segment: String, val type: String)
+
+    /** An [athlete]'s [best] time and how many [efforts] on a [board], from one sport's rows. */
+    private data class PathBest(val board: BoardKey, val athlete: String, val best: Long, val efforts: Long)
+
+    /** A segment's served [board], its [leader] (athlete and best), and the viewer's [own] athlete, best and rank. */
+    private data class BoardPick(val board: BoardKey, val leader: Pair<String, Long>, val own: Triple<String, Long, Int>?)
 
     /**
      * [path]'s sections holding any of [listed], in its record's order, each with only those, in [listed]'s order (segments/segment-paths):
