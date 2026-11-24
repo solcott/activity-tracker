@@ -76,9 +76,9 @@ fun TrailReportsUi(state: TrailReportsState, modifier: Modifier = Modifier) {
 @Composable
 private fun ReportRow(row: TrailReportRow, heading: AppText?, state: TrailReportsState) {
     Column {
-        heading?.let { heading ->
+        heading?.let { text ->
             Text(
-                heading.string(),
+                text.string(),
                 Modifier.padding(top = 16.dp, bottom = 4.dp),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
