@@ -18,11 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.moderation.ModerationTexts
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.label_hidden_message
@@ -51,29 +53,65 @@ fun BlurredMedia(
     compact: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val shown = reason?.takeUnless { revealed }
+    BlurredMedia(reason?.let(ModerationTexts::blur), revealed, onReveal, modifier, compact = compact, content = content)
+}
+
+/**
+ * [content] blurred under [label] (a label's reason, chosen in Kotlin) until [revealed], drawn as [cover] says, with the reason and Show on
+ * top, or nothing on top when [compact]; tapping reveals it. Without a [label] it's [content] as is.
+ */
+@Composable
+fun BlurredMedia(
+    label: AppText?,
+    revealed: Boolean,
+    onReveal: () -> Unit,
+    modifier: Modifier = Modifier,
+    cover: BlurCover = BlurCover.Default,
+    compact: Boolean = false,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val shown = label?.takeUnless { revealed }
+    val radius = if (cover == BlurCover.Thumbnail) THUMB_BLUR_RADIUS else BLUR_RADIUS
     Box(modifier, contentAlignment = Alignment.Center) {
         // Covered, the photo is neither seen nor reachable: the scrim on top takes the tap, which reveals rather than opens it.
-        Box(if (shown != null) Modifier.fillMaxSize().blur(BLUR_RADIUS).clearAndSetSemantics {} else Modifier.fillMaxSize()) { content() }
+        Box(if (shown != null) Modifier.fillMaxSize().blur(radius).clearAndSetSemantics {} else Modifier.fillMaxSize()) { content() }
         if (shown != null) {
+            val scrim =
+                when (cover) {
+                    BlurCover.Default -> Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = SCRIM_ALPHA))
+                    BlurCover.Thumbnail -> Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = THUMB_SCRIM_ALPHA))
+                    BlurCover.OnBlack -> Modifier
+                }
+            val thumbnail = cover == BlurCover.Thumbnail
             Column(
-                Modifier.fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = SCRIM_ALPHA))
-                    .clickable(role = Role.Button, onClick = onReveal),
+                Modifier.fillMaxSize().then(scrim).clickable(role = Role.Button, onClick = onReveal),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(if (thumbnail) 2.dp else 4.dp, Alignment.CenterVertically),
             ) {
                 if (!compact) {
-                    Text(blurLabel(shown), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+                    val typography = MaterialTheme.typography
+                    Text(
+                        shown.string(),
+                        color = if (cover == BlurCover.OnBlack) Color.White else Color.Unspecified,
+                        style = if (thumbnail) typography.labelSmall else typography.labelLarge,
+                        textAlign = TextAlign.Center,
+                    )
                     Text(
                         stringResource(Res.string.label_show),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        style = if (thumbnail) typography.labelSmall else typography.labelMedium,
+                        color = if (cover == BlurCover.OnBlack) Color.White else MaterialTheme.colorScheme.primary,
                     )
                 }
             }
         }
     }
+}
+
+/** How [BlurredMedia] covers what it blurs: over a photo or avatar, over a small thumbnail, or a photo full screen on black. */
+enum class BlurCover {
+    Default,
+    Thumbnail,
+    OnBlack,
 }
 
 /**
@@ -116,8 +154,12 @@ fun HiddenCard(onShow: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 private val BLUR_RADIUS = 24.dp
+private val THUMB_BLUR_RADIUS = 16.dp
 
 /** Opaque enough to hide the photo where blur isn't drawn. */
 private const val SCRIM_ALPHA = 0.85f
+
+/** A thumbnail's scrim lets more of its small blur through. */
+private const val THUMB_SCRIM_ALPHA = 0.7f
 private val CHIP_SHAPE = RoundedCornerShape(8.dp)
 private val CARD_SHAPE = RoundedCornerShape(12.dp)

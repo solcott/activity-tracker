@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,17 +24,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.report.ReportTexts
 import io.github.solcott.activitytracker.app.report.ReportingHost
+import io.github.solcott.activitytracker.app.ui.BlurCover
+import io.github.solcott.activitytracker.app.ui.BlurredMedia
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -49,7 +47,6 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_more
 import io.github.solcott.activitytracker.composeApp.resources.details_photo
 import io.github.solcott.activitytracker.composeApp.resources.media_close
-import io.github.solcott.activitytracker.composeApp.resources.trail_photo_hidden
 import io.github.solcott.activitytracker.composeApp.resources.trail_photo_remove
 import io.github.solcott.activitytracker.composeApp.resources.trail_photo_see_report
 import io.github.solcott.activitytracker.composeApp.resources.trail_photo_see_segment
@@ -112,24 +109,13 @@ private fun Pager(state: TrailPhotosState) {
 @Composable
 private fun Photo(page: TrailPhotoPage) {
     var revealed by remember(page.url) { mutableStateOf(false) }
-    val hidden = page.blur?.takeUnless { revealed }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    BlurredMedia(page.blur, revealed, onReveal = { revealed = true }, Modifier.fillMaxSize(), cover = BlurCover.OnBlack) {
         AsyncImage(
             page.url,
             contentDescription = page.alt ?: stringResource(Res.string.details_photo),
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize().then(if (hidden != null) Modifier.blur(BLUR_RADIUS).clearAndSetSemantics {} else Modifier),
+            modifier = Modifier.fillMaxSize(),
         )
-        if (hidden != null) {
-            Column(
-                Modifier.fillMaxSize().clickable(role = Role.Button) { revealed = true },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
-            ) {
-                Text(hidden.string(), color = Color.White, style = MaterialTheme.typography.labelLarge)
-                Text(stringResource(Res.string.trail_photo_hidden), color = Color.White, style = MaterialTheme.typography.labelMedium)
-            }
-        }
     }
 }
 
@@ -181,6 +167,5 @@ private fun PhotoMenu(page: TrailPhotoPage, state: TrailPhotosState) {
     }
 }
 
-private val BLUR_RADIUS = 24.dp
 private const val CAPTION_ALPHA = 0.55f
 private const val MUTED_ALPHA = 0.8f

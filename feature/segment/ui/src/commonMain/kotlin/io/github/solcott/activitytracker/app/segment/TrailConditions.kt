@@ -23,17 +23,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.ui.BlurCover
+import io.github.solcott.activitytracker.app.ui.BlurredMedia
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -46,7 +45,6 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.details_photo
 import io.github.solcott.activitytracker.composeApp.resources.trail_add_photos
 import io.github.solcott.activitytracker.composeApp.resources.trail_conditions_title
-import io.github.solcott.activitytracker.composeApp.resources.trail_photo_hidden
 import io.github.solcott.activitytracker.composeApp.resources.trail_report_conditions
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.stringResource
@@ -187,36 +185,20 @@ internal fun PhotoStrip(
 @Composable
 internal fun PhotoThumbTile(photo: PhotoThumb, onOpen: () -> Unit, modifier: Modifier = Modifier, cover: AppText? = null) {
     var revealed by remember(photo.url) { mutableStateOf(false) }
-    val hidden = photo.blur?.takeUnless { revealed }
-    Box(modifier.clip(THUMB_SHAPE).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+    BlurredMedia(
+        photo.blur,
+        revealed,
+        onReveal = { revealed = true },
+        modifier.clip(THUMB_SHAPE).background(MaterialTheme.colorScheme.surfaceVariant),
+        cover = BlurCover.Thumbnail,
+    ) {
         AsyncImage(
             photo.url,
             contentDescription = photo.alt ?: stringResource(Res.string.details_photo),
-            modifier =
-                Modifier.fillMaxSize()
-                    .then(if (hidden != null) Modifier.blur(BLUR_RADIUS).clearAndSetSemantics {} else Modifier)
-                    .clickable(role = Role.Image, onClick = onOpen)
-                    .handCursor(),
+            modifier = Modifier.fillMaxSize().clickable(role = Role.Image, onClick = onOpen).handCursor(),
             contentScale = ContentScale.Crop,
         )
-        if (hidden != null) {
-            Column(
-                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = SCRIM_ALPHA)).clickable(
-                    role = Role.Button,
-                ) {
-                    revealed = true
-                },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
-            ) {
-                Text(hidden.string(), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
-                Text(
-                    stringResource(Res.string.trail_photo_hidden),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        } else if (cover != null) {
+        if (cover != null && (photo.blur == null || revealed)) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = COVER_ALPHA)).clickable(onClick = onOpen), Alignment.Center) {
                 Text(cover.string(), style = MaterialTheme.typography.titleMedium, color = Color.White)
             }
@@ -229,6 +211,4 @@ internal const val CONDITIONS_CARD_TAG = "conditions-card"
 
 internal val THUMB_SHAPE = RoundedCornerShape(8.dp)
 private val CHIP_SHAPE = RoundedCornerShape(8.dp)
-private val BLUR_RADIUS = 16.dp
-private const val SCRIM_ALPHA = 0.7f
 private const val COVER_ALPHA = 0.45f
