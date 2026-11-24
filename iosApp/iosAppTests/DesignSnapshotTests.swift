@@ -59,6 +59,10 @@ struct DesignSnapshotTests {
 
     @Test func icons() { assertAppSnapshot(of: DesignGallery.icons, size: panel, named: "icons") }
 
+    @Test func photos() { assertAppSnapshot(of: DesignGallery.photos, size: panel, named: "photos") }
+
+    @Test func likes() { assertAppSnapshot(of: DesignGallery.likes, size: CGSize(width: 393, height: 120), named: "likes") }
+
     @Test func messages() { assertAppSnapshot(of: DesignGallery.messages, size: panel, named: "messages") }
 
     @Test func emptyMessages() { assertAppSnapshot(of: DesignGallery.emptyMessages, size: panel, named: "emptyMessages") }
