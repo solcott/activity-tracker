@@ -1,13 +1,14 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
-import io.github.solcott.activitytracker.location.escapeXml
 import io.github.solcott.activitytracker.location.toXmlDecimal
 import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format.char
 import kotlinx.datetime.toLocalDateTime
 
 /**
@@ -25,69 +26,112 @@ object UddfWriter {
     const val UDDF_NS = "http://www.streit.cc/uddf/3.2/"
 
     /** [zone] gives the dive's local start; [createdAt] is the generator's time. */
-    fun write(activity: ExportActivity, zone: TimeZone, createdAt: Instant = Clock.System.now()): String = buildString {
-        val dive = activity.dive
-        val waypoints = waypoints(activity)
-        val switches = switches(activity, waypoints)
-        val alarms = alarms(activity, waypoints)
-        val site = SiteInfo(dive?.site, activity.points.firstOrNull { it.hasPosition })
-        appendLine("""<?xml version="1.0" encoding="UTF-8"?>""")
-        appendLine("""<uddf xmlns="$UDDF_NS" version="3.2.3">""")
-        appendLine("  <generator><name>activity-tracker</name><type>logbook</type><datetime>$createdAt</datetime></generator>")
-        activity.device?.let { appendDiver(it) }
-        if (site.present) appendSite(site)
-        val gases = gases(activity)
-        appendGases(gases)
-        appendLine("""  <profiledata><repetitiongroup id="rg"><dive id="dive">""")
-        appendBefore(activity, zone, site.present)
-        appendLine("    <samples>")
-        waypoints.forEachIndexed { index, point ->
-            appendWaypoint(
-                activity,
-                point,
-                switches[index],
-                alarms[index].orEmpty(),
-                closedCircuit = index == 0 && dive?.closedCircuit == true,
-            )
+    fun write(activity: ExportActivity, zone: TimeZone, createdAt: Instant = Clock.System.now()): String =
+        XmlOutput.document(UDDF_NS, "uddf") {
+            val dive = activity.dive
+            val waypoints = waypoints(activity)
+            val switches = switches(activity, waypoints)
+            val alarms = alarms(activity, waypoints)
+            val site = SiteInfo(dive?.site, activity.points.firstOrNull { it.hasPosition })
+            val tanks = dive?.tanks.orEmpty()
+            attr("version", "3.2.3")
+            line()
+            element("generator") {
+                leaf("name", "activity-tracker")
+                leaf("type", "logbook")
+                leaf("datetime", createdAt)
+            }
+            activity.device?.let { diver(it) }
+            if (site.present) site(site)
+            val gases = gases(activity)
+            gases(gases)
+            line()
+            element("profiledata") {
+                line()
+                element("repetitiongroup") {
+                    attr("id", "rg")
+                    line()
+                    element("dive") {
+                        attr("id", "dive")
+                        before(activity, zone, site.present)
+                        line()
+                        element("samples") {
+                            waypoints.forEachIndexed { index, point ->
+                                waypoint(
+                                    activity,
+                                    point,
+                                    switches[index],
+                                    alarms[index].orEmpty(),
+                                    closedCircuit = index == 0 && dive?.closedCircuit == true,
+                                )
+                            }
+                            endLine()
+                        }
+                        tanks.forEachIndexed { index, tank ->
+                            line()
+                            element("tankdata") {
+                                attr("id", tankId(index))
+                                tank.gas?.let { link(mixId(it.oxygen, it.helium)) }
+                                leaf("tankvolume", tank.volume?.let { (it / MILLILITERS_PER_CUBIC_METER).toXmlDecimal(VOLUME_DECIMALS) })
+                                leaf("tankpressurebegin", tank.startPressure?.let { it * PASCALS_PER_MILLIBAR })
+                                leaf("tankpressureend", tank.endPressure?.let { it * PASCALS_PER_MILLIBAR })
+                            }
+                        }
+                        gasOnlyTanks(gases, tanks.size, tanks.mapNotNull { it.gas?.pair() }.toSet())
+                        after(activity, waypoints)
+                        endLine()
+                    }
+                    endLine()
+                }
+                endLine()
+            }
         }
-        appendLine("    </samples>")
-        dive?.tanks.orEmpty().forEachIndexed { index, tank ->
-            append("""    <tankdata id="${tankId(index)}">""")
-            tank.gas?.let { append("""<link ref="${mixId(it.oxygen, it.helium)}"/>""") }
-            tank.volume?.let { append("<tankvolume>${(it / MILLILITERS_PER_CUBIC_METER).toXmlDecimal(VOLUME_DECIMALS)}</tankvolume>") }
-            tank.startPressure?.let { append("<tankpressurebegin>${it * PASCALS_PER_MILLIBAR}</tankpressurebegin>") }
-            tank.endPressure?.let { append("<tankpressureend>${it * PASCALS_PER_MILLIBAR}</tankpressureend>") }
-            appendLine("</tankdata>")
-        }
-        appendGasOnlyTanks(gases, dive?.tanks.orEmpty().size, dive?.tanks.orEmpty().mapNotNull { it.gas?.pair() }.toSet())
-        appendAfter(activity, waypoints)
-        appendLine("  </dive></repetitiongroup></profiledata>")
-        appendLine("</uddf>")
-    }
+
+    private fun XmlOutput.link(ref: String) = element("link") { attr("ref", ref) }
 
     private class SiteInfo(val name: String?, val position: ExportPoint?) {
         val present = name != null || position != null
     }
 
-    private fun StringBuilder.appendDiver(device: String) {
-        val name = device.escapeXml()
-        // `personal` and its names are required; the app doesn't keep the diver's, so they stay empty.
-        append("""  <diver><owner id="owner"><personal><firstname></firstname><lastname></lastname></personal><equipment>""")
-        append("""<divecomputer id="$COMPUTER_ID"><name>$name</name><model>$name</model></divecomputer>""")
-        appendLine("</equipment></owner></diver>")
+    private fun XmlOutput.diver(device: String) {
+        line()
+        element("diver") {
+            element("owner") {
+                attr("id", "owner")
+                // `personal` and its names are required; the app doesn't keep the diver's, so they stay empty.
+                element("personal") {
+                    element("firstname")
+                    element("lastname")
+                }
+                element("equipment") {
+                    element("divecomputer") {
+                        attr("id", COMPUTER_ID)
+                        leaf("name", device)
+                        leaf("model", device)
+                    }
+                }
+            }
+        }
     }
 
-    private fun StringBuilder.appendSite(site: SiteInfo) {
-        val name = site.name?.escapeXml().orEmpty()
-        append("""  <divesite><site id="$SITE_ID"><name>$name</name>""")
-        val lat = site.position?.latitude
-        val lon = site.position?.longitude
-        if (lat != null && lon != null) {
-            append("<geography><location>$name</location>")
-            append("<latitude>${lat.toXmlDecimal(COORDINATE_DECIMALS)}</latitude>")
-            append("<longitude>${lon.toXmlDecimal(COORDINATE_DECIMALS)}</longitude></geography>")
+    private fun XmlOutput.site(site: SiteInfo) {
+        val name = site.name.orEmpty()
+        line()
+        element("divesite") {
+            element("site") {
+                attr("id", SITE_ID)
+                leaf("name", name)
+                val lat = site.position?.latitude
+                val lon = site.position?.longitude
+                if (lat != null && lon != null) {
+                    element("geography") {
+                        leaf("location", name)
+                        leaf("latitude", lat.toXmlDecimal(COORDINATE_DECIMALS))
+                        leaf("longitude", lon.toXmlDecimal(COORDINATE_DECIMALS))
+                    }
+                }
+            }
         }
-        appendLine("</site></divesite>")
     }
 
     /** The record's gases in order of first use, then each a switch or a tank names that the record lacks (merged from another file). */
@@ -98,16 +142,21 @@ object UddfWriter {
         return (dive?.gases.orEmpty().map { it.pair() } + switched + tankGases.map { it.pair() }).distinct()
     }
 
-    private fun StringBuilder.appendGases(gases: List<Pair<Int, Int>>) {
+    private fun XmlOutput.gases(gases: List<Pair<Int, Int>>) {
         if (gases.isEmpty()) return
-        appendLine("  <gasdefinitions>")
-        for ((oxygen, helium) in gases) {
-            append("""    <mix id="${mixId(oxygen, helium)}"><name>${mixName(oxygen, helium)}</name>""")
-            append("<o2>${fraction(oxygen)}</o2>")
-            append("<he>${fraction(helium)}</he>")
-            appendLine("</mix>")
+        line()
+        element("gasdefinitions") {
+            for ((oxygen, helium) in gases) {
+                line()
+                element("mix") {
+                    attr("id", mixId(oxygen, helium))
+                    leaf("name", mixName(oxygen, helium))
+                    leaf("o2", fraction(oxygen))
+                    leaf("he", fraction(helium))
+                }
+            }
+            endLine()
         }
-        appendLine("  </gasdefinitions>")
     }
 
     /**
@@ -115,74 +164,89 @@ object UddfWriter {
      * a cylinder only from `tankdata` and drops a `switchmix` to a gas no cylinder holds. The schema wants `tankpressurebegin`, but a
      * made-up pressure would read back as one, so it's left out; our own import skips a tank with no pressure, volume or readings.
      */
-    private fun StringBuilder.appendGasOnlyTanks(gases: List<Pair<Int, Int>>, storedTanks: Int, inStoredTanks: Set<Pair<Int, Int>>) {
+    private fun XmlOutput.gasOnlyTanks(gases: List<Pair<Int, Int>>, storedTanks: Int, inStoredTanks: Set<Pair<Int, Int>>) {
         gases
             .filterNot { it in inStoredTanks }
             .forEachIndexed { index, (oxygen, helium) ->
-                appendLine("""    <tankdata id="${tankId(storedTanks + index)}"><link ref="${mixId(oxygen, helium)}"/></tankdata>""")
+                line()
+                element("tankdata") {
+                    attr("id", tankId(storedTanks + index))
+                    link(mixId(oxygen, helium))
+                }
             }
     }
 
-    private fun StringBuilder.appendBefore(activity: ExportActivity, zone: TimeZone, hasSite: Boolean) {
+    private fun XmlOutput.before(activity: ExportActivity, zone: TimeZone, hasSite: Boolean) {
         val dive = activity.dive
-        append("    <informationbeforedive>")
-        if (hasSite) append("""<link ref="$SITE_ID"/>""")
-        if (activity.device != null) append("""<link ref="$COMPUTER_ID"/>""")
-        dive?.diveNumber?.takeIf { it > 0 }?.let { append("<divenumber>$it</divenumber>") }
-        append("<datetime>${localDateTime(activity.startedAt.toLocalDateTime(zone))}</datetime>")
-        dive?.airTemperature?.let { append("<airtemperature>${kelvin(it)}</airtemperature>") }
-        dive?.surfaceInterval?.let { append("<surfaceintervalbeforedive><passedtime>$it</passedtime></surfaceintervalbeforedive>") }
-        dive?.altitude?.let { append("<altitude>$it</altitude>") }
-        appendLine("</informationbeforedive>")
+        line()
+        element("informationbeforedive") {
+            if (hasSite) link(SITE_ID)
+            if (activity.device != null) link(COMPUTER_ID)
+            leaf("divenumber", dive?.diveNumber?.takeIf { it > 0 })
+            leaf("datetime", LOCAL_DATE_TIME.format(activity.startedAt.toLocalDateTime(zone)))
+            leaf("airtemperature", dive?.airTemperature?.let { kelvin(it) })
+            dive?.surfaceInterval?.let { element("surfaceintervalbeforedive") { leaf("passedtime", it) } }
+            leaf("altitude", dive?.altitude)
+        }
     }
 
     /**
      * Children in the schema's sequence. `heartrate` isn't in the 3.2.1 schema; it's written after `divetime`, where the readers we know of
      * take it.
      */
-    private fun StringBuilder.appendWaypoint(
+    private fun XmlOutput.waypoint(
         activity: ExportActivity,
         p: ExportPoint,
         switchTo: Pair<Int, Int>?,
         alarms: List<String>,
         closedCircuit: Boolean,
     ) {
-        append("      <waypoint>")
-        alarms.forEach { append("<alarm>$it</alarm>") }
-        p.cnsPercent?.let { append("<cns>$it</cns>") }
-        p.nextStopDepthMeters?.let { depth ->
-            val duration = p.nextStopSeconds ?: 0
-            append("""<decostop kind="mandatory" decodepth="${depth.toXmlDecimal(METER_DECIMALS)}" duration="$duration"/>""")
+        line()
+        element("waypoint") {
+            alarms.forEach { leaf("alarm", it) }
+            leaf("cns", p.cnsPercent)
+            p.nextStopDepthMeters?.let { depth ->
+                element("decostop") {
+                    attr("kind", "mandatory")
+                    attr("decodepth", depth.toXmlDecimal(METER_DECIMALS))
+                    attr("duration", p.nextStopSeconds ?: 0)
+                }
+            }
+            leaf("calculatedpo2", p.ppO2Bar?.let { (it * PASCALS_PER_BAR).roundToLong() })
+            leaf("depth", (p.depthMeters ?: 0.0).toXmlDecimal(METER_DECIMALS))
+            leaf("divetime", second(activity, p))
+            leaf("heartrate", p.heartRate)
+            switchTo?.let { (oxygen, helium) -> element("switchmix") { attr("ref", mixId(oxygen, helium)) } }
+            val tankCount = activity.dive?.tanks.orEmpty().size
+            p.tankPressuresBar.take(tankCount).forEachIndexed { index, bar ->
+                if (bar != null) {
+                    element("tankpressure") {
+                        attr("ref", tankId(index))
+                        text((bar * PASCALS_PER_BAR).roundToLong())
+                    }
+                }
+            }
+            leaf("temperature", p.temperatureCelsius?.let { (it + KELVIN_OFFSET).toXmlDecimal(TEMPERATURE_DECIMALS) })
+            if (closedCircuit) element("divemode") { attr("type", "closedcircuit") }
+            leaf("nodecotime", p.ndlSeconds)
         }
-        p.ppO2Bar?.let { append("<calculatedpo2>${(it * PASCALS_PER_BAR).roundToLong()}</calculatedpo2>") }
-        append("<depth>${(p.depthMeters ?: 0.0).toXmlDecimal(METER_DECIMALS)}</depth>")
-        append("<divetime>${second(activity, p)}</divetime>")
-        p.heartRate?.let { append("<heartrate>$it</heartrate>") }
-        switchTo?.let { (oxygen, helium) -> append("""<switchmix ref="${mixId(oxygen, helium)}"/>""") }
-        val tankCount = activity.dive?.tanks.orEmpty().size
-        p.tankPressuresBar.take(tankCount).forEachIndexed { index, bar ->
-            if (bar != null) append("""<tankpressure ref="${tankId(index)}">${(bar * PASCALS_PER_BAR).roundToLong()}</tankpressure>""")
-        }
-        p.temperatureCelsius?.let { append("<temperature>${(it + KELVIN_OFFSET).toXmlDecimal(TEMPERATURE_DECIMALS)}</temperature>") }
-        if (closedCircuit) append("""<divemode type="closedcircuit"/>""")
-        p.ndlSeconds?.let { append("<nodecotime>$it</nodecotime>") }
-        appendLine("</waypoint>")
     }
 
-    private fun StringBuilder.appendAfter(activity: ExportActivity, waypoints: List<ExportPoint>) {
+    private fun XmlOutput.after(activity: ExportActivity, waypoints: List<ExportPoint>) {
         val dive = activity.dive
         // Both required: the record's, else the profile's.
         val greatest = dive?.maxDepth?.let { it / CENTI } ?: waypoints.maxOfOrNull { it.depthMeters ?: 0.0 } ?: 0.0
-        append("    <informationafterdive>")
-        append("<greatestdepth>${greatest.toXmlDecimal(METER_DECIMALS)}</greatestdepth>")
-        dive?.avgDepth?.let { append("<averagedepth>${(it / CENTI).toXmlDecimal(METER_DECIMALS)}</averagedepth>") }
-        append("<diveduration>${activity.elapsed.inWholeSeconds}</diveduration>")
-        dive?.minTemperature?.let { append("<lowesttemperature>${kelvin(it)}</lowesttemperature>") }
-        dive?.visibility?.let { append("<visibility>${(it / CENTI).toXmlDecimal(METER_DECIMALS)}</visibility>") }
-        dive?.highestPpO2?.let { append("<highestpo2>${it * PASCALS_PER_MILLIBAR}</highestpo2>") }
-        dive?.noFlyTime?.let { append("<noflighttime>$it</noflighttime>") }
-        dive?.desaturationTime?.let { append("<desaturationtime>$it</desaturationtime>") }
-        appendLine("</informationafterdive>")
+        line()
+        element("informationafterdive") {
+            leaf("greatestdepth", greatest.toXmlDecimal(METER_DECIMALS))
+            leaf("averagedepth", dive?.avgDepth?.let { (it / CENTI).toXmlDecimal(METER_DECIMALS) })
+            leaf("diveduration", activity.elapsed.inWholeSeconds)
+            leaf("lowesttemperature", dive?.minTemperature?.let { kelvin(it) })
+            leaf("visibility", dive?.visibility?.let { (it / CENTI).toXmlDecimal(METER_DECIMALS) })
+            leaf("highestpo2", dive?.highestPpO2?.let { it * PASCALS_PER_MILLIBAR })
+            leaf("noflighttime", dive?.noFlyTime)
+            leaf("desaturationtime", dive?.desaturationTime)
+        }
     }
 
     /** The first point of each second that has a depth: the join can give one stream sample to two track points in a second. */
@@ -222,10 +286,15 @@ object UddfWriter {
         ((point.time - activity.startedAt).inWholeMilliseconds / MILLIS_PER_SECOND).roundToLong()
 
     /** `yyyy-MM-ddTHH:mm:ss`, always with seconds, which `LocalDateTime.toString` drops when they're zero. */
-    private fun localDateTime(t: LocalDateTime) =
-        "${t.year.pad(YEAR_DIGITS)}-${(t.month.ordinal + 1).pad()}-${t.day.pad()}T${t.hour.pad()}:${t.minute.pad()}:${t.second.pad()}"
-
-    private fun Int.pad(digits: Int = 2) = toString().padStart(digits, '0')
+    private val LOCAL_DATE_TIME = LocalDateTime.Format {
+        date(LocalDate.Formats.ISO)
+        char('T')
+        hour()
+        char(':')
+        minute()
+        char(':')
+        second()
+    }
 
     private fun ActivityDiveGas.pair() = oxygen to helium
 
@@ -257,7 +326,6 @@ object UddfWriter {
     private const val PASCALS_PER_BAR = 100_000.0
     private const val PASCALS_PER_MILLIBAR = 100L
     private const val MILLILITERS_PER_CUBIC_METER = 1_000_000.0
-    private const val YEAR_DIGITS = 4
     private const val COORDINATE_DECIMALS = 7
     private const val METER_DECIMALS = 2
     private const val TEMPERATURE_DECIMALS = 2

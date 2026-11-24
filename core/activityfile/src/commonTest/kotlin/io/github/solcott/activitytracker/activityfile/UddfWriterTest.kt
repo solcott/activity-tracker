@@ -208,7 +208,7 @@ class UddfWriterTest {
     fun specialCharactersInTheSiteAndDeviceAreEscaped() = runTest {
         val activity = decoDive.copy(dive = decoDive.dive!!.copy(site = "Dan's <Reef> & \"Wall\""), device = "A&B <DC>")
         val xml = write(activity)
-        assertTrue("<name>Dan&apos;s &lt;Reef&gt; &amp; &quot;Wall&quot;</name>" in xml)
+        assertTrue("<name>Dan's &lt;Reef&gt; &amp; \"Wall\"</name>" in xml)
         assertTrue("<model>A&amp;B &lt;DC&gt;</model>" in xml)
         val read = readBack(activity)
         assertEquals("Dan's <Reef> & \"Wall\"", read.dive!!.header.siteName)

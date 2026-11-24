@@ -12,6 +12,8 @@ kotlin {
             implementation(libs.compose.runtime.annotation)
             // Encoded polylines (TrackMath, SegmentGeometry), kept out of every public signature: this module is exported to Swift.
             implementation(libs.spatialk.polyline.encoding)
+            // The track blob's GPX (Gpx), likewise internal.
+            implementation(libs.xmlutil.core)
         }
         androidMain.dependencies {
             implementation(libs.androidx.core)

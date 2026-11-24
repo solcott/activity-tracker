@@ -4,13 +4,15 @@ import kotlin.math.abs
 import kotlin.math.roundToLong
 
 /**
- * Escapes text and attribute values for the export writers, dropping what XML 1.0 can't hold even as a reference: C0 controls other than
- * tab, LF and CR, U+FFFE, U+FFFF and unpaired surrogates. Dropped rather than replaced with U+FFFD, since a stray control in a title
- * carries nothing worth showing.
+ * This text without what XML 1.0 can't hold even as a reference: C0 controls other than tab, LF and CR, U+FFFE, U+FFFF and unpaired
+ * surrogates, which xmlutil's writer refuses with an exception. The export writers pass every text and attribute value from the athlete
+ * through it before the writer escapes it. Dropped rather than replaced with U+FFFD, since a stray control in a title carries nothing worth
+ * showing.
  */
-fun String.escapeXml(): String =
-    buildString(length) {
-        val text = this@escapeXml
+fun String.toXmlText(): String {
+    val text = this
+    if (text.all { it.isXmlChar() }) return text
+    return buildString(length) {
         var i = 0
         while (i < text.length) {
             val c = text[i]
@@ -19,17 +21,11 @@ fun String.escapeXml(): String =
                 i += 2
                 continue
             }
-            when (c) {
-                '&' -> append("&amp;")
-                '<' -> append("&lt;")
-                '>' -> append("&gt;")
-                '"' -> append("&quot;")
-                '\'' -> append("&apos;")
-                else -> if (c.isXmlChar()) append(c)
-            }
+            if (c.isXmlChar()) append(c)
             i++
         }
     }
+}
 
 /** Whether XML 1.0 allows this UTF-16 unit on its own (a surrogate only as half of a pair). */
 private fun Char.isXmlChar(): Boolean =

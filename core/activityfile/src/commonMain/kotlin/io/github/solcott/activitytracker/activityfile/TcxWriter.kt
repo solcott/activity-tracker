@@ -17,16 +17,27 @@ object TcxWriter {
     const val TCX_NS = "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
     const val ACTIVITY_EXTENSION_NS = "http://www.garmin.com/xmlschemas/ActivityExtension/v2"
 
-    fun write(activity: ExportActivity): String = buildString {
+    fun write(activity: ExportActivity): String =
+        XmlOutput.document(TCX_NS, "TrainingCenterDatabase", mapOf("ns3" to ACTIVITY_EXTENSION_NS)) {
+            line()
+            element("Activities") {
+                line()
+                element("Activity") {
+                    attr("Sport", activity.tcxSport.xmlName)
+                    line()
+                    leaf("Id", activity.startedAt)
+                    laps(activity)
+                    endLine()
+                }
+                endLine()
+            }
+        }
+
+    private fun XmlOutput.laps(activity: ExportActivity) {
         val running = activity.tcxSport == TcxSport.Running
-        appendLine("""<?xml version="1.0" encoding="UTF-8"?>""")
-        appendLine("""<TrainingCenterDatabase xmlns="$TCX_NS" xmlns:ns3="$ACTIVITY_EXTENSION_NS">""")
-        appendLine("  <Activities>")
-        appendLine("""    <Activity Sport="${activity.tcxSport.xmlName}">""")
-        appendLine("      <Id>${activity.startedAt}</Id>")
         if (activity.laps.isEmpty()) {
             val distance = activity.distanceMeters ?: activity.points.asReversed().firstNotNullOfOrNull { it.distanceMeters } ?: 0.0
-            appendLap(
+            lap(
                 TcxLap(
                     start = activity.startedAt,
                     // Timer time, as readers take it: elapsed time would read back as moving time that includes the stops.
@@ -44,7 +55,7 @@ object TcxWriter {
                 val next = activity.laps.getOrNull(i + 1)?.let { activity.startedAt + it.start.seconds }
                 // Points before the first lap go in it, and points after the last in that.
                 val points = activity.points.filter { p -> (i == 0 || p.time >= lapStart) && (next == null || p.time < next) }
-                appendLap(
+                lap(
                     TcxLap(
                         start = lapStart,
                         timerSeconds = (lap.moving ?: lap.elapsed).toLong(),
@@ -64,9 +75,6 @@ object TcxWriter {
                 )
             }
         }
-        appendLine("    </Activity>")
-        appendLine("  </Activities>")
-        appendLine("</TrainingCenterDatabase>")
     }
 
     /** A lap in TCX's terms. */
@@ -87,26 +95,52 @@ object TcxWriter {
     )
 
     /** Children in the schema's order; distance, calories, intensity and trigger are required. */
-    private fun StringBuilder.appendLap(lap: TcxLap, points: List<ExportPoint>, running: Boolean) {
-        appendLine("""      <Lap StartTime="${lap.start}">""")
-        appendLine("        <TotalTimeSeconds>${lap.timerSeconds}</TotalTimeSeconds>")
-        appendLine("        <DistanceMeters>${lap.distanceMeters.toXmlDecimal(METER_DECIMALS)}</DistanceMeters>")
-        lap.maxSpeedMps?.let { appendLine("        <MaximumSpeed>${it.toXmlDecimal(SPEED_DECIMALS)}</MaximumSpeed>") }
-        appendLine("        <Calories>${lap.calories ?: 0}</Calories>")
-        lap.avgHeartRate?.let { appendLine("        <AverageHeartRateBpm><Value>$it</Value></AverageHeartRateBpm>") }
-        lap.maxHeartRate?.let { appendLine("        <MaximumHeartRateBpm><Value>$it</Value></MaximumHeartRateBpm>") }
-        appendLine("        <Intensity>${if (lap.resting) "Resting" else "Active"}</Intensity>")
-        lap.cadence?.let { appendLine("        <Cadence>$it</Cadence>") }
-        appendLine("        <TriggerMethod>${lap.trigger}</TriggerMethod>")
-        appendLine("        <Track>")
-        for (p in points) appendTrackpoint(p, running)
-        appendLine("        </Track>")
-        val lx = buildString {
-            lap.avgSpeedMps?.let { append("<ns3:AvgSpeed>${it.toXmlDecimal(SPEED_DECIMALS)}</ns3:AvgSpeed>") }
-            lap.avgPower?.let { append("<ns3:AvgWatts>$it</ns3:AvgWatts>") }
+    private fun XmlOutput.lap(lap: TcxLap, points: List<ExportPoint>, running: Boolean) {
+        line()
+        element("Lap") {
+            attr("StartTime", lap.start)
+            line()
+            leaf("TotalTimeSeconds", lap.timerSeconds)
+            line()
+            leaf("DistanceMeters", lap.distanceMeters.toXmlDecimal(METER_DECIMALS))
+            lap.maxSpeedMps?.let {
+                line()
+                leaf("MaximumSpeed", it.toXmlDecimal(SPEED_DECIMALS))
+            }
+            line()
+            leaf("Calories", lap.calories ?: 0)
+            lap.avgHeartRate?.let {
+                line()
+                element("AverageHeartRateBpm") { leaf("Value", it) }
+            }
+            lap.maxHeartRate?.let {
+                line()
+                element("MaximumHeartRateBpm") { leaf("Value", it) }
+            }
+            line()
+            leaf("Intensity", if (lap.resting) "Resting" else "Active")
+            lap.cadence?.let {
+                line()
+                leaf("Cadence", it)
+            }
+            line()
+            leaf("TriggerMethod", lap.trigger)
+            line()
+            element("Track") {
+                for (p in points) trackpoint(p, running)
+                endLine()
+            }
+            if (lap.avgSpeedMps != null || lap.avgPower != null) {
+                line()
+                element("Extensions") {
+                    element("LX", ACTIVITY_EXTENSION_NS) {
+                        leaf("AvgSpeed", lap.avgSpeedMps?.toXmlDecimal(SPEED_DECIMALS), ACTIVITY_EXTENSION_NS)
+                        leaf("AvgWatts", lap.avgPower, ACTIVITY_EXTENSION_NS)
+                    }
+                }
+            }
+            endLine()
         }
-        if (lx.isNotEmpty()) appendLine("        <Extensions><ns3:LX>$lx</ns3:LX></Extensions>")
-        appendLine("      </Lap>")
     }
 
     private const val MANUAL = "Manual"
@@ -121,25 +155,31 @@ object TcxWriter {
             LapTrigger.HEART_RATE to "HeartRate",
         )
 
-    private fun StringBuilder.appendTrackpoint(p: ExportPoint, running: Boolean) {
-        append("          <Trackpoint><Time>${p.time}</Time>")
-        if (p.latitude != null && p.longitude != null) {
-            append("<Position>")
-            append("<LatitudeDegrees>${p.latitude.toXmlDecimal(COORDINATE_DECIMALS)}</LatitudeDegrees>")
-            append("<LongitudeDegrees>${p.longitude.toXmlDecimal(COORDINATE_DECIMALS)}</LongitudeDegrees>")
-            append("</Position>")
+    private fun XmlOutput.trackpoint(p: ExportPoint, running: Boolean) {
+        line()
+        element("Trackpoint") {
+            leaf("Time", p.time)
+            if (p.latitude != null && p.longitude != null) {
+                element("Position") {
+                    leaf("LatitudeDegrees", p.latitude.toXmlDecimal(COORDINATE_DECIMALS))
+                    leaf("LongitudeDegrees", p.longitude.toXmlDecimal(COORDINATE_DECIMALS))
+                }
+            }
+            leaf("AltitudeMeters", p.altitudeMeters?.toXmlDecimal(METER_DECIMALS))
+            leaf("DistanceMeters", p.distanceMeters?.toXmlDecimal(METER_DECIMALS))
+            p.heartRate?.let { element("HeartRateBpm") { leaf("Value", it) } }
+            if (!running) leaf("Cadence", p.cadence)
+            val runCadence = p.cadence.takeIf { running }
+            if (p.speedMps != null || runCadence != null || p.powerWatts != null) {
+                element("Extensions") {
+                    element("TPX", ACTIVITY_EXTENSION_NS) {
+                        leaf("Speed", p.speedMps?.toXmlDecimal(SPEED_DECIMALS), ACTIVITY_EXTENSION_NS)
+                        leaf("RunCadence", runCadence, ACTIVITY_EXTENSION_NS)
+                        leaf("Watts", p.powerWatts, ACTIVITY_EXTENSION_NS)
+                    }
+                }
+            }
         }
-        p.altitudeMeters?.let { append("<AltitudeMeters>${it.toXmlDecimal(METER_DECIMALS)}</AltitudeMeters>") }
-        p.distanceMeters?.let { append("<DistanceMeters>${it.toXmlDecimal(METER_DECIMALS)}</DistanceMeters>") }
-        p.heartRate?.let { append("<HeartRateBpm><Value>$it</Value></HeartRateBpm>") }
-        if (!running) p.cadence?.let { append("<Cadence>$it</Cadence>") }
-        val tpx = buildString {
-            p.speedMps?.let { append("<ns3:Speed>${it.toXmlDecimal(SPEED_DECIMALS)}</ns3:Speed>") }
-            if (running) p.cadence?.let { append("<ns3:RunCadence>$it</ns3:RunCadence>") }
-            p.powerWatts?.let { append("<ns3:Watts>$it</ns3:Watts>") }
-        }
-        if (tpx.isNotEmpty()) append("<Extensions><ns3:TPX>$tpx</ns3:TPX></Extensions>")
-        appendLine("</Trackpoint>")
     }
 
     private const val COORDINATE_DECIMALS = 7

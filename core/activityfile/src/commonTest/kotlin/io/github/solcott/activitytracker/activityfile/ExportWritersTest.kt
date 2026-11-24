@@ -57,7 +57,7 @@ class ExportWritersTest {
         val gpx = GpxWriter.write(ride)
         assertTrue("""xmlns="http://www.topografix.com/GPX/1/1"""" in gpx)
         assertTrue("""xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v2"""" in gpx)
-        assertTrue("<name>Morning &lt;Ride&gt; &amp; &quot;more&quot;</name>" in gpx)
+        assertTrue("<name>Morning &lt;Ride&gt; &amp; \"more\"</name>" in gpx)
         assertTrue("<type>ride</type>" in gpx)
         assertTrue(
             """<trkpt lat="47.6" lon="-122.3"><ele>100</ele><time>2026-09-20T07:00:00Z</time><extensions><power>200</power>""" +
