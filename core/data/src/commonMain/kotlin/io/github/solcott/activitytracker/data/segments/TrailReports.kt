@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetTrailReports
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailCondition
+import io.github.solcott.activitytracker.lexicon.app.TrailConditionTag
 import io.github.solcott.activitytracker.lexicon.app.TrailConditions
 import io.github.solcott.activitytracker.lexicon.app.TrailPhotoView
 import io.github.solcott.activitytracker.lexicon.app.TrailReportRecord
@@ -266,15 +267,23 @@ data class TrailReportChanges(
 
 /**
  * [served] conditions with [changes] laid over them at [now]. A report posted within [POSTED_GRACE] that the AppView hasn't counted yet
- * (its newest counted report is older) shows at once: its tags lead as the AppView would lead with them when they're the newest (closed,
- * else its first surface tag when nothing leads), it adds a rider, its note becomes the latest, and its photos go first. Deleted reports'
- * and removed photos leave the strip; their counts catch up when the AppView does.
+ * (its newest counted report is older) shows at once, as the AppView would count it: the athlete is one more rider unless a report of
+ * theirs from this session is counted already, its tags add to their riders, closed leads when it names it and otherwise the surface tag
+ * the most riders name does (its own breaking a tie), its note becomes the latest, and its photos go first. Deleted reports' and removed
+ * photos leave the strip; their counts catch up when the AppView does. A report of theirs from an earlier session isn't known here, so a
+ * second report then may show one rider too many until the AppView counts it.
  */
 internal fun applyReportChanges(served: TrailConditions?, changes: TrailReportChanges, now: Instant): TrailConditions? {
     val pending = changes.posted.filter { it.isUncounted(served, now) }
     if (served == null && pending.isEmpty()) return null
     val start = served ?: TrailConditions(riders = 0, tags = emptyList(), photoCount = 0)
-    val conditions = pending.sortedBy { it.indexedAt }.fold(start) { shown, report -> shown.withPosted(report) }
+    var counted = changes.posted.any { it.conditions.isNotEmpty() && it !in pending && it.uri.value !in changes.deleted }
+    val conditions =
+        pending
+            .sortedBy { it.indexedAt }
+            .fold(start) { shown, report ->
+                shown.withPosted(report, riderCounted = counted).also { if (report.conditions.isNotEmpty()) counted = true }
+            }
     val photos = conditions.photos.filterNot { it.report.value in changes.deleted || it.image.fullsize in changes.removedPhotos }
     return conditions.copy(
         photos = photos,
@@ -286,34 +295,49 @@ internal fun applyReportChanges(served: TrailConditions?, changes: TrailReportCh
 private fun TrailReportView.isUncounted(served: TrailConditions?, now: Instant): Boolean =
     now - indexedAt < POSTED_GRACE && (served?.latestAt?.let { it < indexedAt - SKEW } ?: true)
 
-/** These conditions with the posted [report] counted: its tags lead as [leadAfter] says, it adds a rider, a note and its photos. */
-private fun TrailConditions.withPosted(report: TrailReportView): TrailConditions {
-    val tags = report.conditions
-    val tagged = tags.isNotEmpty()
+/**
+ * These conditions with the posted [report] counted as the newest: a tagged one adds a rider and its tags' riders unless the athlete is
+ * [riderCounted] already, and decides the lead ([leadAfter]); any adds its note and photos.
+ */
+private fun TrailConditions.withPosted(report: TrailReportView, riderCounted: Boolean): TrailConditions {
+    val reported = report.conditions
     val posted = report.photoViews()
-    val newLead = leadAfter(tags)
-    return copy(
-        lead = newLead ?: lead,
-        leadRiders =
-            when {
-                !tagged -> leadRiders
-                newLead != lead -> 1
-                else -> (leadRiders ?: 0) + 1
-            },
-        riders = riders + if (tagged) 1 else 0,
-        latestAt = if (tagged) report.indexedAt else latestAt,
-        latestNote = if (report.note != null) report else latestNote,
-        photoCount = photoCount + posted.size,
-        photos = (posted + photos).take(PHOTOS_SHOWN),
+    val withMedia =
+        copy(
+            latestNote = if (report.note != null) report else latestNote,
+            photoCount = photoCount + posted.size,
+            photos = (posted + photos).take(PHOTOS_SHOWN),
+        )
+    if (reported.isEmpty()) return withMedia
+    val riders = (listOfNotNull(lead?.let { it to (leadRiders ?: 0) }) + tags.map { it.value to it.riders }).toMap().toMutableMap()
+    if (!riderCounted) reported.forEach { riders[it] = (riders[it] ?: 0) + 1 }
+    val newLead = leadAfter(reported, riders)
+    return withMedia.copy(
+        lead = newLead,
+        leadRiders = newLead?.let(riders::get),
+        riders = this.riders + if (riderCounted) 0 else 1,
+        latestAt = report.indexedAt,
+        tags =
+            riders
+                .filter { (tag, count) -> tag != newLead && count > 0 }
+                .map { (tag, count) -> TrailConditionTag(tag, count) }
+                .sortedWith(compareByDescending<TrailConditionTag> { it.riders }.thenBy { TrailCondition.all.indexOf(it.value) }),
     )
 }
 
-/** What leads once a report with [tags] is the newest: closed, else its first surface tag when nothing (or closed) leads. */
-private fun TrailConditions.leadAfter(tags: List<String>): String? =
-    when {
-        TrailCondition.CLOSED in tags -> TrailCondition.CLOSED
-        lead == null || lead == TrailCondition.CLOSED -> tags.firstOrNull { it in TrailCondition.surface }
-        else -> lead
+/**
+ * What leads once a report with [reported] tags is the newest, given each tag's [riders]: closed when it names it, else the surface tag the
+ * most riders name, one it names winning a tie and then the current lead, as the AppView decides (`summarizeConditions`).
+ */
+private fun TrailConditions.leadAfter(reported: List<String>, riders: Map<String, Int>): String? =
+    if (TrailCondition.CLOSED in reported) {
+        TrailCondition.CLOSED
+    } else {
+        TrailCondition.surface
+            .filter { (riders[it] ?: 0) > 0 }
+            .maxWithOrNull(
+                compareBy<String> { riders.getValue(it) }.thenBy { it in reported }.thenBy { it == lead },
+            )
     }
 
 /** This report's photos as the photo viewer lists them, in order. */

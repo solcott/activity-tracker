@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailCondition
+import io.github.solcott.activitytracker.lexicon.app.TrailConditionTag
 import io.github.solcott.activitytracker.lexicon.app.TrailConditions
 import io.github.solcott.activitytracker.lexicon.app.TrailReportRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -113,6 +114,40 @@ class TrailReportsTest {
             )
         trail.post(segment, listOf(TrailCondition.CLOSED), null, emptyList())
         assertEquals(TrailCondition.CLOSED, trail.applyTo(view.copy(conditions = served)).conditions?.lead)
+    }
+
+    @Test
+    fun aSecondReportIsTheSameRider() = runTest {
+        val trail = reports()
+        trail.post(segment, listOf(TrailCondition.MUDDY), null, emptyList())
+        now += 1.minutes
+        trail.post(segment, listOf(TrailCondition.MUDDY), null, emptyList())
+        val shown = trail.applyTo(view).conditions!!
+        assertEquals(1, shown.riders)
+        assertEquals(1, shown.leadRiders)
+    }
+
+    @Test
+    fun aReportWithoutClosedEndsAClosedLead() = runTest {
+        val trail = reports()
+        val served =
+            TrailConditions(
+                lead = TrailCondition.CLOSED,
+                leadRiders = 1,
+                riders = 3,
+                latestAt = now - 60.minutes,
+                tags = listOf(TrailConditionTag(TrailCondition.MUDDY, 2)),
+                photoCount = 0,
+            )
+        trail.post(segment, listOf(TrailCondition.DOWNED_TREE), null, emptyList())
+        val shown = trail.applyTo(view.copy(conditions = served)).conditions!!
+        assertEquals(TrailCondition.MUDDY, shown.lead)
+        assertEquals(2, shown.leadRiders)
+        assertEquals(4, shown.riders)
+        assertEquals(
+            listOf(TrailConditionTag(TrailCondition.CLOSED, 1), TrailConditionTag(TrailCondition.DOWNED_TREE, 1)),
+            shown.tags.sortedBy { it.value },
+        )
     }
 
     @Test
