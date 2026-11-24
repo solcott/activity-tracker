@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.interactions
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -27,12 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -43,6 +38,7 @@ import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ErrorRetryRow
 import io.github.solcott.activitytracker.app.ui.ErrorText
+import io.github.solcott.activitytracker.app.ui.LikeButton
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
@@ -51,7 +47,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
-import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.shownNameLabel
 import io.github.solcott.activitytracker.app.ui.string
@@ -325,24 +320,8 @@ internal data class CommentLikes(val count: Long, val liked: Boolean, val offere
  */
 @Composable
 private fun CommentLikeControl(likes: CommentLikes, onLike: () -> Unit) {
-    val tint = if (likes.liked) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
-    val label = CommentsTexts.likeLabel(likes.liked).string()
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                .clip(MaterialTheme.shapes.small)
-                .then(
-                    if (likes.offered)
-                        Modifier.clickable(role = Role.Button, onClick = onLike).semantics {
-                            contentDescription = label
-                            selected = likes.liked
-                        }
-                    else Modifier,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            PlatformIcon(AppIcon.Like, contentDescription = null, filled = likes.liked, tint = tint, size = 18.dp)
-        }
+        LikeButton(likes.liked, CommentsTexts.likeLabel(likes.liked).string(), onLike, compact = true, enabled = likes.offered)
         if (likes.count > 0) {
             val spoken = CommentsTexts.likeCount(likes.count).string()
             Text(

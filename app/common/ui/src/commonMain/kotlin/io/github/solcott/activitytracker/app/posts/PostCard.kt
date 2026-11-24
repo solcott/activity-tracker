@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.AuthorHeader
+import io.github.solcott.activitytracker.app.ui.LikeButton
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -101,13 +102,11 @@ private fun Counts(content: PostCardContent, onEvent: (PostEvent) -> Unit, showC
     val post = content.post
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (content.offersLike) {
-            AppIconButton(
-                AppIcon.Like,
-                contentDescription = PostCardContent.like().string(),
+            LikeButton(
+                content.liked,
+                PostCardContent.like().string(),
                 onClick = { onEvent(PostEvent.Like(post)) },
                 modifier = Modifier.testTag(TestTags.POST_LIKE),
-                filled = content.liked,
-                tint = if (content.liked) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
             )
         }
         if (content.offersRepost) {

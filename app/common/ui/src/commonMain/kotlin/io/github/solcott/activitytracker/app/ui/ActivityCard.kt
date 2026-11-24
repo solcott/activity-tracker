@@ -14,12 +14,10 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.activitylist.ActivityCardContent
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -89,13 +87,7 @@ fun ActivityCard(
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onLike != null) {
-                    AppIconButton(
-                        AppIcon.Like,
-                        contentDescription = stringResource(Res.string.like_content_description),
-                        onClick = onLike,
-                        filled = content.liked,
-                        tint = if (content.liked) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
-                    )
+                    LikeButton(content.liked, stringResource(Res.string.like_content_description), onLike)
                 }
                 Text(content.counts().string(), style = MaterialTheme.typography.bodySmall)
             }
