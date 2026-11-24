@@ -389,24 +389,14 @@ struct TrailReportSheetView: View {
     }
 
     private func chosenTile(_ photo: ReportPhotoChoice) -> some View {
-        RemoteImage(photo.url, maxSize: CGSize(width: Self.tile, height: Self.tile)) { Color(.tertiarySystemFill) }
-            .frame(width: Self.tile, height: Self.tile)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(alignment: .topTrailing) {
-                Button {
-                    send(TrailReportEvent.RemovePhoto(key: photo.key))
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, .black.opacity(0.5))
-                        .font(.title3)
-                }
-                .buttonStyle(.borderless)
-                .padding(2)
-                .accessibilityLabel(Text(.trailReportRemovePicked))
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(photo.alt.map { Text(verbatim: $0) } ?? Text(.trailPhotosTitle))
+        RemovablePhotoTile(
+            size: Self.tile, cornerStyle: .continuous, inset: 2,
+            label: photo.alt.map { Text(verbatim: $0) } ?? Text(.trailPhotosTitle), removeLabel: Text(.trailReportRemovePicked)
+        ) {
+            send(TrailReportEvent.RemovePhoto(key: photo.key))
+        } picture: {
+            RemoteImage(photo.url, maxSize: CGSize(width: Self.tile, height: Self.tile)) { Color(.tertiarySystemFill) }
+        }
     }
 
     private func send(_ event: any TrailReportEvent) {
