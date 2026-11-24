@@ -133,13 +133,13 @@ class FitDevicesTest {
     @Test
     fun firmwareVersionsReadAsDevicesShowThem() {
         val versions =
-            listOf(31.33, 5.4, 2.05, 3.0, 1.399999976158142).map { v ->
+            listOf(31.33, 5.4, 2.05, 3.0, 1.399999976158142, 10.0, 0.001, 2.999).map { v ->
                 FitDevices.interpret(null, listOf(sensor(1, "antplus", "heart_rate", version = v)), emptyList())!!
                     .devices
                     .single()
                     .softwareVersion
             }
-        assertEquals(listOf("31.33", "5.4", "2.05", "3", "1.4"), versions)
+        assertEquals(listOf("31.33", "5.4", "2.05", "3", "1.4", "10", "0", "3"), versions)
     }
 
     @Test

@@ -1,8 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.DeviceConnection
+import io.github.solcott.activitytracker.location.toXmlDecimal
 import kotlin.math.roundToInt
-import kotlin.math.roundToLong
 
 /**
  * Turns a decoded file's header and FIT `device_info` messages into the devices it names, with the identifiers that tell one from another
@@ -87,16 +87,12 @@ object FitDevices {
         DeviceNames.product(product) ?: product?.trim()?.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
 
     /** FIT's firmware version, scaled by 100, as devices show it: 31.33, 5.4, 2.05. */
-    private fun version(value: Double): String {
-        val hundredths = (value * HUNDRED).roundToLong()
-        val fraction = (hundredths % HUNDRED).toString().padStart(2, '0').trimEnd('0')
-        return if (fraction.isEmpty()) "${hundredths / HUNDRED}" else "${hundredths / HUNDRED}.$fraction"
-    }
+    private fun version(value: Double): String = value.toXmlDecimal(VERSION_DECIMALS)
 
     private const val CREATOR_INDEX = 0
     private const val PERCENT = 100
     private const val MILLI = 1000
-    private const val HUNDRED = 100
+    private const val VERSION_DECIMALS = 2
 
     /** FIT source types, by [fitKey]. */
     private val CONNECTIONS =
