@@ -87,7 +87,8 @@ class ModeratorSubjects(
                 val row = admittedComments(Subject.ACTIVITY).selectAll().where { Comments.uri eq uri.value }.firstOrNull() ?: return@tx null
                 // Graded as viewers are served it, so a reply under a narrower root needs a report too.
                 val visibility = commentTier(row, Subject.ACTIVITY)
-                val view = commentViews(listOf(row), row[Activities.authorDid], avatars).single()
+                // Its likes as anyone is shown them: the moderator is not its audience.
+                val view = commentViews(listOf(row), Subject.ACTIVITY, viewer = null, row[Activities.authorDid], avatars).single()
                 Loaded(row[Comments.authorDid], visibility, GetSubject.Output(visibility, comment = view))
             }
             else -> null

@@ -188,6 +188,23 @@
           "type": "array",
           "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
           "description": "Labels on the comment; the commenter's account labels are on author. Absent when there are none."
+        },
+        "likeCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Distinct athletes whose like on the comment the viewer is shown: givers who may still see the comment (its subject at its current visibility, and its audience and its thread root's audience), with no block between them and the commenter or the viewer."
+        },
+        "viewer": { "type": "ref", "ref": "#commentViewerState" }
+      }
+    },
+    "commentViewerState": {
+      "type": "object",
+      "description": "The signed-in viewer's relation to a comment.",
+      "properties": {
+        "like": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "URI of the viewer's like on the comment, if any. A like on a comment whose effective tier isn't public is stored in the giver's interactions space, under the same repo-style URI."
         }
       }
     },

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.CommentViewerState
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -52,7 +53,7 @@ internal fun admittedComments(subject: Subject) =
         )
 
 /** The top-level comment of each comment's thread, in [admittedComments], when it's indexed on the same subject. */
-private val Roots = Comments.alias("roots")
+internal val Roots = Comments.alias("roots")
 
 /**
  * Comments on subjects [viewer] may already see (the caller filters the subjects) that they may see too: while the commenter may still see
@@ -111,8 +112,17 @@ internal fun commentsListedFor(viewer: Did?, subject: Subject): Op<Boolean> {
  * comment being left out, so what's listed always matches what [commentsVisibleTo] counts. Only the athlete and each commenter are listed
  * hidden comments ([commentsListedFor]), so any listed one that's hidden is theirs to see marked.
  */
-internal fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String, avatars: AvatarUrls): List<CommentView> {
+internal fun JdbcTransaction.commentViews(
+    rows: List<ResultRow>,
+    subject: Subject,
+    viewer: Did?,
+    athlete: String,
+    avatars: AvatarUrls,
+): List<CommentView> {
     if (rows.isEmpty()) return emptyList()
+    val uris = rows.map { it[Comments.uri] }
+    val likeCounts = commentLikeCounts(subject, uris, viewer)
+    val viewerLikes = viewer?.let { viewerLikes(it, uris) }
     val authors = basicProfiles(rows.map { it[Comments.authorDid] }, avatars)
     val hidden =
         CommentHides.select(CommentHides.commentUri)
@@ -132,6 +142,8 @@ internal fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String
             root = c[Comments.threadCid]?.let { StrongRef(AtUri(c[Comments.threadUri]), Cid(it)) },
             parent = c[Comments.parentUri]?.let { uri -> c[Comments.parentCid]?.let { StrongRef(AtUri(uri), Cid(it)) } },
             labels = labels[c[Comments.uri]],
+            likeCount = likeCounts[c[Comments.uri]] ?: 0,
+            viewer = viewerLikes?.let { likes -> CommentViewerState(like = likes[c[Comments.uri]]?.let(::AtUri)) },
         )
     }
 }
@@ -165,12 +177,14 @@ private val threadPlace =
  * replies, read with one limited query per thread on `comments_thread_idx`, and its count of listed replies, so a page's cost follows its
  * size rather than its largest thread.
  */
+@Suppress("LongParameterList") // The request, how its rows are listed, and whose subject and view they are.
 internal fun JdbcTransaction.threadPage(
     params: GetComments.Params,
     avatars: AvatarUrls,
     listed: Op<Boolean>,
     athlete: String,
     subject: Subject,
+    viewer: Did?,
 ): GetComments.Output {
     val pageSize = Paging.clamp(params.limit)
     val first = threadPlace.min()
@@ -199,7 +213,7 @@ internal fun JdbcTransaction.threadPage(
         replyCounts.keys.associateWith { thread ->
             listedRows(subject, listed and (Comments.threadUri eq thread) and not(isRoot), limit = FIRST_REPLIES)
         }
-    val views = commentViews(rootRows + firstReplyRows.values.flatten(), athlete, avatars).associateBy { it.uri.value }
+    val views = commentViews(rootRows + firstReplyRows.values.flatten(), subject, viewer, athlete, avatars).associateBy { it.uri.value }
     return GetComments.Output(
         uri = params.uri,
         comments = rootRows.mapNotNull { views[it[Comments.uri]] },

@@ -3,10 +3,14 @@ package io.github.solcott.activitytracker.appview.api
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.lexicon.Did
+import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.not
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
 
@@ -42,4 +46,32 @@ internal fun JdbcTransaction.commentCounts(subject: Subject, countedAs: Map<Stri
         .toList()
         .groupBy({ countedAs.getValue(it[Comments.subjectUri]) }) { it[count] }
         .mapValues { (_, counts) -> counts.sum() }
+}
+
+/**
+ * Distinct givers of the likes on each of the comments [uris] on [subject] that [viewer] is shown: a giver counts while they may see the
+ * comment as [commentsVisibleTo] would let them (the subject at its current visibility, and the comment's audience and its thread root's
+ * audience, judged against the subject's author), and isn't in a block with its commenter or hidden from the viewer ([accountShownTo]).
+ * Repos may hold duplicate like records, so givers are counted, not records.
+ */
+internal fun JdbcTransaction.commentLikeCounts(subject: Subject, uris: List<String>, viewer: Did?): Map<String, Long> {
+    val giver = Likes.authorDid
+    val tier = { visibility: Column<String> ->
+        visibleTo(giver, visibility = visibility, author = subject.author, record = subject.uri, cid = subject.cid)
+    }
+    return admittedComments(subject)
+        .join(Likes, JoinType.INNER, Comments.uri, Likes.subjectUri)
+        .select(Comments.uri, giver)
+        .where {
+            (Comments.uri inList uris) and
+                subject.visibleTo(giver) and
+                tier(Comments.audience) and
+                (Roots[Comments.uri].isNull() or tier(Roots[Comments.audience])) and
+                not(blocked(giver, Comments.authorDid)) and
+                accountShownTo(viewer, giver)
+        }
+        .withDistinct()
+        .toList()
+        .groupBy({ it[Comments.uri] }) { it[giver] }
+        .mapValues { (_, givers) -> givers.toSet().size.toLong() }
 }

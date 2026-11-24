@@ -118,6 +118,9 @@ data class ActivityView(
 
 @Immutable @Serializable data class ActivityViewerState(val like: AtUri? = null)
 
+/** `app.activitytracker.feed.defs#commentViewerState`: the viewer's [like] on a comment. */
+@Immutable @Serializable data class CommentViewerState(val like: AtUri? = null)
+
 /**
  * `app.activitytracker.moderation.defs#label`: a label from a labeler the AppView trusts, already checked, newest, neither negated nor
  * expired. [value] is an open set: clients ignore values they don't know.
@@ -201,6 +204,9 @@ data class CommentView(
     val parent: StrongRef? = null,
     /** Labels on the comment; its commenter's are on [author]. Null when there are none. */
     val labels: List<LabelView>? = null,
+    /** Distinct athletes whose like the viewer is shown, while they may still see the comment. Null from an AppView that doesn't count. */
+    val likeCount: Long? = null,
+    val viewer: CommentViewerState? = null,
 ) {
     /** This comment as a strong ref, for a reply to it. */
     val ref: StrongRef

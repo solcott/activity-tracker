@@ -285,7 +285,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         when {
             uris != null -> {
                 val rows = listedRows(on.subject, listed and (Comments.uri inList uris.map { it.value }))
-                GetComments.Output(params.uri, commentViews(rows, athlete, avatars))
+                GetComments.Output(params.uri, commentViews(rows, on.subject, viewer, athlete, avatars))
             }
 
             root != null -> {
@@ -294,10 +294,10 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 val rows =
                     listedRows(on.subject, listed and replies and keysetAfter(Comments.createdAt, Comments.uri, params.cursor), pageSize)
                 val next = nextCursor(rows, pageSize, ::commentCursor)
-                GetComments.Output(params.uri, commentViews(rows, athlete, avatars), next)
+                GetComments.Output(params.uri, commentViews(rows, on.subject, viewer, athlete, avatars), next)
             }
 
-            else -> threadPage(params, avatars, listed, athlete, on.subject)
+            else -> threadPage(params, avatars, listed, athlete, on.subject, viewer)
         }
     }
 
