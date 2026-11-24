@@ -181,7 +181,9 @@ class RejectedChanges(
                 Nsid.GRAPH_MUTE -> RejectedChange.Kind.Mute
                 Nsid.FEED_SEGMENT,
                 Nsid.FEED_SEGMENT_NAME_PROPOSAL,
-                Nsid.FEED_SEGMENT_NAME_VOTE -> RejectedChange.Kind.Segment
+                Nsid.FEED_SEGMENT_NAME_VOTE,
+                Nsid.FEED_TRAIL_DETAIL_SUGGESTION,
+                Nsid.FEED_TRAIL_DETAIL_VOTE -> RejectedChange.Kind.Segment
                 Nsid.FEED_SEGMENT_STAR -> RejectedChange.Kind.SegmentStar
                 else -> RejectedChange.Kind.Other
             }

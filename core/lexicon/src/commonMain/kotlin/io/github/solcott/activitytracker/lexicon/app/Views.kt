@@ -280,8 +280,15 @@ data class SegmentView(
      * otherwise, when the apps judge from [elevationGain] and [elevationLoss].
      */
     val climb: String? = null,
-    /** As [SegmentRecord.trail], cleaned: served only for the segment importer's segment (segments/trail-attributes); null otherwise. */
+    /**
+     * The effective trail details (segments/trail-detail-suggestions): each adopted community value over the importer's, the importer's
+     * from [SegmentRecord.trail] only for the segment importer's segment, cleaned; null when nothing is known.
+     */
     val trail: TrailAttributes? = null,
+    /** One entry per detail [trail] holds: where it came from and, from `getSegment`, how riders confirmed it. */
+    val trailDetails: List<TrailDetailInfo> = emptyList(),
+    /** Open trail detail suggestions the viewer may see; only from `getSegment`. */
+    val trailSuggestions: List<TrailDetailSuggestionView> = emptyList(),
     /**
      * The current name: the latest adopted community name in effect, or [record]'s name (the original) when there's none. Null from older
      * AppViews; use [currentName].
@@ -386,6 +393,66 @@ data class SegmentViewerState(
     val canProposeName: Boolean = false,
     /** The viewer has an effort on the segment, so may vote on its name proposals; only from `getSegment`. */
     val canVoteOnNames: Boolean = false,
+    /** The viewer may suggest trail detail values (segments/trail-detail-suggestions); only from `getSegment`. */
+    val canSuggestTrailDetails: Boolean = false,
+    /** [TrailDetail] names the viewer may not suggest now: in a cooldown, or holding their own open suggestion; only from `getSegment`. */
+    val closedTrailDetails: List<String> = emptyList(),
+    /** The viewer has an effort on the segment, so may confirm its trail details and vote on suggestions; only from `getSegment`. */
+    val canVoteOnTrailDetails: Boolean = false,
+    /** The viewer has an effort on the segment dated in the last 14 days; only from `getSegment`. */
+    val recentEffort: Boolean = false,
+)
+
+/**
+ * `app.activitytracker.feed.defs#trailDetailInfo`: where one served trail [detail] came from and how riders see it
+ * (segments/trail-detail-suggestions). Never says who confirmed it.
+ */
+@Immutable
+@Serializable
+data class TrailDetailInfo(
+    /** A [TrailDetail] name. */
+    val detail: String,
+    /** A [TrailSource] value. */
+    val source: String,
+    /** For a [TrailSource.COMMUNITY] value: the distinct riders whose up votes adopted it. */
+    val riders: Int? = null,
+    /** Distinct riders who said it's still right in the last 365 days; only from `getSegment`. */
+    val confirmations: Int? = null,
+    /** The month of the latest confirmation, `YYYY-MM`, once at least 2 riders confirmed; only from `getSegment`. */
+    val confirmedMonth: String? = null,
+    /** Riders recently say it changed; only from `getSegment`. */
+    val mayHaveChanged: Boolean = false,
+    /** The viewer's own counted confirmation; only from `getSegment`. */
+    val viewerConfirmation: TrailDetailViewerVote? = null,
+)
+
+/** `app.activitytracker.feed.defs#trailDetailSuggestionView`: an open trail detail suggestion with its totals. */
+@Immutable
+@Serializable
+data class TrailDetailSuggestionView(
+    val uri: AtUri,
+    /** The version votes count for. */
+    val cid: Cid,
+    /** A [TrailDetail] name. */
+    val detail: String,
+    /** Only [detail]'s fields. */
+    val value: TrailAttributes,
+    val author: ProfileViewBasic,
+    /** When it was accepted, or last edited. */
+    val openedAt: Instant,
+    val up: Int,
+    val down: Int,
+    val viewerVote: TrailDetailViewerVote? = null,
+)
+
+/** `app.activitytracker.feed.defs#trailDetailViewerVote`: the viewer's own counted vote or confirmation. */
+@Immutable
+@Serializable
+data class TrailDetailViewerVote(
+    /** The vote record, in the viewer's `interactions` space. */
+    val uri: AtUri,
+    /** A [TrailDetailVoteDirection] value. */
+    val direction: String,
 )
 
 /** `app.activitytracker.feed.defs#segmentViewBasic` */

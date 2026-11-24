@@ -954,6 +954,43 @@ data class SegmentNameVoteRecord(
 )
 
 /**
+ * `app.activitytracker.feed.trailDetailSuggestion`: a suggested [value] for one [detail] of a segment's trail details
+ * (segments/trail-detail-suggestions). Public, so it lives only in the author's repo and names them. Rewriting it with a different value
+ * while it's open clears its votes.
+ */
+@Serializable
+data class TrailDetailSuggestionRecord(
+    val segment: AtUri,
+    /** A [TrailDetail.suggestable] name; any other is ignored. */
+    val detail: String,
+    /** Only [detail]'s fields, as [TrailDetail.isSuggestion] checks. */
+    val value: TrailAttributes,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.FEED_TRAIL_DETAIL_SUGGESTION,
+)
+
+/**
+ * `app.activitytracker.feed.trailDetailVote`: a vote on a [TrailDetailSuggestionRecord] at the version [subject] names (up or down), or a
+ * confirmation of a segment's [detail] holding [value] as it was in effect (still or changed). Private, so it lives only in the voter's
+ * [AthleteSpace.INTERACTIONS] space; the AppView serves only totals.
+ */
+@Serializable
+data class TrailDetailVoteRecord(
+    /** A [TrailDetailVoteDirection] value; any other is ignored. */
+    val direction: String,
+    val createdAt: Instant,
+    /** The suggestion voted on; null for a confirmation. */
+    val subject: StrongRef? = null,
+    /** For a confirmation: the segment. */
+    val segment: AtUri? = null,
+    /** For a confirmation: a [TrailDetail] name. */
+    val detail: String? = null,
+    /** For a confirmation: the detail's value in effect, only its fields ([TrailDetail.valueOf]). */
+    val value: TrailAttributes? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_TRAIL_DETAIL_VOTE,
+)
+
+/**
  * `app.activitytracker.feed.activitySource`: the file an activity was imported from, gzipped, under its activity's rkey. It can hold device
  * serial numbers and exact positions, so it's stored only in the athlete's [AthleteSpace.SELF] space, whatever the activity's visibility,
  * and only the athlete reads it: the AppView ignores it. Activities imported from one logbook file each have their own record naming the

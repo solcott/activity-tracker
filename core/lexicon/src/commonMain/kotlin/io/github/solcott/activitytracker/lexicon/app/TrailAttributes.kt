@@ -61,10 +61,12 @@ data class TrailAttributes(
      * An http or https URL about it, at most [MAX_WEBSITE_LENGTH] characters. Open only in the system browser, after checking its scheme.
      */
     val website: String? = null,
+    /** Where the importer took each attribute from (segments/trail-attributes); null on records extracted before it kept them. */
+    val sources: TrailSources? = null,
 ) {
     /** Whether it says nothing at all. */
     val isEmpty: Boolean
-        get() = this == TrailAttributes()
+        get() = copy(sources = null) == TrailAttributes()
 
     companion object {
         /** The lexicon's `maxLength` for [surfaces]. */

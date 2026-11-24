@@ -39,6 +39,8 @@ object AppCollections {
                 Nsid.FEED_SEGMENT_NAME_VOTE,
                 Nsid.FEED_SEGMENT_STAR,
                 Nsid.FEED_SEGMENT_TRACK,
+                Nsid.FEED_TRAIL_DETAIL_SUGGESTION,
+                Nsid.FEED_TRAIL_DETAIL_VOTE,
                 Nsid.GEAR_AUTO_ASSIGN,
                 Nsid.GEAR_COLLECTION,
                 Nsid.GEAR_ITEM,

@@ -37,7 +37,9 @@ enum class GrantFeature {
     /** Gear that isn't public, gear defaults and collections. */
     Gear,
 
-    /** Segment matching, leaderboards, brackets, grouping, stars, name votes, and sharing name proposals beyond Public. */
+    /**
+     * Segment matching, leaderboards, brackets, grouping, stars, name votes, trail detail votes, and sharing name proposals beyond Public.
+     */
     SegmentsAndGroups,
 
     /** Deleting the athlete's spaces, which leaving Activity Tracker needs (auth/leaving): the scope's `manage=delete`. */
@@ -71,6 +73,7 @@ enum class GrantFeature {
                     Nsid.FEED_SEGMENT_TRACK,
                     Nsid.FEED_SEGMENT_STAR,
                     Nsid.FEED_SEGMENT_NAME_VOTE,
+                    Nsid.FEED_TRAIL_DETAIL_VOTE,
                     Nsid.FEED_POST,
                 )
                 .forEach { put(it, SegmentsAndGroups) }

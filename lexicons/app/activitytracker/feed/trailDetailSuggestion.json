@@ -1,0 +1,21 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.trailDetailSuggestion",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A suggested value for one trail detail of a segment (segments/trail-detail-suggestions). Public: stored only in the author's repo, never in a space, and names its author. The AppView accepts it only from an athlete with efforts on the segment on enough distinct dates, while the segment is active and not a lift, when the value is new and the detail is outside its cooldown, and only one open suggestion per athlete per segment and detail. Rewriting an open suggestion with a different value clears its votes; a rewrite of a closed one is ignored.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["segment", "detail", "value", "createdAt"],
+        "properties": {
+          "segment": { "type": "string", "format": "at-uri", "description": "The app.activitytracker.feed.segment the value is for." },
+          "detail": { "type": "string", "maxLength": 32, "knownValues": ["surface", "smoothness", "sacScale", "mtbScale", "mtbScaleImba", "mtbScaleUphill", "pisteDifficulty", "pisteGrooming", "visibility", "width", "lit", "dog", "horse", "wheelchair", "season"], "description": "Any other value is ignored." },
+          "value": { "type": "ref", "ref": "app.activitytracker.feed.defs#trailAttributes", "description": "Only the detail's fields: one surface at 100 for surface, widthCm of 100 (singletrack), 200 (doubletrack) or 400 (road width) for width, and openFrom with openUntil, seasons, or seasonal for season." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -111,6 +111,16 @@ object Nsid {
      * there, so it isn't in [indexedCollections].
      */
     const val FEED_SEGMENT_NAME_VOTE = "$NAMESPACE.feed.segmentNameVote"
+    /**
+     * A suggested value for one trail detail of a segment (segments/trail-detail-suggestions), kept only in the author's repo and indexed
+     * from the firehose; a copy in a space is ignored.
+     */
+    const val FEED_TRAIL_DETAIL_SUGGESTION = "$NAMESPACE.feed.trailDetailSuggestion"
+    /**
+     * A vote on a [FEED_TRAIL_DETAIL_SUGGESTION] or a confirmation of a trail detail, kept only in the voter's `interactions` space
+     * ([SPACE_ATHLETE]) and indexed only from there, so it isn't in [indexedCollections].
+     */
+    const val FEED_TRAIL_DETAIL_VOTE = "$NAMESPACE.feed.trailDetailVote"
     const val FEED_GET_SEGMENT = "$NAMESPACE.feed.getSegment"
     const val FEED_SEARCH_SEGMENTS = "$NAMESPACE.feed.searchSegments"
     const val FEED_SEARCH_SEGMENT_NAMES = "$NAMESPACE.feed.searchSegmentNames"
@@ -224,6 +234,7 @@ object Nsid {
             FEED_REPOST,
             FEED_SEGMENT,
             FEED_SEGMENT_NAME_PROPOSAL,
+            FEED_TRAIL_DETAIL_SUGGESTION,
             FEED_DIVE_SITE,
             FEED_PATH,
             GEAR_ITEM,

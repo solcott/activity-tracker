@@ -1,0 +1,23 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.trailDetailVote",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A vote on a trail detail suggestion (app.activitytracker.feed.trailDetailSuggestion), or a confirmation of a segment's trail detail as it was in effect (segments/trail-detail-suggestions). Private: stored only in the voter's interactions space, and the AppView ignores one in a repo or a tier space. It counts only while the voter has an effort on the segment, and a confirmation only while the value it names is still in effect. The AppView never serves who voted.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["direction", "createdAt"],
+        "properties": {
+          "subject": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The suggestion, at the version voted on, with direction up or down. Absent for a confirmation." },
+          "segment": { "type": "string", "format": "at-uri", "description": "For a confirmation: the segment." },
+          "detail": { "type": "string", "maxLength": 32, "description": "For a confirmation: the detail, as feed.trailDetailSuggestion#detail." },
+          "value": { "type": "ref", "ref": "app.activitytracker.feed.defs#trailAttributes", "description": "For a confirmation: the detail's value in effect, holding only its fields." },
+          "direction": { "type": "string", "maxLength": 16, "knownValues": ["up", "down", "still", "changed"], "description": "up or down on a suggestion; still (still right) or changed on a value in effect. Any other value is ignored." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

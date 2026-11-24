@@ -258,7 +258,72 @@
         "openFrom": { "type": "string", "minLength": 5, "maxLength": 5, "description": "The first day it is open each year, as MM-DD. Given only with openUntil." },
         "openUntil": { "type": "string", "minLength": 5, "maxLength": 5, "description": "The last day it is open each year, as MM-DD. Given only with openFrom." },
         "operator": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who maintains it, as the source writes it." },
-        "website": { "type": "string", "format": "uri", "maxLength": 512, "description": "An http or https URL about it. Clients open it only in the system browser and only after checking its scheme." }
+        "website": { "type": "string", "format": "uri", "maxLength": 512, "description": "An http or https URL about it. Clients open it only in the system browser and only after checking its scheme." },
+        "sources": { "type": "ref", "ref": "#trailSources", "description": "Where the importer took each attribute from: the source giving it along the most of the line (segments/trail-attributes). Absent from records extracted before sources were kept." }
+      }
+    },
+    "trailSources": {
+      "type": "object",
+      "description": "The source of each trail detail, keyed by trailDetailInfo#detail: osm (OpenStreetMap), usfs (Forest Service), nps (Park Service) or blm (Bureau of Land Management). A detail with no key has no known source.",
+      "properties": {
+        "surface": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "smoothness": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "sacScale": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "mtbScale": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "mtbScaleImba": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "mtbScaleUphill": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "pisteDifficulty": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "pisteGrooming": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "trailClass": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "visibility": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "width": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "grade": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "lit": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "dog": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "horse": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "wheelchair": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "season": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "operator": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] },
+        "website": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm"] }
+      }
+    },
+    "trailDetailInfo": {
+      "type": "object",
+      "description": "Where one served trail detail came from and how riders see it (segments/trail-detail-suggestions). Never says who confirmed it.",
+      "required": ["detail", "source"],
+      "properties": {
+        "detail": { "type": "string", "maxLength": 32, "knownValues": ["surface", "smoothness", "sacScale", "mtbScale", "mtbScaleImba", "mtbScaleUphill", "pisteDifficulty", "pisteGrooming", "trailClass", "visibility", "width", "grade", "lit", "dog", "horse", "wheelchair", "season", "operator", "website"] },
+        "source": { "type": "string", "maxLength": 16, "knownValues": ["osm", "usfs", "nps", "blm", "imported", "community"], "description": "community when riders adopted it, imported when the importer's source is unknown." },
+        "riders": { "type": "integer", "minimum": 0, "description": "For a community value: the distinct riders whose up votes adopted it." },
+        "confirmations": { "type": "integer", "minimum": 0, "description": "Distinct riders who said the value in effect is still right in the last 365 days. Served by getSegment only." },
+        "confirmedMonth": { "type": "string", "minLength": 7, "maxLength": 7, "description": "The month of the latest of those confirmations, YYYY-MM, served only once at least 2 riders confirmed. Served by getSegment only." },
+        "mayHaveChanged": { "type": "boolean", "description": "In the last 90 days at least 3 riders said it changed, outnumbering those who said it's still right. Served by getSegment only." },
+        "viewerConfirmation": { "type": "ref", "ref": "#trailDetailViewerVote", "description": "The viewer's own counted confirmation of the value in effect. Served by getSegment only." }
+      }
+    },
+    "trailDetailSuggestionView": {
+      "type": "object",
+      "description": "An open trail detail suggestion with its vote totals (segments/trail-detail-suggestions). Never says who voted, except the viewer's own vote.",
+      "required": ["uri", "cid", "detail", "value", "author", "openedAt", "up", "down"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid", "description": "The version votes count for; a vote names it in its subject." },
+        "detail": { "type": "string", "maxLength": 32, "description": "As feed.trailDetailSuggestion#detail." },
+        "value": { "type": "ref", "ref": "#trailAttributes", "description": "Holding only the detail's fields." },
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "openedAt": { "type": "string", "format": "datetime", "description": "When it was accepted, or last edited." },
+        "up": { "type": "integer", "minimum": 0 },
+        "down": { "type": "integer", "minimum": 0 },
+        "viewerVote": { "type": "ref", "ref": "#trailDetailViewerVote" }
+      }
+    },
+    "trailDetailViewerVote": {
+      "type": "object",
+      "description": "The viewer's own counted vote on a suggestion, or confirmation of a value in effect.",
+      "required": ["uri", "direction"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri", "description": "The vote record, in the viewer's interactions space." },
+        "direction": { "type": "string", "maxLength": 16, "knownValues": ["up", "down", "still", "changed"] }
       }
     },
     "trailSurface": {
@@ -321,7 +386,9 @@
         "elevationLoss": { "type": "integer", "minimum": 0, "description": "Meters descended from start to end, derived like elevationGain. Absent when it has none." },
         "oneWay": { "type": "boolean", "description": "True when its sport group may travel its line only this way (segments/segment-direction): the segment importer's segment whose record says oneWay. Absent or false for every other segment." },
         "climb": { "type": "string", "maxLength": 16, "knownValues": ["uphill", "downhill"], "description": "As feed.segment#climb (segments/segment-direction): served only for the segment importer's segment whose record holds uphill or downhill. Absent for every other segment; judge from elevationGain and elevationLoss then." },
-        "trail": { "type": "ref", "ref": "#trailAttributes", "description": "As feed.segment#trail (segments/trail-attributes): served only for the segment importer's segment, with any value outside its vocabulary or range dropped. Absent for every other segment and when nothing is known." },
+        "trail": { "type": "ref", "ref": "#trailAttributes", "description": "The segment's effective trail details (segments/trail-detail-suggestions): each adopted community value over the importer's value, the importer's taken from feed.segment#trail only for the segment importer's segment, with any value outside its vocabulary or range dropped. Absent when nothing is known." },
+        "trailDetails": { "type": "array", "maxLength": 32, "items": { "type": "ref", "ref": "#trailDetailInfo" }, "description": "One entry per detail trail holds: where it came from and, from getSegment, how riders confirmed it." },
+        "trailSuggestions": { "type": "array", "maxLength": 200, "items": { "type": "ref", "ref": "#trailDetailSuggestionView" }, "description": "Open trail detail suggestions the viewer may see. Served by app.activitytracker.feed.getSegment only." },
         "elevationSource": {
           "type": "string",
           "maxLength": 16,
@@ -394,7 +461,11 @@
       "properties": {
         "best": { "type": "ref", "ref": "#effortView", "description": "The viewer's own fastest effort on the segment; absent when they have none." },
         "canProposeName": { "type": "boolean", "description": "The viewer may propose a name now (segments/segment-names). Served by getSegment only; absent means false." },
-        "canVoteOnNames": { "type": "boolean", "description": "The viewer may vote on name proposals: they have an effort on the segment. Served by getSegment only; absent means false." }
+        "canVoteOnNames": { "type": "boolean", "description": "The viewer may vote on name proposals: they have an effort on the segment. Served by getSegment only; absent means false." },
+        "canSuggestTrailDetails": { "type": "boolean", "description": "The viewer may suggest trail detail values (segments/trail-detail-suggestions): the segment is active, not a lift, and they're a regular. Served by getSegment only; absent means false." },
+        "closedTrailDetails": { "type": "array", "maxLength": 32, "items": { "type": "string", "maxLength": 32 }, "description": "Details the viewer may not suggest now: in a cooldown after an adoption, or holding their own open suggestion. Served by getSegment only." },
+        "canVoteOnTrailDetails": { "type": "boolean", "description": "The viewer may confirm trail details and vote on suggestions: they have an effort on the segment. Served by getSegment only; absent means false." },
+        "recentEffort": { "type": "boolean", "description": "The viewer has an effort on the segment dated in the last 14 days. Served by getSegment only; absent means false." }
       }
     },
     "segmentViewBasic": {
