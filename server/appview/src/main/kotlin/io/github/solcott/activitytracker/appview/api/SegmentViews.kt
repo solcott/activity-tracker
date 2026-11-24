@@ -376,10 +376,6 @@ class SegmentViews(
         }
     }
 
-    /**
-     * A trail or road and every run segment on it search would list to [viewer] (segments/segment-paths), with its terrain profile and the
-     * stretch of each of those along it (segments/path-profile); `NotFound` when not indexed.
-     */
     /** A segment's trail reports [viewer] is listed, newest first (segments/trail-reports). */
     suspend fun trailReports(viewer: Did?, params: GetTrailReports.Params): GetTrailReports.Output = db.tx {
         val segment = servedSegment(viewer, params.segment.value)
@@ -455,6 +451,10 @@ class SegmentViews(
             .map { it[Segments.uri] }
     }
 
+    /**
+     * A trail or road and every run segment on it search would list to [viewer] (segments/segment-paths), with its terrain profile and the
+     * stretch of each of those along it (segments/path-profile); `NotFound` when not indexed.
+     */
     suspend fun path(viewer: Did?, params: GetPath.Params): GetPath.Output = db.tx {
         val row = Paths.selectAll().where { Paths.uri eq params.uri.value }.firstOrNull() ?: throw notFound("Path not found")
         val segments =
