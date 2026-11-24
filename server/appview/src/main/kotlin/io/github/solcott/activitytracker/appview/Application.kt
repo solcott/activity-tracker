@@ -220,6 +220,7 @@ private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer
         activeAthletes = config.segmentActiveAthletes,
         candidateRiders = config.segmentCandidateRiders,
         names = config.segmentNames,
+        trailDetails = config.trailDetails,
         segmentImporter = config.segmentImporter,
         terrain = config.terrainTiles?.let { TerrainTiles(File(it.dir), it.zoom) },
         outcomes = outcomes,
@@ -232,6 +233,7 @@ private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityRes
         HandleVerifier(identity),
         segmentImporter = config.segmentImporter,
         segmentNames = config.segmentNames,
+        trailDetails = config.trailDetails,
         terrain = config.terrainTiles != null,
         segmentActiveAthletes = config.segmentActiveAthletes,
     )
@@ -443,6 +445,7 @@ private fun Route.publicRoutes(
             avatars,
             segmentImporter = config.segmentImporter,
             names = config.segmentNames,
+            trailDetails = config.trailDetails,
             activeAthletes = config.segmentActiveAthletes,
         ),
         verifier,

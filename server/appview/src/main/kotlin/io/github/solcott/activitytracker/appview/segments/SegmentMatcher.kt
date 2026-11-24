@@ -127,6 +127,8 @@ class SegmentMatcher(
     private val activeAthletes: Int = DEFAULT_ACTIVE_ATHLETES,
     private val candidateRiders: Int = DEFAULT_ACTIVE_ATHLETES,
     names: SegmentNameRules = SegmentNameRules(),
+    /** Trail detail suggestion thresholds (segments/trail-detail-suggestions). */
+    trailDetails: TrailDetailRules = TrailDetailRules(),
     /** The segment importer's account (`SEGMENT_IMPORTER_DID`), whose segments are active without riders (segments/segment-records). */
     private val segmentImporter: Did? = null,
     /** Terrain tiles (`TERRAIN_TILES_DIR`), which give segments terrain elevation (segments/segment-elevation); null for none. */
@@ -135,7 +137,7 @@ class SegmentMatcher(
     private val outcomes: SegmentJobOutcomes = SegmentJobOutcomes.None,
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
-    private val passes = SegmentPasses(db, jobs, clock, activeAthletes, names, segmentImporter)
+    private val passes = SegmentPasses(db, jobs, clock, activeAthletes, names, segmentImporter, trailDetails)
     private val pairing = GroupPairing(db, blobs, clock)
     private val pathTerrain = terrain?.let { PathTerrainSampler(db, it) }
 
@@ -158,6 +160,7 @@ class SegmentMatcher(
                 if (last == null || now - last >= STATUS_INTERVAL.inWholeMilliseconds) {
                     guard("Updating segment statuses") { updateStatuses() }
                     guard("Updating segment names") { updateNames() }
+                    guard("Updating trail details") { updateTrailDetails() }
                     guard("Pruning failed segment jobs") { pruneFailedJobs() }
                     statusesAt = now
                 }
@@ -228,6 +231,9 @@ class SegmentMatcher(
 
     /** The naming pass ([SegmentNaming]), run after each status pass. Exposed for tests. */
     suspend fun updateNames() = passes.updateNames()
+
+    /** The trail detail adoption pass ([TrailDetailAdoption]), run after the naming pass. Exposed for tests. */
+    suspend fun updateTrailDetails() = passes.updateTrailDetails()
 
     /** Queues a `track` job for each held track that was never matched (has no cells), such as those from before matching existed. */
     suspend fun backfill() {

@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.appview.db.Reposts
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
+import io.github.solcott.activitytracker.appview.db.TrailDetailVotes
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GroupPrefsRecord
@@ -108,6 +109,7 @@ private val SPACE_RKEYS: Map<String, RkeysOf> =
         Nsid.GRAPH_MUTE to byOrigin(Mutes.uri, Mutes.origin),
         // From the interactions space only.
         Nsid.FEED_SEGMENT_NAME_VOTE to byAuthor(SegmentNameVotes.uri, SegmentNameVotes.voterDid),
+        Nsid.FEED_TRAIL_DETAIL_VOTE to byAuthor(TrailDetailVotes.uri, TrailDetailVotes.voterDid),
         // From the self space only.
         Nsid.FEED_SEGMENT_TRACK to byAuthor(SegmentTracks.uri, SegmentTracks.authorDid),
         Nsid.ACTOR_SEGMENT_PREFS to singleton(SegmentPrefs.did, SegmentPrefsRecord.RKEY),

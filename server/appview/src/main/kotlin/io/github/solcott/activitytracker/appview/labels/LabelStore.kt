@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.db.LabelCursors
 import io.github.solcott.activitytracker.appview.db.Labels
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.recomputeNamesLabelled
+import io.github.solcott.activitytracker.appview.segments.recomputeTrailsLabelled
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -48,6 +49,8 @@ class LabelStore(
             applied.forEach(::store)
             // A label on an adopted name proposal, or on its proposer, can change a segment's current name (segments/segment-names).
             recomputeNamesLabelled(applied.map { it.uri }.distinct())
+            // And on an adopted trail detail suggestion, a segment's trail details (segments/trail-detail-suggestions).
+            recomputeTrailsLabelled(applied.map { it.uri }.distinct())
             LabelCursors.upsert {
                 it[src] = source
                 it[LabelCursors.seq] = seq

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.admin.AdminRole
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
+import io.github.solcott.activitytracker.appview.segments.TrailDetailRules
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.terrain.TerrainTiles
 import kotlin.time.Duration
@@ -62,6 +63,8 @@ data class AppViewConfig(
     val segmentCandidateRiders: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
     /** Who may propose segment names and when a proposal is adopted (`SEGMENT_NAME_*`; segments/segment-names). */
     val segmentNames: SegmentNameRules = SegmentNameRules(),
+    /** Trail detail suggestion thresholds (`TRAIL_DETAIL_*`, segments/trail-detail-suggestions). */
+    val trailDetails: TrailDetailRules = TrailDetailRules(),
     /**
      * Terrain elevation tiles (`TERRAIN_TILES_DIR`, Terrarium PNGs at `{z}/{x}/{y}.png`, fetched by `scripts/terrain-fetch.sh`) and their
      * zoom (`TERRAIN_TILES_ZOOM`, default 12; segments/segment-elevation). Null: segments get no terrain elevation, only their efforts'.
@@ -217,6 +220,7 @@ data class AppViewConfig(
                 segmentImporter = env["SEGMENT_IMPORTER_DID"]?.trim()?.takeIf { it.startsWith("did:") }?.let(::Did),
                 segmentCandidateRiders = athletes(env, "SEGMENT_CANDIDATE_RIDERS"),
                 segmentNames = SegmentNameRules.fromEnv(env),
+                trailDetails = TrailDetailRules.fromEnv(env),
                 terrainTiles = terrainTiles(env),
                 allowPrivateAddresses = env["APPVIEW_ALLOW_PRIVATE_ADDRESSES"]?.trim().equals("true", ignoreCase = true),
                 androidPackage = env["ANDROID_APP_PACKAGE"]?.trim()?.takeIf { it.isNotEmpty() } ?: DEFAULT_ANDROID_PACKAGE,

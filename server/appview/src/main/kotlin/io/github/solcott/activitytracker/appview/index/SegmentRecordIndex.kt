@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.applyPinsNaming
 import io.github.solcott.activitytracker.appview.segments.deleteEfforts
 import io.github.solcott.activitytracker.appview.segments.deleteSegmentNames
+import io.github.solcott.activitytracker.appview.segments.deleteTrailDetails
 import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
 import io.github.solcott.activitytracker.appview.segments.recordPriorStatus
 import io.github.solcott.activitytracker.appview.segments.statusPinFor
@@ -334,6 +335,7 @@ private fun JdbcTransaction.deleteSegments(uris: List<String>, jobs: SegmentJobs
     deleteEfforts { segmentUri inList uris }
     val keep = staged + handedOff(uris)
     deleteSegmentNames(uris.filterNot { it in keep })
+    deleteTrailDetails(uris.filterNot { it in keep })
     SegmentCellIndex.deleteWhere { segmentUri inList uris }
     unpathSegments(uris)
     Segments.deleteWhere { Segments.uri inList uris }

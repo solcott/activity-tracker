@@ -51,8 +51,13 @@ class SegmentPasses(
     names: SegmentNameRules = SegmentNameRules(),
     /** The segment importer's account, whose segments are live as `active` (segments/segment-records). */
     private val importer: Did? = null,
+    trailDetails: TrailDetailRules = TrailDetailRules(),
 ) {
     private val naming = SegmentNaming(db, clock, names)
+    private val trailAdoption = TrailDetailAdoption(db, clock, trailDetails)
+
+    /** The trail detail adoption pass over every segment with open suggestions, or only [only] (segments/trail-detail-suggestions). */
+    suspend fun updateTrailDetails(only: String? = null) = trailAdoption.update(only)
 
     /** The status pass's segment step over every segment, or only [only], in one transaction. */
     suspend fun updateStatuses(only: Collection<String>? = null) {

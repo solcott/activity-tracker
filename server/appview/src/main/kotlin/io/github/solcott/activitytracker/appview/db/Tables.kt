@@ -252,6 +252,11 @@ object Segments : BoxedLineTable("segments") {
      */
     val currentName = varchar("current_name", 1000)
     /**
+     * Each trail detail's latest adopted community value still in effect (segments/trail-detail-suggestions), a JSON list of
+     * `CommunityValue`s; null when none. Recomputed by `recomputeTrailCommunity`.
+     */
+    val trailCommunity = text("trail_community").nullable()
+    /**
      * Meters climbed along [line] by smoothed terrain heights (segments/segment-elevation); null when the tiles don't cover it or it isn't
      * sampled yet.
      */
@@ -375,6 +380,49 @@ object SegmentNameVotes : Table("segment_name_votes") {
     val proposalCid = varchar("proposal_cid", 255)
     val up = bool("vote_up")
     /** When this version was indexed: of a voter's votes on one proposal, the latest counts. */
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/** A `feed.trailDetailSuggestion` (segments/trail-detail-suggestions), from its author's repo. */
+object TrailDetailSuggestions : Table("trail_detail_suggestions") {
+    val uri = varchar("uri", 512)
+    /** The version votes count for. */
+    val cid = varchar("cid", 255)
+    val segmentUri = varchar("segment_uri", 512)
+    val authorDid = varchar("author_did", 255)
+    /** A [io.github.solcott.activitytracker.lexicon.app.TrailDetail] name. */
+    val detail = varchar("detail", 32)
+    /** Only the detail's fields, as a `TrailAttributes` JSON object. */
+    val value = text("detail_value")
+    /** A `ProposalState` value. */
+    val state = varchar("suggestion_state", 16)
+    /** When it was accepted, or last edited. */
+    val openedAt = long("opened_at")
+    val closedAt = long("closed_at").nullable()
+    /** The counted totals when it closed. */
+    val finalUp = integer("final_up").nullable()
+    val finalDown = integer("final_down").nullable()
+    val recordGone = bool("record_gone").default(false)
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/**
+ * A `feed.trailDetailVote` (segments/trail-detail-suggestions), from its voter's interactions space: on a suggestion ([suggestionUri]), or
+ * a confirmation of a segment's [detail] holding [value].
+ */
+object TrailDetailVotes : Table("trail_detail_votes") {
+    val uri = varchar("uri", 512)
+    val voterDid = varchar("voter_did", 255)
+    val suggestionUri = varchar("suggestion_uri", 512).nullable()
+    val suggestionCid = varchar("suggestion_cid", 255).nullable()
+    val segmentUri = varchar("segment_uri", 512).nullable()
+    val detail = varchar("detail", 32).nullable()
+    /** The confirmed value, normalized `TrailAttributes` JSON. */
+    val value = text("detail_value").nullable()
+    /** A [io.github.solcott.activitytracker.lexicon.app.TrailDetailVoteDirection] value. */
+    val direction = varchar("direction", 16)
+    /** When this version was indexed: of a voter's votes on one subject, the latest counts. */
     val indexedAt = long("indexed_at")
     override val primaryKey = PrimaryKey(uri)
 }

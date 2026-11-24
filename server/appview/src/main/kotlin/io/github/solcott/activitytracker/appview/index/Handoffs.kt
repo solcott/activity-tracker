@@ -10,8 +10,12 @@ import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.SubjectHandoffs
+import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
+import io.github.solcott.activitytracker.appview.db.TrailDetailVotes
 import io.github.solcott.activitytracker.appview.segments.ProposalState
+import io.github.solcott.activitytracker.appview.segments.isDiveSiteUri
 import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
+import io.github.solcott.activitytracker.appview.segments.recomputeTrailCommunity
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -131,6 +135,20 @@ private fun JdbcTransaction.keepAdoptedNames(subjects: Set<String>) {
     if (all.isNotEmpty()) SegmentNameVotes.deleteWhere { proposalUri inList all }
     val open = proposals.filter { it[SegmentNameProposals.state] != ProposalState.ADOPTED }.map { it[SegmentNameProposals.uri] }
     if (open.isNotEmpty()) SegmentNameProposals.deleteWhere { SegmentNameProposals.uri inList open }
+    keepAdoptedTrailDetails(subjects)
+}
+
+/** As [keepAdoptedNames], for trail detail suggestions (segments/trail-detail-suggestions): the adopted values stay, nothing else does. */
+private fun JdbcTransaction.keepAdoptedTrailDetails(subjects: Set<String>) {
+    val suggestions =
+        TrailDetailSuggestions.select(TrailDetailSuggestions.uri, TrailDetailSuggestions.state)
+            .where { TrailDetailSuggestions.segmentUri inList subjects }
+            .toList()
+    val all = suggestions.map { it[TrailDetailSuggestions.uri] }
+    if (all.isNotEmpty()) TrailDetailVotes.deleteWhere { suggestionUri inList all }
+    TrailDetailVotes.deleteWhere { segmentUri inList subjects }
+    val open = suggestions.filter { it[TrailDetailSuggestions.state] != ProposalState.ADOPTED }.map { it[TrailDetailSuggestions.uri] }
+    if (open.isNotEmpty()) TrailDetailSuggestions.deleteWhere { TrailDetailSuggestions.uri inList open }
 }
 
 /**
@@ -209,6 +227,8 @@ internal fun JdbcTransaction.linkHandoff(oldUri: String, successor: String) {
 private fun JdbcTransaction.moveNames(from: String, to: String) {
     SegmentNameProposals.update({ SegmentNameProposals.segmentUri eq from }) { it[segmentUri] = to }
     recomputeCurrentName(to)
+    TrailDetailSuggestions.update({ TrailDetailSuggestions.segmentUri eq from }) { it[segmentUri] = to }
+    if (!isDiveSiteUri(to)) recomputeTrailCommunity(to)
 }
 
 /**

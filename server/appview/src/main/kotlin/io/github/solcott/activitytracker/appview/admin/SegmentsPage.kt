@@ -507,6 +507,7 @@ class SegmentsPage(
                     activeAthletes = config.segmentActiveAthletes,
                     names = config.segmentNames,
                     importer = config.segmentImporter,
+                    trailDetails = config.trailDetails,
                 ),
                 pins,
                 jobs,

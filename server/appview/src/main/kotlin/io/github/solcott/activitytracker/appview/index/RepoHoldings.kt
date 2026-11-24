@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.Reposts
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.Segments
+import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -115,6 +116,7 @@ private val REPO_HOLDINGS: Map<String, HoldingsOf> =
         // Public records indexed from repos only.
         Nsid.FEED_SEGMENT to byUri(Segments.uri, Segments.cid),
         Nsid.FEED_SEGMENT_NAME_PROPOSAL to byUri(SegmentNameProposals.uri, SegmentNameProposals.cid),
+        Nsid.FEED_TRAIL_DETAIL_SUGGESTION to byUri(TrailDetailSuggestions.uri, TrailDetailSuggestions.cid),
         Nsid.FEED_DIVE_SITE to byUri(DiveSites.uri, DiveSites.cid),
         Nsid.FEED_PATH to byUri(Paths.uri, Paths.cid),
         Nsid.GRAPH_FOLLOW to byUri(Follows.uri),

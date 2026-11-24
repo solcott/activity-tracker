@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.appview.segments.SegmentPins
+import io.github.solcott.activitytracker.appview.segments.TrailDetailRules
 import io.github.solcott.activitytracker.appview.segments.UriLocks
 import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
@@ -104,6 +105,8 @@ class Indexer(
     private val segmentImporter: Did? = null,
     /** Who may propose segment names (segments/segment-names). */
     private val segmentNames: SegmentNameRules = SegmentNameRules(),
+    /** Who may suggest trail details (segments/trail-detail-suggestions). */
+    private val trailDetails: TrailDetailRules = TrailDetailRules(),
     /** Whether terrain tiles are configured (segments/segment-elevation): new and re-lined segments are then queued to be sampled. */
     terrain: Boolean = false,
     /** How many distinct athletes make a proposed segment active: what unpinning a status promotes by (segments/segment-pins). */
@@ -460,6 +463,16 @@ class Indexer(
                 if (placement.origin == Origins.REPO) upsertNameProposal(json, author, uri, cid, segmentNames, now)
             }
 
+            // Public, so from the repo only; a copy in a space is ignored (segments/trail-detail-suggestions).
+            Nsid.FEED_TRAIL_DETAIL_SUGGESTION -> {
+                if (placement.origin == Origins.REPO) upsertTrailSuggestion(json, author, uri, cid, trailDetails, segmentImporter, now)
+            }
+
+            // Private, so from the interactions space only (spaceCollections); the firehose never delivers it (indexedCollections).
+            Nsid.FEED_TRAIL_DETAIL_VOTE -> {
+                if (placement.origin != Origins.REPO) upsertTrailVote(json, author, uri, now)
+            }
+
             // Private, so from the self space only (spaceCollections); the firehose never delivers it (indexedCollections).
             Nsid.FEED_ACTIVITY_INVITE -> {
                 if (placement.origin != Origins.REPO)
@@ -557,6 +570,14 @@ class Indexer(
                 if (placement.origin == Origins.REPO) deleteNameProposals(listOf(uri.value))
             }
 
+            Nsid.FEED_TRAIL_DETAIL_SUGGESTION -> {
+                if (placement.origin == Origins.REPO) deleteTrailSuggestions(listOf(uri.value))
+            }
+
+            Nsid.FEED_TRAIL_DETAIL_VOTE -> {
+                if (placement.origin != Origins.REPO) deleteTrailVote(uri)
+            }
+
             Nsid.FEED_PATH -> {
                 if (placement.origin == Origins.REPO) deletePath(uri)
             }
@@ -646,6 +667,7 @@ class Indexer(
         dropSegmentTracks(did)
         dropInvitesOfAccount(did)
         deleteSegmentNamesBy(did)
+        deleteTrailDetailsBy(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deletePathsBy(did)
@@ -699,6 +721,7 @@ class Indexer(
                 Nsid.GRAPH_BLOCK,
                 Nsid.GRAPH_MUTE,
                 Nsid.FEED_SEGMENT_NAME_VOTE,
+                Nsid.FEED_TRAIL_DETAIL_VOTE,
             )
 
         /** Segment tracks, the segment matching setting, the grouping choice and the leaderboard brackets, indexed only from `self`. */

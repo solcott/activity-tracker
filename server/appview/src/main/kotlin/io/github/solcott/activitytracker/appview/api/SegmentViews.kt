@@ -20,10 +20,17 @@ import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validPositionE7
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
+import io.github.solcott.activitytracker.appview.segments.TrailDetailRules
+import io.github.solcott.activitytracker.appview.segments.closedDetailsFor
+import io.github.solcott.activitytracker.appview.segments.communityOf
+import io.github.solcott.activitytracker.appview.segments.confirmationsOf
+import io.github.solcott.activitytracker.appview.segments.effectiveTrail
+import io.github.solcott.activitytracker.appview.segments.isRegular
 import io.github.solcott.activitytracker.appview.segments.mayPropose
 import io.github.solcott.activitytracker.appview.segments.plausibleEffort
 import io.github.solcott.activitytracker.appview.segments.ridersAmong
 import io.github.solcott.activitytracker.appview.segments.servedElevation
+import io.github.solcott.activitytracker.appview.segments.suggestable
 import io.github.solcott.activitytracker.appview.segments.terrainProfile
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -135,6 +142,8 @@ class SegmentViews(
     private val searchBatches: Int = SEARCH_BATCHES,
     /** Who may propose segment names (segments/segment-names), for the viewer's flag. */
     private val names: SegmentNameRules = SegmentNameRules(),
+    /** Who may suggest trail details (segments/trail-detail-suggestions), for the viewer's flags. */
+    private val trailDetails: TrailDetailRules = TrailDetailRules(),
     /**
      * How many distinct athletes' efforts with elevation a segment without terrain elevation needs to serve them
      * (`SEGMENT_ACTIVE_ATHLETES`).
@@ -157,17 +166,41 @@ class SegmentViews(
                 )
                 .singleOrNull()
         }
+        val now = clock.now().toEpochMilliseconds()
         val state = viewer?.let {
+            val rider = ridersAmong(uri, listOf(it.value)).isNotEmpty()
             SegmentViewerState(
                 best = best,
-                canProposeName = mayPropose(uri, it.value, clock.now().toEpochMilliseconds(), names),
-                canVoteOnNames = ridersAmong(uri, listOf(it.value)).isNotEmpty(),
+                canProposeName = mayPropose(uri, it.value, now, names),
+                canVoteOnNames = rider,
+                // The same rules the indexer applies to a suggestion (segments/trail-detail-suggestions).
+                canSuggestTrailDetails = suggestable(uri) && isRegular(uri, it.value, trailDetails),
+                closedTrailDetails = closedDetailsFor(uri, it.value, now, trailDetails),
+                canVoteOnTrailDetails = rider,
+                recentEffort = hasEffortSince(uri, it, today().minusDays(RECENT_EFFORT_DAYS - 1).toString()),
             )
         }
+        val base = views(listOf(row)).single()
+        // How riders see each detail: counts, a month, a doubt and the viewer's own, never who (segments/trail-detail-suggestions).
+        val confirmations = confirmationsOf(uri, base.trail, viewer, now)
         val view =
-            views(listOf(row))
-                .single()
-                .copy(nameHistory = nameHistory(viewer, uri, avatars), nameProposals = nameProposals(viewer, uri, avatars), viewer = state)
+            base.copy(
+                nameHistory = nameHistory(viewer, uri, avatars),
+                nameProposals = nameProposals(viewer, uri, avatars),
+                trailDetails =
+                    base.trailDetails.map { info ->
+                        confirmations[info.detail]?.let {
+                            info.copy(
+                                confirmations = it.confirmations,
+                                confirmedMonth = it.confirmedMonth,
+                                mayHaveChanged = it.mayHaveChanged,
+                                viewerConfirmation = it.viewerConfirmation,
+                            )
+                        } ?: info
+                    },
+                trailSuggestions = trailSuggestions(viewer, uri, avatars),
+                viewer = state,
+            )
         // The profile is the terrain's, so it's served only beside terrain elevation (segments/segment-elevation).
         val profile =
             terrainProfile(row)
@@ -1018,6 +1051,11 @@ class SegmentViews(
             // Effort elevation only as the segment's aggregate, never an effort's own (segments/segment-elevation).
             val elevation = servedElevation(it, activeAthletes)
             val record = AtJson.decodeFromString(SegmentRecord.serializer(), it[Segments.record])
+            val effective =
+                effectiveTrail(
+                    if (byImporter(author)) TrailAttributesSanitizer.clean(record.trail) else null,
+                    communityOf(it.getOrNull(Segments.trailCommunity)),
+                )
             SegmentView(
                 uri = AtUri(it[Segments.uri]),
                 cid = Cid(it[Segments.cid]),
@@ -1036,8 +1074,10 @@ class SegmentViews(
                 // (segments/segment-direction).
                 oneWay = true.takeIf { record.oneWay == true && byImporter(author) },
                 climb = SegmentClimbs.of(record.climb)?.takeIf { byImporter(author) },
-                // Trail attributes come only from the importer's source data, never an athlete's own (segments/trail-attributes).
-                trail = if (byImporter(author)) TrailAttributesSanitizer.clean(record.trail) else null,
+                // The importer's attributes, never an athlete's own (segments/trail-attributes), with riders' adopted values over them
+                // on any segment (segments/trail-detail-suggestions).
+                trail = effective.trail,
+                trailDetails = effective.details,
             )
         }
     }
@@ -1059,6 +1099,9 @@ class SegmentViews(
         private const val SEARCH_BATCHES = 3
 
         /** How well a name matches a name search: the whole name, its start, a word's start, anywhere. Lower is better. */
+
+        /** How recent an effort makes the viewer a recent rider, for the quick check (segments/trail-detail-suggestions). */
+        private const val RECENT_EFFORT_DAYS = 14L
 
         /** The ranks an activity's efforts show (segments/segment-efforts). */
         private const val TOP_RANKS = 10
@@ -1274,3 +1317,14 @@ internal fun boxDistance(centre: NameSearchCentre, minLat: Int, maxLat: Int, min
 
 /** Whether a segment is indexed at [uri], whatever its status or labels. */
 private fun JdbcTransaction.segmentIndexed(uri: String): Boolean = Segments.select(Segments.uri).where { Segments.uri eq uri }.any()
+
+/** Whether [viewer] has an effort on [segment] dated [since] or later, of any visibility: told only to them. */
+private fun JdbcTransaction.hasEffortSince(segment: String, viewer: Did, since: String): Boolean =
+    SegmentEfforts.select(SegmentEfforts.id)
+        .where {
+            (SegmentEfforts.segmentUri eq segment) and
+                (SegmentEfforts.authorDid eq viewer.value) and
+                (SegmentEfforts.startedOn greaterEq since)
+        }
+        .limit(1)
+        .any()

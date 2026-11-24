@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview.api
 import io.github.solcott.activitytracker.appview.index.graphemes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailDetail
 import io.github.solcott.activitytracker.lexicon.app.TrailDog
 import io.github.solcott.activitytracker.lexicon.app.TrailHorse
 import io.github.solcott.activitytracker.lexicon.app.TrailLit
@@ -11,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.app.TrailPisteGrooming
 import io.github.solcott.activitytracker.lexicon.app.TrailSacScale
 import io.github.solcott.activitytracker.lexicon.app.TrailSeason
 import io.github.solcott.activitytracker.lexicon.app.TrailSmoothness
+import io.github.solcott.activitytracker.lexicon.app.TrailSources
 import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.lexicon.app.TrailSurfaces
 import io.github.solcott.activitytracker.lexicon.app.TrailVisibility
@@ -54,7 +56,12 @@ internal object TrailAttributesSanitizer {
                 operator = operatorOf(trail.operator),
                 website = websiteOf(trail.website),
             )
-        return cleaned.takeUnless { it.isEmpty }
+        // Each source only for a detail still held, and only an import's (segments/trail-attributes).
+        val sources =
+            trail.sources?.let { sources ->
+                TrailSources.of(TrailDetail.detailsOf(cleaned).mapNotNull { d -> sources.of(d)?.let { d to it } }.toMap())
+            }
+        return cleaned.copy(sources = sources).takeUnless { it.isEmpty }
     }
 
     /** [trail] cleaned and encoded for a `trail` column; null when nothing is left. */
