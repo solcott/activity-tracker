@@ -66,4 +66,4 @@
 
 ## 8. Integration
 
-- [ ] 8.1 Run `./gradlew check`. On the local stack, have a seeded regular suggest a value, have two riders agree, run the pass with the thresholds lowered, and confirm the Segment page shows "Community · N riders" on Android and iOS. Verify: `check` passes, and screenshots show the adopted value.
+- [x] 8.1 Run `./gradlew check`. On the local stack, have a seeded regular suggest a value, have two riders agree, run the pass with the thresholds lowered, and confirm the Segment page shows "Community · N riders" on Android and iOS. Verify: `check` passes, and screenshots show the adopted value.
