@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.TrailSource
 
 /**
  * Which OSM features are trails for which sport group (segments/trail-candidates), in one place so tuning edits one table. A way is a trail
@@ -59,7 +60,8 @@ internal object TrailTags : TrailRules {
             tags["highway"] == "steps" ||
             tags["tunnel"] == "building_passage"
 
-    override fun facts(tags: Map<String, String>, group: String?): WayFacts = OsmFacts.of(tags)
+    override fun facts(tags: Map<String, String>, group: String?): WayFacts =
+        OsmFacts.of(tags).let { if (it == WayFacts.NONE) it else it.copy(source = TrailSource.OSM) }
 
     /** Highways never crossed as shared tread: roads no one on a bike or on foot may use, and steps. */
     private val NOT_CROSSABLE = setOf("motorway", "motorway_link", "trunk", "trunk_link", "steps")

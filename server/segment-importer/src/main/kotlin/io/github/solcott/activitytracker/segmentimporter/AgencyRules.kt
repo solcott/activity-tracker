@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.segmentimporter
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.TrailHorse
+import io.github.solcott.activitytracker.lexicon.app.TrailSource
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -44,6 +45,7 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
         override fun facts(tags: Map<String, String>, group: String?): WayFacts {
             val fields = tags.attributeFields()
             return WayFacts(
+                source = TrailSource.USFS,
                 surface = AgencyFacts.usfsSurface(fields["trail_surface"]),
                 trailClass = AgencyFacts.trailClass(fields["trail_class"]),
                 widthCm = AgencyFacts.usfsWidth(fields["typical_tread_width"]),
@@ -91,6 +93,7 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
         override fun facts(tags: Map<String, String>, group: String?): WayFacts {
             val fields = tags.attributeFields()
             return WayFacts(
+                source = TrailSource.NPS,
                 surface = AgencyFacts.npsSurface(fields["trlsurface"]),
                 trailClass = AgencyFacts.trailClass(fields["trlclass"]),
                 seasonal =
@@ -144,7 +147,7 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
         override val attributeFields = listOf("obsrve_srfce_type")
 
         override fun facts(tags: Map<String, String>, group: String?): WayFacts =
-            WayFacts(surface = AgencyFacts.blmSurface(tags.attributeFields()["obsrve_srfce_type"]))
+            WayFacts(surface = AgencyFacts.blmSurface(tags.attributeFields()["obsrve_srfce_type"]), source = TrailSource.BLM)
     };
 
     override val source: String

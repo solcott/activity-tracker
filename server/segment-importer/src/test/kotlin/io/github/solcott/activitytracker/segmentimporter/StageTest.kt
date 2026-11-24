@@ -91,6 +91,8 @@ class StageTest {
         assertEquals(true, "format version 2" in coarse.message.orEmpty(), "re-extract a file of 5 m lines")
         val untrailed = assertFailsWith<IllegalArgumentException> { file(3, version = 5) }
         assertEquals(true, "format version 5" in untrailed.message.orEmpty(), "re-extract a file without trail attributes")
+        val unsourced = assertFailsWith<IllegalArgumentException> { file(3, version = 6) }
+        assertEquals(true, "format version 6" in unsourced.message.orEmpty(), "re-extract a file without trail sources")
         val region = assertFailsWith<IllegalArgumentException> { file(3, otherRegion = 1) }
         assertEquals(true, "us-maine" in region.message.orEmpty())
         assertEquals(emptyList(), fake.calls)

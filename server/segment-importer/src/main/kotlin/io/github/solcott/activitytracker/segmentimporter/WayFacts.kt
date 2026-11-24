@@ -45,6 +45,8 @@ internal data class WayFacts(
     val operator: String? = null,
     /** An http or https URL. */
     val website: String? = null,
+    /** A [io.github.solcott.activitytracker.lexicon.app.TrailSource] import value: whose data these facts are. */
+    val source: String? = null,
 ) {
     companion object {
         val NONE = WayFacts()

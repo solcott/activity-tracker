@@ -4,6 +4,8 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.HIKE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RIDE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RUN
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSource
+import io.github.solcott.activitytracker.lexicon.app.TrailSources
 import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentClimb
@@ -645,7 +647,14 @@ class CandidateCutterTest {
         val whole = candidates(data).filter { it.whole }
         assertTrue(whole.isNotEmpty())
         for (candidate in whole) {
-            assertEquals(TrailAttributes(surfaces = listOf(TrailSurface("gravel", 100)), mtbScale = 1), candidate.trail)
+            assertEquals(
+                TrailAttributes(
+                    surfaces = listOf(TrailSurface("gravel", 100)),
+                    mtbScale = 1,
+                    sources = TrailSources(surface = TrailSource.OSM, mtbScale = TrailSource.OSM),
+                ),
+                candidate.trail,
+            )
         }
     }
 

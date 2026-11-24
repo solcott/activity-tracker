@@ -2,12 +2,14 @@ package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailDetail
 import io.github.solcott.activitytracker.lexicon.app.TrailDog
 import io.github.solcott.activitytracker.lexicon.app.TrailHorse
 import io.github.solcott.activitytracker.lexicon.app.TrailLit
 import io.github.solcott.activitytracker.lexicon.app.TrailPisteDifficulty
 import io.github.solcott.activitytracker.lexicon.app.TrailSacScale
 import io.github.solcott.activitytracker.lexicon.app.TrailSmoothness
+import io.github.solcott.activitytracker.lexicon.app.TrailSources
 import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import io.github.solcott.activitytracker.lexicon.app.TrailSurfaces
 import io.github.solcott.activitytracker.lexicon.app.TrailVisibility
@@ -76,14 +78,60 @@ internal object TrailAttributeCombiner {
                 operator = line.longest { it.operator },
                 website = line.longest { it.website },
             )
-        return attributes.takeUnless { it.isEmpty }
+        return attributes.takeUnless { it.isEmpty }?.let { it.copy(sources = line.sources(it)) }
     }
 
+    /** What each [TrailDetail] reads from a way, to find which source gave it. */
+    private val detailFacts: Map<String, (WayFacts) -> Any?> =
+        mapOf(
+            TrailDetail.SURFACE to { it.surface },
+            TrailDetail.SMOOTHNESS to { it.smoothness },
+            TrailDetail.SAC_SCALE to { it.sacScale },
+            TrailDetail.MTB_SCALE to { it.mtbScale },
+            TrailDetail.MTB_SCALE_IMBA to { it.mtbScaleImba },
+            TrailDetail.MTB_SCALE_UPHILL to { it.mtbScaleUphill },
+            TrailDetail.PISTE_DIFFICULTY to { it.pisteDifficulty },
+            TrailDetail.PISTE_GROOMING to { it.pisteGrooming },
+            TrailDetail.TRAIL_CLASS to { it.trailClass },
+            TrailDetail.VISIBILITY to { it.visibility },
+            TrailDetail.WIDTH to { it.widthCm },
+            TrailDetail.GRADE to { it.gradePercent },
+            TrailDetail.LIT to { it.lit },
+            TrailDetail.DOG to { it.dog },
+            TrailDetail.HORSE to { it.horse },
+            TrailDetail.WHEELCHAIR to { it.wheelchair },
+            TrailDetail.SEASON to { it.seasonal ?: it.seasons ?: it.open },
+            TrailDetail.OPERATOR to { it.operator },
+            TrailDetail.WEBSITE to { it.website },
+        )
+
     /** [stretches] of a line [total] meters long, those of no length left out. */
+    @Suppress("TooManyFunctions") // One rule per kind of attribute.
     private class Line(val stretches: List<FactsAlong>, val total: Double) {
         private val hardestAlong = min(HARDEST_ALONG_M, total)
 
         private fun covers(meters: Double) = meters >= total * MIN_COVERAGE
+
+        /**
+         * For each detail [attributes] holds, the source whose stretches give it along the most of the line (segments/trail-attributes),
+         * the first by name on a tie.
+         */
+        fun sources(attributes: TrailAttributes): TrailSources? =
+            TrailSources.of(
+                TrailDetail.detailsOf(attributes)
+                    .mapNotNull { detail ->
+                        val read = detailFacts.getValue(detail)
+                        stretches
+                            .filter { read(it.facts) != null }
+                            .mapNotNull { stretch -> stretch.facts.source?.let { it to stretch.meters } }
+                            .groupBy({ it.first }, { it.second })
+                            .entries
+                            .sortedWith(compareByDescending<Map.Entry<String, List<Double>>> { it.value.sum() }.thenBy { it.key })
+                            .firstOrNull()
+                            ?.let { detail to it.key }
+                    }
+                    .toMap(),
+            )
 
         /** The stretches giving [value], with it. */
         private fun <T : Any> given(value: (WayFacts) -> T?): List<Pair<T, Double>> = stretches.mapNotNull { stretch ->
@@ -225,27 +273,40 @@ internal fun TrailAttributes?.filledFrom(other: TrailAttributes?): TrailAttribut
     if (this == null || other == null) return this ?: other
     val season = if (seasons != null || seasonal != null || openFrom != null) this else other
     return copy(
-        surfaces = surfaces ?: other.surfaces,
-        smoothness = smoothness ?: other.smoothness,
-        sacScale = sacScale ?: other.sacScale,
-        mtbScale = mtbScale ?: other.mtbScale,
-        mtbScaleImba = mtbScaleImba ?: other.mtbScaleImba,
-        mtbScaleUphill = mtbScaleUphill ?: other.mtbScaleUphill,
-        pisteDifficulty = pisteDifficulty ?: other.pisteDifficulty,
-        pisteGrooming = pisteGrooming ?: other.pisteGrooming,
-        trailClass = trailClass ?: other.trailClass,
-        visibility = visibility ?: other.visibility,
-        widthCm = widthCm ?: other.widthCm,
-        gradePercent = gradePercent ?: other.gradePercent,
-        lit = lit ?: other.lit,
-        dog = dog ?: other.dog,
-        horse = horse ?: other.horse,
-        wheelchair = wheelchair ?: other.wheelchair,
-        seasons = season.seasons,
-        seasonal = season.seasonal,
-        openFrom = season.openFrom,
-        openUntil = season.openUntil,
-        operator = operator ?: other.operator,
-        website = website ?: other.website,
-    )
+            surfaces = surfaces ?: other.surfaces,
+            smoothness = smoothness ?: other.smoothness,
+            sacScale = sacScale ?: other.sacScale,
+            mtbScale = mtbScale ?: other.mtbScale,
+            mtbScaleImba = mtbScaleImba ?: other.mtbScaleImba,
+            mtbScaleUphill = mtbScaleUphill ?: other.mtbScaleUphill,
+            pisteDifficulty = pisteDifficulty ?: other.pisteDifficulty,
+            pisteGrooming = pisteGrooming ?: other.pisteGrooming,
+            trailClass = trailClass ?: other.trailClass,
+            visibility = visibility ?: other.visibility,
+            widthCm = widthCm ?: other.widthCm,
+            gradePercent = gradePercent ?: other.gradePercent,
+            lit = lit ?: other.lit,
+            dog = dog ?: other.dog,
+            horse = horse ?: other.horse,
+            wheelchair = wheelchair ?: other.wheelchair,
+            seasons = season.seasons,
+            seasonal = season.seasonal,
+            openFrom = season.openFrom,
+            openUntil = season.openUntil,
+            operator = operator ?: other.operator,
+            website = website ?: other.website,
+        )
+        .let { filled ->
+            filled.copy(
+                sources =
+                    TrailSources.of(
+                        TrailDetail.detailsOf(filled)
+                            .mapNotNull { detail ->
+                                val from = if (TrailDetail.valueOf(this, detail) != null) this else other
+                                from.sources?.of(detail)?.let { detail to it }
+                            }
+                            .toMap(),
+                    ),
+            )
+        }
 }

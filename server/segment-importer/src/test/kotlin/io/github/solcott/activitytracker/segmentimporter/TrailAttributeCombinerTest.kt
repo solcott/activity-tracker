@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailSource
+import io.github.solcott.activitytracker.lexicon.app.TrailSources
 import io.github.solcott.activitytracker.lexicon.app.TrailSurface
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,6 +14,26 @@ class TrailAttributeCombinerTest {
         TrailAttributeCombiner.combine(stretches.map { (facts, meters) -> FactsAlong(facts, meters) })
 
     private val none = WayFacts.NONE
+
+    @Test
+    fun eachAttributeNamesTheSourceGivingItAlongTheMostOfTheLine() {
+        val trail =
+            combine(
+                WayFacts(surface = "dirt", source = TrailSource.USFS, widthCm = 50) to 1_200.0,
+                WayFacts(surface = "dirt", source = TrailSource.OSM, dog = "leashed") to 400.0,
+            )
+        assertEquals(TrailSources(surface = TrailSource.USFS, width = TrailSource.USFS, dog = TrailSource.OSM), trail?.sources)
+    }
+
+    @Test
+    fun filledAttributesKeepTheirOwnSources() {
+        val osm = TrailAttributes(dog = "leashed", sources = TrailSources(dog = TrailSource.OSM))
+        val agency =
+            TrailAttributes(dog = "no", trailClass = 3, sources = TrailSources(dog = TrailSource.USFS, trailClass = TrailSource.USFS))
+        val filled = osm.filledFrom(agency)
+        assertEquals("leashed", filled?.dog)
+        assertEquals(TrailSources(dog = TrailSource.OSM, trailClass = TrailSource.USFS), filled?.sources)
+    }
 
     @Test
     fun aMixedSurfaceIsSharedByLength() {

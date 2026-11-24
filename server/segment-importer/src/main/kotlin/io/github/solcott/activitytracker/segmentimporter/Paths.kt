@@ -21,7 +21,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** The paths file's format; bump it when what a line holds changes. */
-internal const val PATHS_VERSION = 3
+internal const val PATHS_VERSION = 4
 
 /** The first line of a paths file. */
 @Serializable internal data class PathsHeader(val region: String, val pathsVersion: Int)
