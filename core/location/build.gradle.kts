@@ -10,6 +10,8 @@ kotlin {
 
             // @Immutable on GeoPoint, which a route map's state carries (RouteEnds). Annotation-only, so harmless on the AppView classpath.
             implementation(libs.compose.runtime.annotation)
+            // Encoded polylines (TrackMath, SegmentGeometry), kept out of every public signature: this module is exported to Swift.
+            implementation(libs.spatialk.polyline.encoding)
         }
         androidMain.dependencies {
             implementation(libs.androidx.core)

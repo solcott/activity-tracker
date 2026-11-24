@@ -49,19 +49,19 @@ object SegmentGeometry {
     /** Reference points a track sample may look ahead past the farthest its last step could reach. */
     private const val LOOKAHEAD = 3
 
-    private const val POLYLINE_SCALE = 1e6
-    private const val PRECISION_5_SCALE = 1e5
+    private const val POLYLINE_PRECISION = 6
+    private const val ACTIVITY_POLYLINE_PRECISION = 5
     private const val EARTH_RADIUS_M = 6_371_000.0
     private const val DEGREES_PER_HALF_TURN = 180.0
 
     /** [line] as an encoded polyline at precision 6, the form `feed.segment#line` stores. */
-    fun encodePolyline(line: List<GeoPoint>): String = TrackMath.encodePolyline(line, POLYLINE_SCALE)
+    fun encodePolyline(line: List<GeoPoint>): String = TrackMath.encodePolyline(line, POLYLINE_PRECISION)
 
     /** A precision-6 encoded polyline's points, or null when it's malformed. */
-    fun decodePolyline(encoded: String): List<GeoPoint>? = TrackMath.decodePolyline(encoded, POLYLINE_SCALE)
+    fun decodePolyline(encoded: String): List<GeoPoint>? = TrackMath.decodePolyline(encoded, POLYLINE_PRECISION)
 
     /** [line] at precision 5, for the maps that draw `feed.activity` polylines. */
-    fun toPrecision5(line: List<GeoPoint>): String = TrackMath.encodePolyline(line, PRECISION_5_SCALE)
+    fun toPrecision5(line: List<GeoPoint>): String = TrackMath.encodePolyline(line, ACTIVITY_POLYLINE_PRECISION)
 
     fun distanceMeters(a: GeoPoint, b: GeoPoint): Double = TrackMath.distanceMeters(a.lat, a.lng, b.lat, b.lng)
 

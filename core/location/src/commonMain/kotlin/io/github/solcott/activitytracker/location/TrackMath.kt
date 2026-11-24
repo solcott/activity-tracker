@@ -4,9 +4,10 @@ import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.pow
-import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.polyline.PolylineEncoding
 
 @Suppress("TooManyFunctions") // Distances, simplification and the polyline format, each with its helpers.
 object TrackMath {
@@ -14,12 +15,10 @@ object TrackMath {
     private const val DEGREES_PER_HALF_TURN = 180.0
 
     // Google encoded polyline format: 5 decimal digits, 5-bit chunks offset by '?' (63), 0x20 = "more chunks follow".
-    private const val POLYLINE_SCALE = 1e5
-    private const val CHUNK_BITS = 5
-    private const val CHUNK_MASK = 0x1f
+    private const val POLYLINE_PRECISION = 5
     private const val CONTINUATION_BIT = 0x20
     private const val ASCII_OFFSET = 63
-    private const val MAX_CHUNK = CONTINUATION_BIT or CHUNK_MASK
+    private const val MAX_CHUNK = 0x3f
 
     fun distanceMeters(a: LocationSample, b: LocationSample): Double = distanceMeters(a.latitude, a.longitude, b.latitude, b.longitude)
 
@@ -121,7 +120,7 @@ object TrackMath {
 
     /** Google encoded polyline, precision 5. */
     fun encodePolyline(points: List<LocationSample>): String =
-        encodePolyline(points.map { GeoPoint(it.latitude, it.longitude) }, POLYLINE_SCALE)
+        PolylineEncoding.encode(points.map { Position(longitude = it.longitude, latitude = it.latitude) }, POLYLINE_PRECISION)
 
     /** [encoded]'s points at precision 5; throws on a malformed one, which [decodePolylineOrNull] answers with null. */
     fun decodePolyline(encoded: String): List<GeoPoint> = checkNotNull(decodePolylineOrNull(encoded)) { "malformed polyline" }
@@ -130,47 +129,17 @@ object TrackMath {
      * [encoded]'s points at precision 5, or null when it's malformed (cut off mid-value, or a character outside the format): for polylines
      * from records, which are untrusted.
      */
-    fun decodePolylineOrNull(encoded: String): List<GeoPoint>? = decodePolyline(encoded, POLYLINE_SCALE)
+    fun decodePolylineOrNull(encoded: String): List<GeoPoint>? = decodePolyline(encoded, POLYLINE_PRECISION)
 
-    /** An encoded polyline of [points] at [scale] (1e5 for precision 5, 1e6 for 6). */
-    internal fun encodePolyline(points: List<GeoPoint>, scale: Double): String = buildString {
-        var lastLat = 0L
-        var lastLon = 0L
-        for ((latitude, longitude) in points) {
-            val lat = (latitude * scale).roundToLong()
-            val lon = (longitude * scale).roundToLong()
-            encodeValue(lat - lastLat)
-            encodeValue(lon - lastLon)
-            lastLat = lat
-            lastLon = lon
-        }
-    }
+    /** An encoded polyline of [points] at [precision] decimal places (5, or 6 for segment lines). */
+    internal fun encodePolyline(points: List<GeoPoint>, precision: Int): String =
+        PolylineEncoding.encode(points.map { Position(longitude = it.lng, latitude = it.lat) }, precision)
 
-    /** [encoded]'s points at [scale], or null when it's malformed: cut off mid-value, or with a character outside the format. */
-    internal fun decodePolyline(encoded: String, scale: Double): List<GeoPoint>? {
+    /** [encoded]'s points at [precision], or null when it's malformed: cut off mid-value, or with a character outside the format. */
+    internal fun decodePolyline(encoded: String, precision: Int): List<GeoPoint>? {
+        // The library only notices a value cut off at the end; a character outside the format would decode as a wrong value.
         if (!wellFormed(encoded)) return null
-        val result = mutableListOf<GeoPoint>()
-        var index = 0
-        var lat = 0L
-        var lon = 0L
-
-        fun next(): Long {
-            var shift = 0
-            var value = 0L
-            while (true) {
-                val b = encoded[index++].code - ASCII_OFFSET
-                value = value or ((b and CHUNK_MASK).toLong() shl shift)
-                shift += CHUNK_BITS
-                if (b < CONTINUATION_BIT) break
-            }
-            return if (value and 1L != 0L) (value shr 1).inv() else value shr 1
-        }
-        while (index < encoded.length) {
-            lat += next()
-            lon += next()
-            result += GeoPoint(lat / scale, lon / scale)
-        }
-        return result
+        return PolylineEncoding.decodeOrNull(encoded, precision)?.map { GeoPoint(it.latitude, it.longitude) }
     }
 
     /** Every character is a chunk of the format, and the chunks end a whole number of lat/lon pairs. */
@@ -179,15 +148,6 @@ object TrackMath {
         return chunks.all { it in 0..MAX_CHUNK } &&
             (chunks.isEmpty() || chunks.last() < CONTINUATION_BIT) &&
             chunks.count { it < CONTINUATION_BIT } % 2 == 0
-    }
-
-    private fun StringBuilder.encodeValue(value: Long) {
-        var v = if (value < 0) (value shl 1).inv() else value shl 1
-        while (v >= CONTINUATION_BIT) {
-            append(((CONTINUATION_BIT or (v and CHUNK_MASK.toLong()).toInt()) + ASCII_OFFSET).toChar())
-            v = v shr CHUNK_BITS
-        }
-        append((v + ASCII_OFFSET).toInt().toChar())
     }
 
     private fun Double.toRadians() = this * kotlin.math.PI / DEGREES_PER_HALF_TURN
