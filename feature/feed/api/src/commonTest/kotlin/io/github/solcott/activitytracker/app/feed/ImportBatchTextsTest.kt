@@ -39,7 +39,7 @@ class ImportBatchTextsTest {
         val lateOct = activity("b", "2025-11-01T03:00:00Z")
         val months = ImportBatchTexts.months(listOf(nov, lateOct), TimeZone.of("America/Denver"))
         assertEquals(listOf("month-2025-11", "month-2025-10"), months.map { it.key })
-        assertEquals(AppText.named("import_batch_month", AppText.named("month_short_11"), AppText.written("2025")), months[0].heading)
+        assertEquals(AppText.named("month_year", AppText.named("month_short_11"), AppText.written("2025")), months[0].heading)
         assertEquals(listOf(lateOct), months[1].activities)
     }
 }

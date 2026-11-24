@@ -9,7 +9,6 @@ import io.github.solcott.activitytracker.app.settings.ThresholdHistorySamples
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -27,7 +26,7 @@ object LineChartSamples {
                     val seconds = i * SAMPLE_SECONDS
                     LinePoint(seconds, 120 + 25 * sin(seconds / 600 * PI), gapBefore = i == GAP_AT)
                 }
-            fun bpm(value: Double) = AppText.named("unit_bpm", AppText.written(formatWhole(value.roundToInt())))
+            fun bpm(value: Double) = AppText.named("unit_bpm", AppText.whole(value.roundToInt()))
             return LineChart.of(
                 points = points,
                 xMin = 0.0,

@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.feed.isPending
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostProposalStatus
@@ -50,7 +49,7 @@ class PostCardContent(val post: PostView, val isOwn: Boolean, val viewerDid: Str
                 AppText.Plural(
                     "post_reposted_by_others",
                     reason.others.toInt(),
-                    persistentListOf(AppText.written(reason.by.shownName), AppText.written(formatWhole(reason.others))),
+                    persistentListOf(AppText.written(reason.by.shownName), AppText.whole(reason.others)),
                 )
             else -> AppText.named("post_reposted_by", AppText.written(reason.by.shownName))
         }
@@ -78,7 +77,7 @@ class PostCardContent(val post: PostView, val isOwn: Boolean, val viewerDid: Str
         AppText.named(
             "text_dot_pair",
             status(it.status),
-            AppText.named("segment_name_totals", AppText.written(formatWhole(it.up)), AppText.written(formatWhole(it.down))),
+            AppText.named("segment_name_totals", AppText.whole(it.up), AppText.whole(it.down)),
         )
     }
 
@@ -219,8 +218,7 @@ class PostCardContent(val post: PostView, val isOwn: Boolean, val viewerDid: Str
 
         private fun proposesName(name: String): AppText = AppText.named("post_card_proposes", AppText.written(name))
 
-        private fun plural(name: String, count: Long): AppText =
-            AppText.Plural(name, count.toInt(), persistentListOf(AppText.written(formatWhole(count))))
+        private fun plural(name: String, count: Long): AppText = AppText.Plural(name, count.toInt(), persistentListOf(AppText.whole(count)))
 
         private fun status(status: String): AppText =
             AppText.named(

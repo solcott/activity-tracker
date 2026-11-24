@@ -4,7 +4,6 @@ import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.persistentListOf
 
 /**
@@ -23,7 +22,7 @@ object FeedFilterTexts {
                 AppText.Plural(
                     "feed_filter_types_more",
                     more,
-                    persistentListOf(LabelText.activityType(sorted.first()), AppText.written(formatWhole(more.toLong()))),
+                    persistentListOf(LabelText.activityType(sorted.first()), AppText.whole(more.toLong())),
                 )
             }
         }
@@ -34,7 +33,7 @@ object FeedFilterTexts {
         when (range) {
             null -> AppText.named("feed_filter_any_time")
             is DateRange.LastDays ->
-                AppText.Plural("feed_filter_last_days", range.days, persistentListOf(AppText.written(formatWhole(range.days.toLong()))))
+                AppText.Plural("feed_filter_last_days", range.days, persistentListOf(AppText.whole(range.days.toLong())))
             DateRange.ThisYear -> AppText.named("feed_filter_this_year")
             is DateRange.Custom ->
                 AppText.named(

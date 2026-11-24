@@ -11122,17 +11122,6 @@
         }
       }
     },
-    "import_batch_month" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ %2$@"
-          }
-        }
-      }
-    },
     "import_batch_narrowed_followers" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -14495,6 +14484,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sep"
+          }
+        }
+      }
+    },
+    "month_year" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
           }
         }
       }
@@ -24021,17 +24021,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Riders report this may have changed"
-          }
-        }
-      }
-    },
-    "trail_month_year" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ %2$@"
           }
         }
       }

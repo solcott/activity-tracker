@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.posts
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
-import io.github.solcott.activitytracker.data.units.formatWhole
 
 /**
  * What the quote sheet and the delete confirmation (feed/quote-posts) say, for the shared and the native sheet (dev/shared-display-text).
@@ -24,7 +23,7 @@ object QuoteSheetTexts {
 
     /** Under the field while the words are longer than a post holds. */
     val tooLong: AppText
-        get() = AppText.named("quote_text_too_long", AppText.written(formatWhole(QuoteFields.MAX_TEXT_LENGTH)))
+        get() = AppText.named("quote_text_too_long", AppText.whole(QuoteFields.MAX_TEXT_LENGTH))
 
     /** Why only Public is offered. */
     val publicOnly: AppText

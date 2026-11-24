@@ -9,7 +9,6 @@ import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.chart.ChartAxis
 import io.github.solcott.activitytracker.data.training.PaceText
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import kotlin.math.abs
@@ -185,9 +184,7 @@ object ThresholdHistoryTexts {
         val runsOn = placed.last().x < 1f
         val points =
             placed.map { LinePoint(it.x.toDouble(), it.y.toDouble()) } +
-                listOfNotNull(
-                    LinePoint(1.0, placed.last().y.toDouble()).takeIf { runsOn },
-                )
+                listOfNotNull(LinePoint(1.0, placed.last().y.toDouble()).takeIf { runsOn })
         val readouts = placed.map { value(section, it.value) } + listOfNotNull(value(section, placed.last().value).takeIf { runsOn })
         val yTicks =
             if (!detailed) emptyList()
@@ -213,7 +210,7 @@ object ThresholdHistoryTexts {
     }
 
     private fun count(name: String, quantity: Int): AppText =
-        AppText.Plural(name, quantity, persistentListOf(AppText.written(formatWhole(quantity.toLong()))))
+        AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity.toLong())))
 
     private const val DETAILED_TOP = 0.22
     private const val DETAILED_BOTTOM = 0.16

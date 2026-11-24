@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.PathKind
 import io.github.solcott.activitytracker.lexicon.app.PathView
@@ -61,7 +60,7 @@ object PathTexts {
         AppText.named(
             "segment_browse_details",
             SegmentBrowseTexts.details(section.summary, units),
-            AppText.Plural("path_segment_count", section.rows.size, persistentListOf(AppText.written(formatWhole(section.rows.size)))),
+            AppText.Plural("path_segment_count", section.rows.size, persistentListOf(AppText.whole(section.rows.size))),
         )
 
     /** What a section's row does when tapped, for assistive technology: "Collapse Through the Trees Trail", "Expand …". */
@@ -101,7 +100,7 @@ object PathTexts {
         when (chosen.size) {
             0 -> name
             1 -> chosen.single()
-            else -> AppText.named("path_filter_more", chosen.first(), AppText.written(formatWhole(chosen.size - 1)))
+            else -> AppText.named("path_filter_more", chosen.first(), AppText.whole(chosen.size - 1))
         }
 
     /** What a filter chip reads as to assistive technology: its [name], then what it [shows] ("Length: 1–3 mi"). */

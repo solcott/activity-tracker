@@ -20,7 +20,6 @@ import io.github.solcott.activitytracker.data.moderation.BlurReason
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.data.moderation.WarnReason
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -130,11 +129,11 @@ class ActivityCardContent(val activity: ActivityView, val isOwn: Boolean) {
     fun counts(): AppText =
         AppText.named(
             "activity_card_counts",
-            AppText.Plural("like_count", activity.likeCount.toInt(), persistentListOf(AppText.written(formatWhole(activity.likeCount)))),
+            AppText.Plural("like_count", activity.likeCount.toInt(), persistentListOf(AppText.whole(activity.likeCount))),
             AppText.Plural(
                 "comments_count",
                 activity.commentCount.toInt(),
-                persistentListOf(AppText.written(formatWhole(activity.commentCount))),
+                persistentListOf(AppText.whole(activity.commentCount)),
             ),
         )
 
@@ -158,7 +157,7 @@ class ActivityCardContent(val activity: ActivityView, val isOwn: Boolean) {
                     AppText.Plural(
                         "card_with_others",
                         names.size - 1,
-                        persistentListOf(names[0], AppText.written(formatWhole((names.size - 1).toLong()))),
+                        persistentListOf(names[0], AppText.whole((names.size - 1).toLong())),
                     )
             }
         }

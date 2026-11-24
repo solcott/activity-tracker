@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.names
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
@@ -39,7 +38,7 @@ object PlaceNameTexts {
         AppText.named(
             "place_name_proposal_line",
             AppText.named("segment_name_proposed_by", LabelText.handle(proposal.proposer.handle.value)),
-            AppText.named("segment_name_totals", whole(proposal.up), whole(proposal.down)),
+            AppText.named("segment_name_totals", AppText.whole(proposal.up), AppText.whole(proposal.down)),
         )
 
     /** The spoken label of a vote for [proposal]. */
@@ -70,14 +69,12 @@ object PlaceNameTexts {
             "segment_name_history_entry",
             AppText.written(adoption.name),
             DateText.date(day.year, day.month.ordinal + 1, day.day),
-            whole(adoption.up),
-            whole(adoption.down),
+            AppText.whole(adoption.up),
+            AppText.whole(adoption.down),
         )
     }
 
     /** Who proposed an adopted name; null when the record no longer says. */
     fun historyBy(adoption: SegmentNameAdoption): AppText? =
         adoption.proposer?.let { AppText.named("segment_name_history_by", LabelText.handle(it.handle.value)) }
-
-    private fun whole(count: Int): AppText = AppText.written(formatWhole(count))
 }

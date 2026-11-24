@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.profile.CalendarDate
 import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import kotlin.math.roundToLong
@@ -58,7 +57,7 @@ object ProfileTexts {
     fun followers(count: Long?): AppText = countText("profile_followers_count", count)
 
     /** "5 following", a missing count as none. */
-    fun following(count: Long?): AppText = AppText.named("profile_following_count", AppText.written(formatWhole(count ?: 0L)))
+    fun following(count: Long?): AppText = AppText.named("profile_following_count", AppText.whole(count ?: 0L))
 
     /**
      * The location line: city, region and country, as far as the athlete gave them, joined by commas; null when there's none. The country
@@ -170,6 +169,6 @@ object ProfileTexts {
 
     private fun countText(name: String, count: Long?): AppText {
         val n = count ?: 0L
-        return AppText.Plural(name, n.toInt(), persistentListOf(AppText.written(formatWhole(n))))
+        return AppText.Plural(name, n.toInt(), persistentListOf(AppText.whole(n)))
     }
 }

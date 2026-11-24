@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneBasis
 import io.github.solcott.activitytracker.data.training.ZoneKind
 import io.github.solcott.activitytracker.data.training.ZoneModel
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 
 /**
@@ -98,7 +97,7 @@ object ZoneTexts {
 
     /** A privacy zone's name: its label, or "Zone 2" for the second in the list when it has none. [index] is its place, from 0. */
     fun privacyZoneName(zone: PrivacyZone, index: Int): AppText =
-        zone.label?.let(AppText::written) ?: AppText.named("privacy_zones_unnamed", AppText.written(formatWhole(index + 1)))
+        zone.label?.let(AppText::written) ?: AppText.named("privacy_zones_unnamed", AppText.whole(index + 1))
 
     /** "143–150", or "180+" for an open-ended zone, the bounds as plain whole numbers. */
     private fun bounds(zone: Zone): AppText {

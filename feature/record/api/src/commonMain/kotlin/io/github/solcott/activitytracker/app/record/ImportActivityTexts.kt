@@ -18,7 +18,6 @@ import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GearType
@@ -75,7 +74,7 @@ object ImportActivityTexts {
     /** Reading files…, with how many files and activities so far once it knows. */
     fun reading(progress: ReadProgress?): AppText =
         if (progress == null) AppText.named("import_reading")
-        else AppText.named("import_reading_progress", whole(progress.files), whole(progress.activities))
+        else AppText.named("import_reading_progress", AppText.whole(progress.files), AppText.whole(progress.activities))
 
     /** "Morning Mountain Bike Ride": the part of the day, then the type. */
     fun defaultTitle(title: DefaultTitle): AppText =
@@ -93,9 +92,10 @@ object ImportActivityTexts {
     fun save(saving: Boolean): AppText = LabelText.save(saving)
 
     fun savingProgress(saving: SavingImport): AppText =
-        AppText.named("import_saving_progress", whole(saving.progress.queued), whole(saving.progress.total))
+        AppText.named("import_saving_progress", AppText.whole(saving.progress.queued), AppText.whole(saving.progress.total))
 
-    fun stopped(stopped: StoppedImport): AppText = AppText.named("import_stopped", whole(stopped.saved), whole(stopped.total))
+    fun stopped(stopped: StoppedImport): AppText =
+        AppText.named("import_stopped", AppText.whole(stopped.saved), AppText.whole(stopped.total))
 
     /** "Threshold power: 231 W → 240 W", or "Run · Threshold power: …" for a sport's own threshold. */
     fun thresholdChange(change: ThresholdChange): AppText {
@@ -118,8 +118,8 @@ object ImportActivityTexts {
     private fun thresholdValue(threshold: String, value: Long?): AppText =
         when {
             value == null -> AppText.named("value_missing")
-            threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER -> AppText.named("unit_watts", whole(value))
-            else -> AppText.named("unit_bpm", whole(value))
+            threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER -> AppText.named("unit_watts", AppText.whole(value))
+            else -> AppText.named("unit_bpm", AppText.whole(value))
         }
 
     /** The route the preview draws, with its breaks; null for an indoor activity. */
@@ -267,7 +267,8 @@ object ImportActivityTexts {
         )
 
     /** "3 of 5 selected". */
-    fun selected(batch: ImportBatch): AppText = AppText.named("import_dives_selected", whole(batch.selectedCount), whole(batch.rows.size))
+    fun selected(batch: ImportBatch): AppText =
+        AppText.named("import_dives_selected", AppText.whole(batch.selectedCount), AppText.whole(batch.rows.size))
 
     /** Select all or Deselect all for the rows shown; null when none of them can be. */
     fun selectAll(batch: ImportBatch): AppText? =
@@ -280,8 +281,7 @@ object ImportActivityTexts {
     fun months(batch: ImportBatch): List<ImportMonth> =
         batch.shown.groupBy { it.month }.map { (month, rows) -> ImportMonth(month, monthHeading(month), rows.toImmutableList()) }
 
-    private fun monthHeading(month: LocalDate): AppText =
-        AppText.named("import_batch_month", AppText.named("month_short_${month.month.ordinal + 1}"), AppText.written(month.year.toString()))
+    private fun monthHeading(month: LocalDate): AppText = DateText.monthYear(month.year, month.month.ordinal + 1)
 
     /** A row's title, else its default title. */
     fun rowTitle(row: ImportRow): AppText = row.title?.let(AppText::written) ?: defaultTitle(row.defaultTitle)
@@ -315,21 +315,26 @@ object ImportActivityTexts {
     /** "Up to 4 MB of original files stay on this device until they're uploaded.", then how they upload; null when none are kept. */
     fun originalsSize(batch: ImportBatch, mobile: Boolean): AppText? {
         if (batch.originalsBytes <= 0) return null
-        val megabytes = AppText.named("import_megabytes", whole((batch.originalsBytes + BYTES_PER_MB - 1) / BYTES_PER_MB))
+        val megabytes = AppText.named("import_megabytes", AppText.whole((batch.originalsBytes + BYTES_PER_MB - 1) / BYTES_PER_MB))
         return AppText.named("text_space_pair", AppText.named("import_batch_originals_size", megabytes), uploadingNote(mobile))
     }
 
     /** A save that stopped short, else anything else saving refused. */
     fun saveFailure(state: ImportActivityState, batch: ImportBatch): AppText? {
         val failure = batch.saveFailure ?: return state.error?.let(ErrorTexts::of)
-        return AppText.named("import_batch_save_failed", whole(failure.saved), whole(failure.total), ErrorTexts.of(failure.error))
+        return AppText.named(
+            "import_batch_save_failed",
+            AppText.whole(failure.saved),
+            AppText.whole(failure.total),
+            ErrorTexts.of(failure.error),
+        )
     }
 
     /** "Save 3 activities", its progress while saving, or Import with nothing selected. */
     fun saveBatch(state: ImportActivityState, batch: ImportBatch): AppText {
         val progress = batch.progress
         return when {
-            progress != null -> AppText.named("import_batch_saving", whole(progress.queued), whole(progress.total))
+            progress != null -> AppText.named("import_batch_saving", AppText.whole(progress.queued), AppText.whole(progress.total))
             state.saving -> AppText.named("action_saving")
             batch.selectedCount == 0 -> AppText.named("import_dives_none")
             else -> plural("import_batch_save", batch.selectedCount)
@@ -513,11 +518,7 @@ object ImportActivityTexts {
     /** "May 12, 2024 at 7:02 AM", on the clock of the zone it's read in; the time on the device's 12- or 24-hour clock. */
     fun start(start: ImportStart): AppText = DateText.at(start.epochSeconds, start.utcOffsetMinutes)
 
-    private fun whole(value: Int): AppText = AppText.written(formatWhole(value))
-
-    private fun whole(value: Long): AppText = AppText.written(formatWhole(value))
-
-    private fun plural(name: String, count: Int): AppText = AppText.Plural(name, count, persistentListOf(whole(count)))
+    private fun plural(name: String, count: Int): AppText = AppText.Plural(name, count, persistentListOf(AppText.whole(count)))
 
     private fun spaced(texts: List<AppText>): AppText = texts.reduce { a, b -> AppText.named("text_space_pair", a, b) }
 

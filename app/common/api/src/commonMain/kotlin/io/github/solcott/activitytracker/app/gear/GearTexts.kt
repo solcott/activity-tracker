@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
@@ -41,7 +40,7 @@ object GearTexts {
 
     /** [meters] in whole kilometers or miles: "3,200 km". */
     fun distance(meters: Long, units: UnitSystem): AppText {
-        val value = AppText.written(formatWhole(UnitConversions.toDistanceUnit(meters.toDouble(), units).roundToLong()))
+        val value = AppText.whole(UnitConversions.toDistanceUnit(meters.toDouble(), units).roundToLong())
         return when (units) {
             UnitSystem.Metric -> AppText.named("unit_distance_km", value)
             UnitSystem.Imperial -> AppText.named("unit_distance_mi", value)
@@ -49,16 +48,13 @@ object GearTexts {
     }
 
     /** "14 days". */
-    fun days(days: Long): AppText =
-        AppText.Plural("gear_total_days", days.toPluralCount(), persistentListOf(AppText.written(formatWhole(days))))
+    fun days(days: Long): AppText = AppText.Plural("gear_total_days", days.toPluralCount(), persistentListOf(AppText.whole(days)))
 
     /** "12 dives". */
-    fun dives(dives: Long): AppText =
-        AppText.Plural("gear_total_dives", dives.toPluralCount(), persistentListOf(AppText.written(formatWhole(dives))))
+    fun dives(dives: Long): AppText = AppText.Plural("gear_total_dives", dives.toPluralCount(), persistentListOf(AppText.whole(dives)))
 
     /** [seconds] as whole hours: "120 h". */
-    fun hours(seconds: Long): AppText =
-        AppText.named("gear_total_hours", AppText.written(formatWhole((seconds / SECONDS_PER_HOUR).roundToLong())))
+    fun hours(seconds: Long): AppText = AppText.named("gear_total_hours", AppText.whole((seconds / SECONDS_PER_HOUR).roundToLong()))
 
     private fun Long.toPluralCount(): Int = coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 }

@@ -9,7 +9,6 @@ import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.roundToLong
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
@@ -130,9 +129,9 @@ object FigureTexts {
             is FigureValue.Speed -> StatText.speed(value.mmPerSecond, units)
             is FigureValue.Pace -> pace(value, units)
             is FigureValue.Temperature -> StatText.temperature(value.tenthsCelsius, units)
-            is FigureValue.Count -> AppText.written(formatWhole(value.value))
+            is FigureValue.Count -> AppText.whole(value.value)
             is FigureValue.Decimal -> AppText.written(formatDecimal(value.value, value.decimals))
-            is FigureValue.Quantity -> AppText.named(unitName(value.unit), AppText.written(formatWhole(value.value)))
+            is FigureValue.Quantity -> AppText.named(unitName(value.unit), AppText.whole(value.value))
             is FigureValue.Stream -> StreamUnits.valueText(value.kind, value.value, units)
             is FigureValue.LeftRight -> {
                 val side = { v: Double? -> v?.let { StreamUnits.valueText(value.kind, it, units) } ?: StatText.missing }
@@ -147,8 +146,7 @@ object FigureTexts {
             is FigureValue.Gear -> AppText.named("chart_gear_value", AppText.written("${value.rear}"))
             is FigureValue.Shifts ->
                 AppText.named("shifting_front_rear", AppText.written("${value.front}"), AppText.written("${value.rear}"))
-            is FigureValue.PoolLength ->
-                AppText.named(if (value.yards) "unit_pool_yd" else "unit_pool_m", AppText.written(formatWhole(value.value)))
+            is FigureValue.PoolLength -> AppText.named(if (value.yards) "unit_pool_yd" else "unit_pool_m", AppText.whole(value.value))
             is FigureValue.StartTime -> StartText.of(value, now, zone)
             is FigureValue.Text -> AppText.written(value.text)
             is FigureValue.Sensor -> LabelText.sensor(value.kind, value.manufacturer, value.model)
@@ -264,7 +262,7 @@ object FigureTexts {
     private fun fluid(milliliters: Int, units: UnitSystem): AppText {
         val value = UnitConversions.toFluidUnit(milliliters.toDouble(), units)
         return when (units) {
-            UnitSystem.Metric -> AppText.named("unit_fluid_ml", AppText.written(formatWhole(value.roundToLong())))
+            UnitSystem.Metric -> AppText.named("unit_fluid_ml", AppText.whole(value.roundToLong()))
             UnitSystem.Imperial -> AppText.named("unit_fluid_fl_oz", AppText.written(formatDecimal(value, FLUID_OUNCE_DECIMALS)))
         }
     }

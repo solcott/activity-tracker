@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlinx.collections.immutable.toImmutableList
 
@@ -112,7 +111,7 @@ object StructureTableTexts {
 
     private fun time(seconds: Int): AppText = AppText.written(StatText.duration(seconds.toLong()))
 
-    private fun whole(value: Int?): AppText = value?.let { AppText.written(formatWhole(it)) } ?: missing
+    private fun whole(value: Int?): AppText = value?.let { AppText.whole(it) } ?: missing
 
     private val rest = AppText.named("table_rest")
     private val missing = StatText.missing

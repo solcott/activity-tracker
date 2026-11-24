@@ -3,13 +3,13 @@ package io.github.solcott.activitytracker.app.feed
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.DayText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.CardRoute
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import kotlin.time.Instant
@@ -95,7 +95,7 @@ object FeedTexts {
 object FeedUploadTexts {
     /** "2 changes couldn't be published", while the server refused any; null otherwise. */
     fun refused(uploads: UploadSummary): AppText? =
-        if (uploads.refused > 0) AppText.Plural("feed_rejected_changes", uploads.refused, persistentListOf(whole(uploads.refused)))
+        if (uploads.refused > 0) AppText.Plural("feed_rejected_changes", uploads.refused, persistentListOf(AppText.whole(uploads.refused)))
         else null
 
     /**
@@ -108,7 +108,8 @@ object FeedUploadTexts {
         val imported = count("feed_uploading_imported", uploads.imported)
         val activities =
             when {
-                uploads.own > 0 && uploads.imported > 0 -> AppText.named("feed_uploading_and_imported", own, whole(uploads.imported))
+                uploads.own > 0 && uploads.imported > 0 ->
+                    AppText.named("feed_uploading_and_imported", own, AppText.whole(uploads.imported))
                 uploads.own > 0 -> AppText.named("feed_uploading", own)
                 uploads.imported > 0 && uploads.importsPaused -> AppText.named("feed_imports_waiting", imported)
                 uploads.imported > 0 -> AppText.named("feed_uploading", imported)
@@ -135,7 +136,7 @@ object FeedUploadTexts {
             ?.takeIf { uploads.uploading }
             ?.let { DayText.until(it, now, zone, today = "feed_upload_paused", tomorrow = "feed_upload_paused_tomorrow") }
 
-    private fun count(name: String, quantity: Int): AppText = AppText.Plural(name, quantity, persistentListOf(whole(quantity)))
+    private fun count(name: String, quantity: Int): AppText = AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity)))
 }
 
 /**
@@ -152,7 +153,7 @@ object ImportCardTexts {
     /** "Imported 312 activities". */
     fun title(card: ImportCardView): AppText {
         val count = card.count.toInt()
-        return AppText.Plural("import_card_title", count, persistentListOf(whole(count)))
+        return AppText.Plural("import_card_title", count, persistentListOf(AppText.whole(count)))
     }
 
     /** "Nov 2019 – Oct 2026": the months of its first and last start, in the viewer's [zone]. */
@@ -161,7 +162,7 @@ object ImportCardTexts {
 
     /** "Ride 201 · Run 98 · Swim 13 · 14,380 km": each sport's count, most first, then the distance in [units] where one is known. */
     fun summary(card: ImportCardView, units: UnitSystem): AppText {
-        val sports = card.sports.map { AppText.named("import_card_sport", LabelText.sport(it.sport), whole(it.count.toInt())) }
+        val sports = card.sports.map { AppText.named("import_card_sport", LabelText.sport(it.sport), AppText.whole(it.count.toInt())) }
         val distance = card.distance?.let { StatText.distance(it.toDouble(), units) }
         return (sports + listOfNotNull(distance)).reduceOrNull { line, next -> AppText.named("text_dot_pair", line, next) }
             ?: AppText.written("")
@@ -175,14 +176,6 @@ object ImportCardTexts {
 
     private fun month(instant: Instant, zone: TimeZone): AppText {
         val date = instant.toLocalDateTime(zone).date
-        // A year is a label, not a quantity: never grouped (ui/number-format).
-        return AppText.named(
-            "import_batch_month",
-            AppText.named("month_short_${date.month.ordinal + 1}"),
-            AppText.written(date.year.toString()),
-        )
+        return DateText.monthYear(date.year, date.month.ordinal + 1)
     }
 }
-
-/** [count] with its digits grouped as the device's locale groups them ("3,000", ui/number-format). */
-private fun whole(count: Int): AppText = AppText.written(formatWhole(count))

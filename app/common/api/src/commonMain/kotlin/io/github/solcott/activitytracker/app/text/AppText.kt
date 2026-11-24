@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.text
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -39,6 +40,12 @@ sealed interface AppText {
 
         /** [text] as it is. */
         fun written(text: String): AppText = Written(text)
+
+        /** [value] as a whole number, grouped as the device groups thousands ([formatWhole]): a count or figure shown on its own. */
+        fun whole(value: Int): AppText = written(formatWhole(value))
+
+        /** [value] as a whole number, grouped as the device groups thousands ([formatWhole]). */
+        fun whole(value: Long): AppText = written(formatWhole(value))
 
         /** [texts] as a list, each next one joined on by `text_list_pair` ("Ride, Run, Swim"); null for none. */
         fun joined(texts: List<AppText>): AppText? = texts.reduceOrNull { list, next -> named("text_list_pair", list, next) }

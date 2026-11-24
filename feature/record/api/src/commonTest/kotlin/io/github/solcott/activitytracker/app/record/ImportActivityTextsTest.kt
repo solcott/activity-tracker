@@ -146,7 +146,7 @@ class ImportActivityTextsTest {
         val batch = ImportBatch(rows = persistentListOf(row(0, "2024-04-28 07:02"), row(1, "2024-05-03 18:15"), row(2, "2024-05-14 12:00")))
         val months = ImportActivityTexts.months(batch)
         assertEquals(listOf(1, 2), months.map { it.rows.size })
-        assertEquals(AppText.named("import_batch_month", AppText.named("month_short_5"), AppText.written("2024")), months[1].heading)
+        assertEquals(DateText.monthYear(2024, 5), months[1].heading)
     }
 
     @Test

@@ -29,6 +29,11 @@ object DateText {
     fun monthDay(month: Int, day: Int): AppText =
         AppText.named("zones_history_date_short", AppText.named("month_short_$month"), AppText.written(day.toString()))
 
+    /** A month of [year], [month] from 1 for January, as a heading: "May 2024". */
+    fun monthYear(year: Int, month: Int): AppText =
+        // A year is a label, not a quantity: never grouped (ui/number-format).
+        AppText.named("month_year", AppText.named("month_short_$month"), AppText.written(year.toString()))
+
     /** [date] written out. */
     fun of(date: LocalDate): AppText = date(date.year, date.month.ordinal + 1, date.day)
 

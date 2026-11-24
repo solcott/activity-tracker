@@ -15,7 +15,6 @@ import io.github.solcott.activitytracker.data.chart.ChartAxis
 import io.github.solcott.activitytracker.data.chart.nearestIndexBy
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -262,7 +261,7 @@ object CardLines {
     fun powerCurve(curve: List<CurvePoint>): CardLine? {
         if (curve.size < 2) return null
         val points = curve.mapIndexed { i, point -> LinePoint(i.toDouble(), point.watts.toDouble()) }
-        val watts = { w: Double -> AppText.named("unit_watts", AppText.written(formatWhole(w.roundToInt()))) }
+        val watts = { w: Double -> AppText.named("unit_watts", AppText.whole(w.roundToInt())) }
         val chart =
             LineChart.of(
                 points = points,
@@ -290,7 +289,7 @@ object CardLines {
                     AppText.named(
                         "chart_power_curve_point",
                         durationLabel(it.seconds),
-                        AppText.named("unit_watts", AppText.written(formatWhole(it.watts))),
+                        AppText.named("unit_watts", AppText.whole(it.watts)),
                     )
                 }
         val listed = points.reduceOrNull { a, b -> AppText.named("text_semicolon_pair", a, b) } ?: AppText.written("")
@@ -420,9 +419,9 @@ object ZoneRows {
                     AppText.named(
                         unit,
                         if (high != null) {
-                            AppText.named("chart_zone_range", AppText.written(formatWhole(zone.low)), AppText.written(formatWhole(high)))
+                            AppText.named("chart_zone_range", AppText.whole(zone.low), AppText.whole(high))
                         } else {
-                            AppText.named("chart_zone_range_open", AppText.written(formatWhole(zone.low)))
+                            AppText.named("chart_zone_range_open", AppText.whole(zone.low))
                         },
                     ),
                 time = AppText.written(StatText.duration(zone.seconds.toLong())),
@@ -437,7 +436,7 @@ object ZoneRows {
         return if (rounded == 0 && fraction > 0) {
             AppText.named("chart_zone_percent_under")
         } else {
-            AppText.named("unit_percent", AppText.written(formatWhole(rounded.toLong())))
+            AppText.named("unit_percent", AppText.whole(rounded.toLong()))
         }
     }
 
@@ -516,9 +515,9 @@ object LapTableTexts {
                     cell(lap.speed) {
                         AppText.named(if (metric) "unit_speed_kmh" else "unit_speed_mph", AppText.written(formatDecimal(it, 1)))
                     },
-                    cell(lap.avgHeartRate, heartRate) { AppText.named("unit_bpm", AppText.written(formatWhole(it))) },
-                    cell(lap.avgPower, power) { AppText.named("unit_watts", AppText.written(formatWhole(it))) },
-                    cell(lap.avgCadence, cadenced) { AppText.named(cadenceUnit, AppText.written(formatWhole(it))) },
+                    cell(lap.avgHeartRate, heartRate) { AppText.named("unit_bpm", AppText.whole(it)) },
+                    cell(lap.avgPower, power) { AppText.named("unit_watts", AppText.whole(it)) },
+                    cell(lap.avgCadence, cadenced) { AppText.named(cadenceUnit, AppText.whole(it)) },
                     cell(lap.ascent, ascent) { AppText.named(height, AppText.written(formatDecimal(it, 0))) },
                     // A lift ride has no descent worth showing.
                     if (!descent) null

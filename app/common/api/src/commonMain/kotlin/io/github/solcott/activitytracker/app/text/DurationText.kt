@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.text
 
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -24,6 +23,5 @@ object DurationText {
             else -> plural("duration_days", (duration / 1.days).roundToInt().coerceAtLeast(1))
         }
 
-    private fun plural(name: String, quantity: Int): AppText =
-        AppText.Plural(name, quantity, persistentListOf(AppText.written(formatWhole(quantity))))
+    private fun plural(name: String, quantity: Int): AppText = AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity)))
 }

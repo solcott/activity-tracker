@@ -20,8 +20,7 @@ object PostPageTexts {
     fun repostsToggle(shown: Boolean): AppText = AppText.named(if (shown) "post_hide_reposts" else "post_show_reposts")
 
     /** "3 likes", "1 repost", "2 quotes": a count's spoken name in the counts row, by its plural [name]. */
-    fun count(name: String, count: Long): AppText =
-        AppText.Plural(name, count.toInt(), persistentListOf(AppText.written(formatWhole(count))))
+    fun count(name: String, count: Long): AppText = AppText.Plural(name, count.toInt(), persistentListOf(AppText.whole(count)))
 
     /** A count alone, "3", beside its icon in the counts row. */
     fun number(count: Long): String = formatWhole(count)

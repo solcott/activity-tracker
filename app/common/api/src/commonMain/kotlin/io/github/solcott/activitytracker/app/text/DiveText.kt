@@ -33,7 +33,7 @@ object DiveText {
         val value = DiveConversions.toPressureUnit(barPerMinute, units)
         return when (units) {
             UnitSystem.Metric -> AppText.named("unit_pressure_rate_bar", AppText.written(formatDecimal(value, RATE_DECIMALS)))
-            UnitSystem.Imperial -> AppText.named("unit_pressure_rate_psi", AppText.written(formatWhole(value.roundToLong())))
+            UnitSystem.Imperial -> AppText.named("unit_pressure_rate_psi", AppText.whole(value.roundToLong()))
         }
     }
 
@@ -66,7 +66,7 @@ object DiveText {
         } else {
             AppText.named(
                 "unit_days_hours",
-                AppText.written(formatWhole(hours / HOURS_PER_DAY)),
+                AppText.whole(hours / HOURS_PER_DAY),
                 AppText.written("${hours % HOURS_PER_DAY}"),
             )
         }

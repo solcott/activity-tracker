@@ -65,7 +65,7 @@ class TrailContributionTextsTest {
         assertEquals(
             AppText.named(
                 "trail_last_confirmed",
-                AppText.named("trail_month_year", AppText.named("month_short_11"), AppText.written("2026")),
+                AppText.named("month_year", AppText.named("month_short_11"), AppText.written("2026")),
             ),
             TrailContributionTexts.lastConfirmed(community),
         )

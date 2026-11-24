@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.SegmentDirection
@@ -113,7 +112,7 @@ private fun joined(row: BrowseRow, metersAway: Int?, units: UnitSystem): AppText
                 listOf(SegmentBrowseTexts.kind(row), StatText.distance(row.path.lengthMeters.toDouble(), units)) +
                     pathSportParts(row.path, sports) +
                     listOfNotNull(
-                        AppText.Plural("path_segment_count", count, persistentListOf(AppText.written(formatWhole(count)))),
+                        AppText.Plural("path_segment_count", count, persistentListOf(AppText.whole(count))),
                         metersAway?.let { AppText.named("segment_browse_away", StatText.distance(it.toDouble(), units)) },
                     )
             parts.reduce { line, next -> AppText.named("segment_browse_details", line, next) }

@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.app.segment.PlaceTexts
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteConditions
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteRegularEntry
 import io.github.solcott.activitytracker.lexicon.app.DiveSiteView
@@ -53,14 +52,14 @@ object DiveSiteTexts {
 
     /** The viewer's own count on the card ("You: 6 dives here"). */
     fun yourVisits(entry: DiveSiteRegularEntry): AppText =
-        AppText.Plural("dive_site_regulars_yours", entry.visits, persistentListOf(AppText.written(formatWhole(entry.visits))))
+        AppText.Plural("dive_site_regulars_yours", entry.visits, persistentListOf(AppText.whole(entry.visits)))
 
     /** The conditions' heading. */
     val conditionsTitle: AppText = AppText.named("dive_site_conditions")
 
     /** How many dives the conditions come from. */
     fun conditionsFrom(conditions: DiveSiteConditions): AppText =
-        AppText.Plural("dive_site_conditions_from", conditions.dives, persistentListOf(AppText.written(formatWhole(conditions.dives))))
+        AppText.Plural("dive_site_conditions_from", conditions.dives, persistentListOf(AppText.whole(conditions.dives)))
 
     /** The water temperature, visibility and depth lines in [units], each only when some dive recorded it. */
     fun conditionLines(conditions: DiveSiteConditions, units: UnitSystem): List<AppText> =

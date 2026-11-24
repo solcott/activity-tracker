@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.persistentListOf
 
 /**
@@ -24,7 +23,7 @@ object SettingsTexts {
         if (count == null) return null
         val zones =
             if (count == 0) AppText.named("settings_privacy_zones_none")
-            else AppText.Plural("settings_privacy_zones_count", count, persistentListOf(AppText.written(formatWhole(count))))
+            else AppText.Plural("settings_privacy_zones_count", count, persistentListOf(AppText.whole(count)))
         return if (hidesRouteEnds) AppText.named("settings_privacy_zones_ends", zones) else zones
     }
 

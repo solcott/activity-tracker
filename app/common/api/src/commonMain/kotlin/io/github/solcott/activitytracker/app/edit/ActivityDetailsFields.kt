@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.edit
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.media.MediaItem
 import io.github.solcott.activitytracker.app.text.AppText
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -64,8 +63,8 @@ object DetailsFormTexts {
             "details_photos_count",
             fields.maxMedia,
             persistentListOf(
-                AppText.written(formatWhole(fields.media.size.toLong())),
-                AppText.written(formatWhole(fields.maxMedia.toLong())),
+                AppText.whole(fields.media.size.toLong()),
+                AppText.whole(fields.maxMedia.toLong()),
             ),
         )
 }

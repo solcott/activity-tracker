@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.BoardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
@@ -76,7 +75,7 @@ object SegmentBoardTexts {
     fun efforts(entry: MayorEntry): AppText = efforts(entry.efforts)
 
     /** A count of efforts: "14 efforts", grouped from a thousand (ui/number-format). */
-    fun efforts(count: Int): AppText = AppText.Plural("mayor_efforts", count, persistentListOf(AppText.written(formatWhole(count))))
+    fun efforts(count: Int): AppText = AppText.Plural("mayor_efforts", count, persistentListOf(AppText.whole(count)))
 }
 
 /**
@@ -93,8 +92,7 @@ object BoardGapTexts {
         else AppText.named("leaderboard_behind_first", AppText.written(StatText.duration(seconds)))
 
     /** What it takes to be Mayor, [count] more efforts: "8 more efforts to be Mayor". */
-    fun moreToBeMayor(count: Int): AppText =
-        AppText.Plural("mayors_more_to_be_mayor", count, persistentListOf(AppText.written(formatWhole(count))))
+    fun moreToBeMayor(count: Int): AppText = AppText.Plural("mayors_more_to_be_mayor", count, persistentListOf(AppText.whole(count)))
 }
 
 private const val SECONDS_PER_MINUTE = 60L

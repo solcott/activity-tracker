@@ -6,7 +6,6 @@ import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearComponent
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
@@ -51,7 +50,7 @@ object GearPageTexts {
         val totals = page.usage.totals
         val main = GearType.mainTotal(page.gear.type)
         return buildList {
-            add(GearFigure(AppText.named("gear_page_activity_count"), AppText.written(formatWhole(totals.activities))))
+            add(GearFigure(AppText.named("gear_page_activity_count"), AppText.whole(totals.activities)))
             add(GearFigure(AppText.named("gear_page_moving_time"), GearTexts.hours(totals.movingTime)))
             if (totals.distance > 0 || main == GearMainTotal.DISTANCE) {
                 add(GearFigure(AppText.named("gear_page_distance"), GearTexts.distance(totals.distance, units)))
@@ -62,8 +61,8 @@ object GearPageTexts {
             if (totals.elevationLoss > 0 || main == GearMainTotal.DAYS_AND_VERTICAL) {
                 add(GearFigure(AppText.named("gear_page_elevation_loss"), StatText.elevation(totals.elevationLoss.toDouble(), units)))
             }
-            add(GearFigure(AppText.named("gear_page_days"), AppText.written(formatWhole(totals.days))))
-            totals.dives?.let { add(GearFigure(AppText.named("gear_page_dives"), AppText.written(formatWhole(it)))) }
+            add(GearFigure(AppText.named("gear_page_days"), AppText.whole(totals.days)))
+            totals.dives?.let { add(GearFigure(AppText.named("gear_page_dives"), AppText.whole(it))) }
             totals.bottomTime?.let { add(GearFigure(AppText.named("gear_page_bottom_time"), AppText.written(StatText.duration(it)))) }
         }
     }
@@ -123,7 +122,7 @@ object GearPageTexts {
             AppText.Plural(
                 "gear_total_activities",
                 totals.activities.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-                persistentListOf(AppText.written(formatWhole(totals.activities))),
+                persistentListOf(AppText.whole(totals.activities)),
             )
         return GearFigure(
             label,

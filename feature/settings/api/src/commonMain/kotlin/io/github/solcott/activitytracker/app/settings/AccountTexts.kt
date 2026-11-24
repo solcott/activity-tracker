@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.settings
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.auth.GrantFeature
 import io.github.solcott.activitytracker.data.auth.GrantStatus
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.persistentListOf
 
 /**
@@ -44,7 +43,7 @@ object AccountTexts {
                     export.neededBytes?.let {
                         AppText.named(
                             "export_data_paused_space",
-                            AppText.named("import_megabytes", AppText.written(formatWhole((it + BYTES_PER_MB - 1) / BYTES_PER_MB))),
+                            AppText.named("import_megabytes", AppText.whole((it + BYTES_PER_MB - 1) / BYTES_PER_MB)),
                         )
                     } ?: AppText.named("export_data_paused_space_unknown"),
                 )
@@ -82,14 +81,14 @@ object AccountTexts {
             DataExportStatus.Running.Phase.Files ->
                 AppText.named(
                     "export_data_files",
-                    AppText.written(formatWhole(export.filesDone)),
-                    AppText.written(formatWhole(export.filesTotal)),
+                    AppText.whole(export.filesDone),
+                    AppText.whole(export.filesTotal),
                 )
             DataExportStatus.Running.Phase.Activities ->
                 AppText.named(
                     "export_data_activities",
-                    AppText.written(formatWhole(export.activitiesDone)),
-                    AppText.written(formatWhole(export.activitiesTotal)),
+                    AppText.whole(export.activitiesDone),
+                    AppText.whole(export.activitiesTotal),
                 )
         }
 
@@ -112,7 +111,7 @@ object AccountTexts {
         AppText.named(if (ending.signInAgain) "account_end_sign_in_again_anyway" else "account_end_sign_out_anyway")
 
     private fun count(name: String, quantity: Int): AppText? =
-        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.written(formatWhole(quantity)))) else null
+        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity))) else null
 
     private val GrantFeature.textName: String
         get() =

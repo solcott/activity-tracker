@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
@@ -67,7 +66,7 @@ object SegmentPageTexts {
 
     /** The viewer's own time and place on the Leaderboard card ("You: 5:03 · #18"). */
     fun leaderboardYours(entry: LeaderboardEntry): AppText =
-        AppText.named("segment_leaderboard_yours", SegmentBoardTexts.time(entry), AppText.written(formatWhole(entry.rank)))
+        AppText.named("segment_leaderboard_yours", SegmentBoardTexts.time(entry), AppText.whole(entry.rank))
 
     /** The Leaderboard card when no one the viewer may see is on the board. */
     val leaderboardNone: AppText = AppText.named("leaderboard_empty")
@@ -98,7 +97,7 @@ object SegmentPageTexts {
 
     /** The viewer's own count on the card ("You: 3 efforts"). */
     fun mayorYours(entry: MayorEntry): AppText =
-        AppText.Plural("segment_mayor_yours", entry.efforts, persistentListOf(AppText.written(formatWhole(entry.efforts))))
+        AppText.Plural("segment_mayor_yours", entry.efforts, persistentListOf(AppText.whole(entry.efforts)))
 
     /** The efforts' heading: Your rides on a [lift], else Your efforts. */
     fun efforts(lift: Boolean): AppText = AppText.named(if (lift) "segment_your_rides" else "segment_your_efforts")

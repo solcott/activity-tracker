@@ -11,7 +11,6 @@ import io.github.solcott.activitytracker.data.activity.UploadImport
 import io.github.solcott.activitytracker.data.activity.UploadItem
 import io.github.solcott.activitytracker.data.activity.UploadSource
 import io.github.solcott.activitytracker.data.activity.UploadState
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.TimeZone
@@ -26,7 +25,7 @@ object UploadsTexts {
     fun state(item: UploadItem): AppText =
         when (item.state) {
             UploadState.Waiting -> AppText.named("uploads_state_waiting")
-            UploadState.Uploading -> AppText.named("uploads_state_uploading", whole(item.sent), whole(item.total))
+            UploadState.Uploading -> AppText.named("uploads_state_uploading", AppText.whole(item.sent), AppText.whole(item.total))
             UploadState.Uploaded -> AppText.named("uploads_state_uploaded")
             UploadState.Refused -> AppText.named("uploads_state_refused")
             UploadState.Skipped -> AppText.named("uploads_state_skipped")
@@ -104,7 +103,7 @@ object UploadImportTexts {
                 if (more <= 0) {
                     AppText.written(source.first)
                 } else {
-                    AppText.Plural("uploads_source_files", more, persistentListOf(AppText.written(source.first), whole(more)))
+                    AppText.Plural("uploads_source_files", more, persistentListOf(AppText.written(source.first), AppText.whole(more)))
                 }
             }
         }
@@ -116,13 +115,14 @@ object UploadImportTexts {
     /** "Saving 500 of 1,362" while its save runs, or that it stopped short (an error); null once saved. */
     fun saveStatus(group: UploadImport): AppText? =
         when (val save = group.save) {
-            is ImportSaveStatus.Saving -> AppText.named("uploads_import_saving", whole(save.done), whole(save.total))
-            is ImportSaveStatus.Stopped -> AppText.named("uploads_import_stopped", whole(save.saved), whole(save.total))
+            is ImportSaveStatus.Saving -> AppText.named("uploads_import_saving", AppText.whole(save.done), AppText.whole(save.total))
+            is ImportSaveStatus.Stopped -> AppText.named("uploads_import_stopped", AppText.whole(save.saved), AppText.whole(save.total))
             null -> null
         }
 
     /** "412 of 1,362 uploaded". */
-    fun progress(group: UploadImport): AppText = AppText.named("uploads_import_progress", whole(group.uploaded), whole(group.saved))
+    fun progress(group: UploadImport): AppText =
+        AppText.named("uploads_import_progress", AppText.whole(group.uploaded), AppText.whole(group.saved))
 
     /** "1 refused · 3 skipped", either alone, or null with neither. */
     fun counts(group: UploadImport): AppText? {
@@ -135,7 +135,7 @@ object UploadImportTexts {
     }
 
     /** "Show all (26)": every one of its live activities. */
-    fun showAll(group: UploadImport): AppText = AppText.named("uploads_show_all", whole(group.live.size))
+    fun showAll(group: UploadImport): AppText = AppText.named("uploads_show_all", AppText.whole(group.live.size))
 
     /** Cancel rest read aloud with the import's source: "Cancel the rest of Strava export". */
     fun cancelRest(group: UploadImport): AppText = AppText.named("uploads_cancel_rest_named", source(group.source))
@@ -149,8 +149,5 @@ object UploadImportTexts {
             .let { head -> AppText.named("uploads_list_last", head, AppText.written(names.last())) }
 
     private fun count(name: String, quantity: Int): AppText? =
-        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(whole(quantity))) else null
+        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity))) else null
 }
-
-/** [count] with its digits grouped as the device's locale groups them ("1,362"). */
-private fun whole(count: Int): AppText = AppText.written(formatWhole(count))

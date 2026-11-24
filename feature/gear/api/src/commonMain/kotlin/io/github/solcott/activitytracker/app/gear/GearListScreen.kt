@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.GearMainTotal
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
@@ -106,5 +105,5 @@ object GearListTexts {
 
     /** How many of a collection's items still exist: "4 items". */
     fun collectionCount(row: GearCollectionRow): AppText =
-        AppText.Plural("gear_collection_count", row.count, persistentListOf(AppText.written(formatWhole(row.count))))
+        AppText.Plural("gear_collection_count", row.count, persistentListOf(AppText.whole(row.count)))
 }

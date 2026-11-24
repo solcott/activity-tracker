@@ -6,7 +6,6 @@ import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.Gender
 
 /**
@@ -15,8 +14,7 @@ import io.github.solcott.activitytracker.lexicon.app.Gender
  */
 object EditProfileTexts {
     /** "5/64": how much of [max] the text holds, under a field with a limit. */
-    fun counter(text: String, max: Int): AppText =
-        AppText.named("edit_profile_length", AppText.written(formatWhole(text.length)), AppText.written(formatWhole(max)))
+    fun counter(text: String, max: Int): AppText = AppText.named("edit_profile_length", AppText.whole(text.length), AppText.whole(max))
 
     /** The weight's label in [units]: "Weight (kg)" or "Weight (lb)". */
     fun weightLabel(units: UnitSystem): AppText =

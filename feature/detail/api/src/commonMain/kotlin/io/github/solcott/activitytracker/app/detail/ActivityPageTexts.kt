@@ -89,7 +89,7 @@ object ActivityPageTexts {
 
     /** "3 likes": the like count's spoken name, and the owner's count. */
     fun likeCount(activity: ActivityView): AppText =
-        AppText.Plural("like_count", activity.likeCount.toInt(), persistentListOf(AppText.written(formatWhole(activity.likeCount))))
+        AppText.Plural("like_count", activity.likeCount.toInt(), persistentListOf(AppText.whole(activity.likeCount)))
 
     /** Whether the page offers Show likes: someone liked it, or the list is open (hiding stays offered if the last like goes). */
     fun showsLikesToggle(page: ActivityDetailPage): Boolean = page.activity.likeCount > 0 || page.likesList != null

@@ -839,6 +839,7 @@
     <string name="zones_history_chart_description">%1$s chart: %2$s on %3$s, %4$s now</string>
     <string name="zones_history_date">%1$s %2$d, %3$d</string>
     <string name="zones_history_date_short">%1$s %2$d</string>
+    <string name="month_year">%1$s %2$s</string>
     <string name="month_short_1">Jan</string>
     <string name="month_short_2">Feb</string>
     <string name="month_short_3">Mar</string>
@@ -1110,7 +1111,6 @@
     </plurals>
     <string name="trail_may_have_changed">Riders report this may have changed</string>
     <string name="trail_last_confirmed">Riders confirmed these in %1$s</string>
-    <string name="trail_month_year">%1$s %2$s</string>
     <string name="trail_from">From %1$s</string>
     <string name="trail_was_it_right">Was it right when you rode?</string>
     <string name="trail_still_right">Still right</string>
@@ -1324,7 +1324,6 @@
     <string name="import_filter_all">All</string>
     <string name="import_filter_new">New</string>
     <string name="import_filter_duplicates">Duplicates</string>
-    <string name="import_batch_month">%1$s %2$d</string>
     <plurals name="import_card_title">
         <item quantity="one">Imported %1$d activity</item>
         <item quantity="other">Imported %1$d activities</item>

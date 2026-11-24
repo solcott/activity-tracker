@@ -3,7 +3,7 @@ package io.github.solcott.activitytracker.app.segment
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.text.AppText
-import io.github.solcott.activitytracker.data.units.formatWhole
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.lexicon.app.PathView
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
@@ -312,7 +312,7 @@ object TrailContributionTexts {
     private fun varied(key: String, row: TrailDetail, segments: List<VaryingSegment>): TrailDetail =
         row.copy(
             value = if (key == Detail.SURFACE) row.value else AppText.named("trail_varies"),
-            note = AppText.Plural("trail_changed_on", segments.size, persistentListOf(whole(segments.size))),
+            note = AppText.Plural("trail_changed_on", segments.size, persistentListOf(AppText.whole(segments.size))),
             varying = segments.toImmutableList(),
         )
 
@@ -434,7 +434,8 @@ object TrailContributionTexts {
 
     /** A row's source caption: the importer's source, or the community with its riders. */
     fun sourceText(source: String, riders: Int?): AppText =
-        if (source == TrailSource.COMMUNITY) AppText.Plural("trail_source_community", riders ?: 0, persistentListOf(whole(riders ?: 0)))
+        if (source == TrailSource.COMMUNITY)
+            AppText.Plural("trail_source_community", riders ?: 0, persistentListOf(AppText.whole(riders ?: 0)))
         else AppText.named("trail_source_${source.takeIf { it in SOURCES } ?: TrailSource.IMPORTED}")
 
     private fun annotated(
@@ -449,7 +450,7 @@ object TrailContributionTexts {
         val note =
             when {
                 info?.mayHaveChanged == true -> AppText.named("trail_may_have_changed")
-                suggestions > 0 -> AppText.Plural("trail_suggestions", suggestions, persistentListOf(whole(suggestions)))
+                suggestions > 0 -> AppText.Plural("trail_suggestions", suggestions, persistentListOf(AppText.whole(suggestions)))
                 else -> null
             }
         return row.copy(
@@ -466,7 +467,7 @@ object TrailContributionTexts {
             label = TrailTexts.labelOf(key),
             value = AppText.named("trail_pending_question", valueText(key, best.value)),
             key = key,
-            note = AppText.named("trail_pending_progress", whole(best.up)),
+            note = AppText.named("trail_pending_progress", AppText.whole(best.up)),
             question = true,
             opens = rider,
         )
@@ -478,7 +479,7 @@ object TrailContributionTexts {
         return AppText.named(
             "segment_browse_details",
             from,
-            AppText.Plural("trail_confirmed_count", confirmed, persistentListOf(whole(confirmed))),
+            AppText.Plural("trail_confirmed_count", confirmed, persistentListOf(AppText.whole(confirmed))),
         )
     }
 
@@ -487,7 +488,7 @@ object TrailContributionTexts {
             uri = suggestion.uri.value,
             value = valueText(suggestion.detail, suggestion.value),
             author = AppText.named("trail_suggested_by", AppText.written(suggestion.author.displayName ?: suggestion.author.handle.value)),
-            totals = AppText.named("trail_vote_totals", whole(suggestion.up), whole(suggestion.down)),
+            totals = AppText.named("trail_vote_totals", AppText.whole(suggestion.up), AppText.whole(suggestion.down)),
             vote = suggestion.viewerVote?.direction,
             own = suggestion.author.did.value == viewerDid,
         )
@@ -503,20 +504,18 @@ object TrailContributionTexts {
             else -> 2
         }
 
-    /** `YYYY-MM` as "Nov 2026". */
-    private fun monthText(month: String): AppText =
-        AppText.named(
-            "trail_month_year",
-            AppText.named("month_short_${month.takeLast(2).toInt()}"),
-            AppText.written(month.substringBefore('-')),
-        )
-
-    private fun whole(value: Int): AppText = AppText.written(formatWhole(value.toLong()))
+    /** `YYYY-MM` as "Nov 2026"; the text itself when it isn't one. */
+    private fun monthText(month: String): AppText {
+        val year = month.substringBefore('-').toIntOrNull()
+        val number = month.takeLast(2).toIntOrNull()
+        return if (year != null && number != null && number in 1..MONTHS) DateText.monthYear(year, number) else AppText.written(month)
+    }
 
     private fun <T> List<T>.toImmutableList(): ImmutableList<T> = kotlinx.collections.immutable.persistentListOf<T>().addAll(this)
 
     private val SOURCES = persistentSetOf(TrailSource.OSM, TrailSource.USFS, TrailSource.NPS, TrailSource.BLM, TrailSource.IMPORTED)
     private const val FULL = 100
+    private const val MONTHS = 12
     private const val QUICK_CHECK_ROWS = 3
     private const val SUMMARY_VALUES = 3
 }

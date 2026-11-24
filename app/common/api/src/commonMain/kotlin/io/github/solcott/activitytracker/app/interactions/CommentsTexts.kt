@@ -10,7 +10,6 @@ import io.github.solcott.activitytracker.app.text.DayText
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
-import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.uistate.LoadStatus
@@ -107,7 +106,7 @@ object CommentsTexts {
 
     /** "3 comments", hidden ones left out. */
     fun count(state: CommentsState): AppText =
-        AppText.Plural("detail_comment_count", state.count.toInt(), persistentListOf(AppText.written(formatWhole(state.count))))
+        AppText.Plural("detail_comment_count", state.count.toInt(), persistentListOf(AppText.whole(state.count)))
 
     /**
      * The viewer replies to any listed comment that isn't hidden, deletes their own comments, hides or unhides others' on their own
@@ -207,8 +206,7 @@ object CommentsTexts {
         }
     }
 
-    private fun agoText(name: String, count: Long): AppText =
-        AppText.Plural(name, count.toInt(), persistentListOf(AppText.written(formatWhole(count))))
+    private fun agoText(name: String, count: Long): AppText = AppText.Plural(name, count.toInt(), persistentListOf(AppText.whole(count)))
 
     /**
      * The key prefix of [thread]'s rows: `<prefix>|root`, `|r|<reply>`, `|s|<sent reply>` and `|more` follow it. AT-URIs never hold a `|`.
@@ -237,8 +235,7 @@ object CommentsTexts {
     }
 
     /** "View 3 more replies". */
-    fun moreReplies(count: Int): AppText =
-        AppText.Plural("view_more_replies", count, persistentListOf(AppText.written(formatWhole(count.toLong()))))
+    fun moreReplies(count: Int): AppText = AppText.Plural("view_more_replies", count, persistentListOf(AppText.whole(count.toLong())))
 
     val unavailable: AppText
         get() = AppText.named("comment_unavailable")

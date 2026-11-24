@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.settings
 
 import io.github.solcott.activitytracker.app.text.AppText
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.persistentListOf
 
 /**
@@ -16,7 +15,7 @@ object LeftElsewhereTexts {
     fun lines(state: LeftElsewhereState): List<AppText> =
         listOfNotNull(
             if (state.changes > 0) {
-                AppText.Plural("left_elsewhere_changes", state.changes, persistentListOf(AppText.written(formatWhole(state.changes))))
+                AppText.Plural("left_elsewhere_changes", state.changes, persistentListOf(AppText.whole(state.changes)))
             } else {
                 null
             },

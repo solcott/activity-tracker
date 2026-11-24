@@ -141,8 +141,8 @@ class FeedTextsTest {
         assertEquals(
             AppText.named(
                 "import_card_range",
-                AppText.named("import_batch_month", AppText.named("month_short_11"), AppText.written("2019")),
-                AppText.named("import_batch_month", AppText.named("month_short_10"), AppText.written("2026")),
+                AppText.named("month_year", AppText.named("month_short_11"), AppText.written("2019")),
+                AppText.named("month_year", AppText.named("month_short_10"), AppText.written("2026")),
             ),
             ImportCardTexts.range(card, TimeZone.of("America/Denver")),
         )

@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.settings
 
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.auth.LeaveStep
-import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.persistentListOf
 
 /**
@@ -98,5 +97,5 @@ object LeaveTexts {
         )
 
     private fun count(name: String, quantity: Int): AppText? =
-        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.written(formatWhole(quantity)))) else null
+        if (quantity > 0) AppText.Plural(name, quantity, persistentListOf(AppText.whole(quantity))) else null
 }

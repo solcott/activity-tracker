@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.feed
 
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.text.DateText
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import kotlinx.collections.immutable.ImmutableList
@@ -28,8 +29,7 @@ object ImportBatchTexts {
                 val (year, number) = month
                 ImportBatchMonth(
                     key = "month-$year-$number",
-                    // A year is a label, not a quantity: never grouped (ui/number-format).
-                    heading = AppText.named("import_batch_month", AppText.named("month_short_$number"), AppText.written(year.toString())),
+                    heading = DateText.monthYear(year, number),
                     activities = inMonth.toImmutableList(),
                 )
             }
