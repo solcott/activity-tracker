@@ -162,6 +162,15 @@ class TrailReportsTest {
     }
 
     @Test
+    fun pendingReportsListNewestFirst() = runTest {
+        val trail = reports()
+        val older = trail.post(segment, listOf(TrailCondition.DRY), null, emptyList())
+        now += 1.minutes
+        val newer = trail.post(segment, listOf(TrailCondition.WET), null, emptyList())
+        assertEquals(listOf(newer, older), trail.applyTo(segment.uri, emptyList()).map { it.uri })
+    }
+
+    @Test
     fun deletingAReportHidesIt() = runTest {
         val trail = reports()
         trail.post(segment, listOf(TrailCondition.DRY), null, emptyList())

@@ -163,11 +163,26 @@ class TrailReports(
             )
         }
 
-    /** A page of photos of [segment]'s reports, or of [path]'s, with this session's deletes and removals left out. */
+    /**
+     * A page of photos of [segment]'s reports, or of [path]'s, with this session's deletes and removals left out. A segment's first page
+     * starts with the photos of the reports posted this session that the AppView hasn't listed yet, as [applyTo] lists those reports first,
+     * so a photo's place among them is the same in the list, on the page's strip and here.
+     */
     suspend fun photosPage(segment: AtUri? = null, path: AtUri? = null, cursor: String? = null): GetTrailPhotos.Output =
         clients.appView.query(GetTrailPhotos.method, GetTrailPhotos.Params(segment, path, cursor = cursor)).let {
-            it.copy(photos = applyTo(it.photos))
+            val pending = if (segment != null && path == null && cursor == null) pendingPhotos(segment, it.photos) else emptyList()
+            it.copy(photos = applyTo(pending + it.photos))
         }
+
+    /** The photos of [segment]'s reports posted this session that aren't among [served] yet, newest report first. */
+    private fun pendingPhotos(segment: AtUri, served: List<TrailPhotoView>): List<TrailPhotoView> {
+        val listed = served.map { it.report }.toSet()
+        return pendingPosts(segment) { it.uri in listed }.flatMap { it.photoViews() }
+    }
+
+    /** This session's posts on [segment] that [served] doesn't say are listed already, newest first. */
+    private fun pendingPosts(segment: AtUri, served: (TrailReportView) -> Boolean): List<TrailReportView> =
+        changes.value[segment.value]?.posted.orEmpty().filterNot(served).sortedByDescending { it.indexedAt }
 
     /** [path]'s conditions rolled up from its segments, with this session's deletes and removed photos left out of its strip. */
     suspend fun pathConditions(path: AtUri): GetPathConditions.Output =
@@ -177,10 +192,10 @@ class TrailReports(
     fun applyTo(view: SegmentView): SegmentView =
         changes.value[view.uri.value]?.let { view.copy(conditions = applyReportChanges(view.conditions, it, clock.now())) } ?: view
 
-    /** [reports] of one segment with this session's posts first and its deletes and removed photos left out. */
+    /** [reports] of one segment with this session's posts first (newest first) and its deletes and removed photos left out. */
     fun applyTo(segment: AtUri, reports: List<TrailReportView>): List<TrailReportView> {
         val change = changes.value[segment.value] ?: return reports
-        val pending = change.posted.filter { p -> reports.none { it.uri == p.uri } }
+        val pending = pendingPosts(segment) { p -> reports.any { it.uri == p.uri } }
         return (pending + reports)
             .filterNot { it.uri.value in change.deleted }
             .map { r -> r.copy(images = r.images.filterNot { it.fullsize in change.removedPhotos }) }
@@ -275,10 +290,7 @@ private fun TrailReportView.isUncounted(served: TrailConditions?, now: Instant):
 private fun TrailConditions.withPosted(report: TrailReportView): TrailConditions {
     val tags = report.conditions
     val tagged = tags.isNotEmpty()
-    val posted =
-        report.images.mapIndexed { index, image ->
-            TrailPhotoView(image, report.uri, report.cid, index + 1, report.segment, report.author, tags, report.indexedAt)
-        }
+    val posted = report.photoViews()
     val newLead = leadAfter(tags)
     return copy(
         lead = newLead ?: lead,
@@ -303,6 +315,11 @@ private fun TrailConditions.leadAfter(tags: List<String>): String? =
         lead == null || lead == TrailCondition.CLOSED -> tags.firstOrNull { it in TrailCondition.surface }
         else -> lead
     }
+
+/** This report's photos as the photo viewer lists them, in order. */
+private fun TrailReportView.photoViews(): List<TrailPhotoView> = images.mapIndexed { index, image ->
+    TrailPhotoView(image, uri, cid, index + 1, segment, author, conditions, indexedAt)
+}
 
 /** How long a posted report shows before the AppView counts it: Jetstream takes seconds, so one still uncounted was dropped. */
 internal val POSTED_GRACE = 5.minutes
