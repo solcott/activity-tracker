@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions") // One read, write, delete and list per place, and the rules choosing it.
+
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
@@ -6,6 +8,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SpacesSupport
 import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
 import io.github.solcott.activitytracker.data.readPages
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -15,6 +18,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
 import io.github.solcott.uistate.pageOf
 import kotlinx.serialization.json.JsonObject
 
@@ -81,6 +85,14 @@ internal suspend fun SessionClients.readOwn(collection: String, rkey: String, pl
             SpaceRead.NotFound -> null
             SpaceRead.NoAccess -> throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.NOT_AUTHORIZED, "Can't read $place")
         }
+    }
+
+/** The athlete's own blob [cid]'s bytes at [place] (null: the repo); null when the space doesn't have it. */
+internal suspend fun SessionClients.ownBlob(cid: Cid, place: SpaceUri?): ByteArray? =
+    if (place == null) {
+        pds.queryBytes(SyncGetBlob.method, SyncGetBlob.Params(did, cid)).bytes
+    } else {
+        (spaces.getBlob(place, did, cid) as? SpaceRead.Found)?.value?.bytes
     }
 
 /** Writes the athlete's [collection]/[rkey] at [place] now, creating the tier space if need be. */

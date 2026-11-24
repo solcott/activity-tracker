@@ -5,12 +5,12 @@ import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.deleteOwn
 import io.github.solcott.activitytracker.data.activity.listOwn
+import io.github.solcott.activitytracker.data.activity.ownBlob
 import io.github.solcott.activitytracker.data.activity.placeOf
 import io.github.solcott.activitytracker.data.activity.writeOwn
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -43,7 +43,6 @@ import io.github.solcott.activitytracker.lexicon.app.MountProblem
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
-import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
 import io.github.solcott.uistate.pageOf
@@ -333,11 +332,7 @@ class GearRepository(
     }
 
     /** The blob [cid]'s bytes at [visibility]'s place; null when it isn't there. */
-    private suspend fun blob(cid: String, visibility: String): ByteArray? {
-        val place = clients.placeOf(visibility)
-        return if (place == null) clients.pds.queryBytes(SyncGetBlob.method, SyncGetBlob.Params(clients.did, Cid(cid))).bytes
-        else (clients.spaces.getBlob(place, clients.did, Cid(cid)) as? SpaceRead.Found)?.value?.bytes
-    }
+    private suspend fun blob(cid: String, visibility: String): ByteArray? = clients.ownBlob(Cid(cid), clients.placeOf(visibility))
 
     private fun encode(record: GearItemRecord): JsonObject = AtJson.encodeToJsonElement(GearItemRecord.serializer(), record) as JsonObject
 

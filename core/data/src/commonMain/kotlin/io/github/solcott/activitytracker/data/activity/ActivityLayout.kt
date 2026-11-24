@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.AthleteSpaces
@@ -24,7 +23,6 @@ import io.github.solcott.activitytracker.lexicon.app.heldCategories
 import io.github.solcott.activitytracker.lexicon.app.holdsCore
 import io.github.solcott.activitytracker.lexicon.app.mergeStreams
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
-import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
 import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlin.time.Clock
 import kotlinx.coroutines.async
@@ -363,17 +361,9 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
      */
     private suspend fun streamData(value: JsonObject, tier: String): ActivityStreamData? {
         val cid = AtJson.decodeOrNull(ActivityStreamsRecord.serializer(), value)?.data?.ref?.link?.let(::Cid)
-        val bytes = cid?.let { blob(it, clients.placeOf(tier)) ?: throw StreamsUnreadableException(tier) }
+        val bytes = cid?.let { clients.ownBlob(it, clients.placeOf(tier)) ?: throw StreamsUnreadableException(tier) }
         return bytes?.let { AtJson.decodeOrNull(ActivityStreamData.serializer(), it.decodeToString()) }
     }
-
-    /** The blob [cid]'s bytes at [place] (null: the repo); null when the space doesn't have it. */
-    private suspend fun blob(cid: Cid, place: SpaceUri?): ByteArray? =
-        if (place == null) {
-            clients.pds.queryBytes(SyncGetBlob.method, SyncGetBlob.Params(clients.did, cid)).bytes
-        } else {
-            (clients.spaces.getBlob(place, clients.did, cid) as? SpaceRead.Found)?.value?.bytes
-        }
 }
 
 /** A streams record at [tier] names data its space doesn't have, so the activity can't be rewritten without losing channels. */

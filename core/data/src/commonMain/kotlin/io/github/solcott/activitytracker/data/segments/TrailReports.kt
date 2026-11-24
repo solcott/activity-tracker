@@ -2,11 +2,11 @@ package io.github.solcott.activitytracker.data.segments
 
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.ownBlob
 import io.github.solcott.activitytracker.data.activity.placeOf
 import io.github.solcott.activitytracker.data.activity.undoingOnFailure
 import io.github.solcott.activitytracker.data.activity.upload
@@ -36,7 +36,6 @@ import io.github.solcott.activitytracker.lexicon.app.TrailReportView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
-import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
 import io.github.solcott.uistate.pageOf
@@ -230,20 +229,14 @@ class TrailReports(
             is ReportPhoto.New -> clients.upload(photo.photo, held).copy(alt = photo.alt?.take(ActivityMedia.Image.MAX_ALT_LENGTH))
             is ReportPhoto.Shared -> {
                 val image = photo.image
-                val bytes = requireNotNull(ownBlob(image.image.ref.link, photo.visibility)) { "That photo isn't there any more" }
+                val place = clients.placeOf(photo.visibility)
+                val bytes = requireNotNull(clients.ownBlob(Cid(image.image.ref.link), place)) { "That photo isn't there any more" }
                 val ratio = image.aspectRatio
                 clients
                     .upload(NewPhoto(bytes, image.image.mimeType, ratio?.width ?: 1, ratio?.height ?: 1), held)
                     .copy(alt = (photo.alt ?: image.alt)?.take(ActivityMedia.Image.MAX_ALT_LENGTH))
             }
         }
-
-    /** The athlete's own blob [cid] from where an activity of [visibility] keeps it: their repo, or that tier's space. */
-    private suspend fun ownBlob(cid: String, visibility: String): ByteArray? {
-        val place = clients.placeOf(visibility)
-        return if (place == null) clients.pds.queryBytes(SyncGetBlob.method, SyncGetBlob.Params(clients.did, Cid(cid))).bytes
-        else (clients.spaces.getBlob(place, clients.did, Cid(cid)) as? SpaceRead.Found)?.value?.bytes
-    }
 
     private suspend fun write(segment: AtUri, change: (TrailReportChanges) -> TrailReportChanges, queue: suspend () -> Unit) {
         mutex.withLock {
