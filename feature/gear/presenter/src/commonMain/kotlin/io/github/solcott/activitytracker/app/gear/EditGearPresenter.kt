@@ -14,6 +14,7 @@ import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.edit.toNewPhoto
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
@@ -21,7 +22,6 @@ import io.github.solcott.activitytracker.app.readyFormContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.gear.GearCollection
 import io.github.solcott.activitytracker.data.gear.GearCollections
@@ -260,7 +260,7 @@ fun EditGearPresenter(
             is EditGearEvent.AcquiredChanged -> acquiredOn = event.date
             is EditGearEvent.PhotoPicked -> {
                 photo = GearPhoto.Picked(event.photo)
-                photoEdit = GearPhotoEdit.Replace(event.photo.let { NewPhoto(it.bytes.toByteArray(), it.mimeType, it.width, it.height) })
+                photoEdit = GearPhotoEdit.Replace(event.photo.toNewPhoto())
             }
             EditGearEvent.RemovePhoto -> {
                 photo = null

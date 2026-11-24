@@ -12,13 +12,13 @@ import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
+import io.github.solcott.activitytracker.app.edit.toNewPhoto
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.HeldPhotos
-import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.photoCid
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.segments.ReportPhoto
@@ -196,8 +196,7 @@ fun rememberReportFields(
 internal data class Picked(val key: String, val photo: ReportPhoto, val choice: ReportPhotoChoice) {
     companion object {
         fun new(key: String, picked: PickedPhoto): Picked {
-            val photo = NewPhoto(picked.bytes.toByteArray(), picked.mimeType, picked.width, picked.height)
-            return Picked(key, ReportPhoto.New(photo), ReportPhotoChoice(key, null, null))
+            return Picked(key, ReportPhoto.New(picked.toNewPhoto()), ReportPhotoChoice(key, null, null))
         }
     }
 }

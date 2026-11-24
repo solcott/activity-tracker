@@ -69,7 +69,8 @@ class DetailsForm internal constructor() {
 
 @Composable fun rememberDetailsForm(): DetailsForm = remember { DetailsForm() }
 
-private fun PickedPhoto.toNewPhoto() = NewPhoto(bytes.toByteArray(), mimeType, width, height)
+/** A photo the athlete picked, as the bytes a repository uploads. */
+fun PickedPhoto.toNewPhoto(): NewPhoto = NewPhoto(bytes.toByteArray(), mimeType, width, height)
 
 /** [activity]'s photos as the form shows them: each from its view, named by the CID its record holds. */
 fun existingMedia(activity: ActivityView): List<EditMedia> {
