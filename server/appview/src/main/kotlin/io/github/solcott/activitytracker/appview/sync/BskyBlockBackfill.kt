@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.ops.ErrorSummary
 import io.github.solcott.activitytracker.appview.ops.WorkerHandle
+import io.github.solcott.activitytracker.appview.ops.everyRound
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -52,18 +53,7 @@ class BskyBlockBackfill(
 
     /** Runs until cancelled, backfilling a batch of actors every [POLL_INTERVAL] and reporting each round to [worker]. */
     suspend fun run(worker: WorkerHandle = WorkerHandle.None): Nothing {
-        while (true) {
-            try {
-                runDue()
-                worker.success()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                worker.failure(e)
-                log.warn("Reading the actors due for a Bluesky block backfill failed; retrying: {}", e.message)
-            }
-            delay(POLL_INTERVAL)
-        }
+        worker.everyRound(log, "Reading the actors due for a Bluesky block backfill", { delay(POLL_INTERVAL) }) { runDue() }
     }
 
     /** Backfills every actor that is due, one at a time. Exposed for tests. */

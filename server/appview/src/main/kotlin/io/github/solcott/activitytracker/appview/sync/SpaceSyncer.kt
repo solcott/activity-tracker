@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.spaceRkeys
 import io.github.solcott.activitytracker.appview.ops.ErrorSummary
 import io.github.solcott.activitytracker.appview.ops.WorkerHandle
+import io.github.solcott.activitytracker.appview.ops.everyRound
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.Did
@@ -154,17 +155,8 @@ class SpaceSyncer(
      * failing space is that space's own (`space_sync`), not the worker's.
      */
     suspend fun run(scope: CoroutineScope, worker: WorkerHandle = WorkerHandle.None): Nothing {
-        while (true) {
-            try {
-                launchDue(scope)
-                worker.success()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                worker.failure(e)
-                log.warn("Reading the spaces due to sync failed; retrying: {}", e.message)
-            }
-            withTimeoutOrNull(POLL_INTERVAL) { wakeups.receive() }
+        worker.everyRound(log, "Reading the spaces due to sync", { withTimeoutOrNull(POLL_INTERVAL) { wakeups.receive() } }) {
+            launchDue(scope)
         }
     }
 

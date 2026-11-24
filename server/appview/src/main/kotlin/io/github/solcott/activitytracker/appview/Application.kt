@@ -61,6 +61,7 @@ import io.github.solcott.activitytracker.appview.ops.WorkerKind
 import io.github.solcott.activitytracker.appview.ops.WorkerNames
 import io.github.solcott.activitytracker.appview.ops.WorkerRegistry
 import io.github.solcott.activitytracker.appview.ops.WorkerSupervisor
+import io.github.solcott.activitytracker.appview.ops.everyRound
 import io.github.solcott.activitytracker.appview.ops.installRequestMetrics
 import io.github.solcott.activitytracker.appview.ops.serve
 import io.github.solcott.activitytracker.appview.reindex.RepoReindexer
@@ -72,7 +73,6 @@ import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.appview.sync.SyncOutcomes
 import io.github.solcott.activitytracker.appview.sync.SyncRegistrations
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SignedDelegationTokens
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
@@ -315,9 +315,8 @@ private fun startLabelSubscribers(
     val subscribers = labelers.map { labeler -> LabelSubscriber(http, labeler, store, verifier, endpoint) }
     subscribers.forEach { subscriber -> supervisor.stream(WorkerNames.labelSubscriber(subscriber.did)) { subscriber.run(it) } }
     supervisor.loop(WorkerNames.LABEL_SWEEP) { worker ->
-        while (true) {
-            runSuspendCatching { store.sweepExpired() }.onSuccess { worker.success() }.onFailure { worker.failure(it) }
-            delay(LabelSubscriber.SWEEP_INTERVAL)
+        worker.everyRound(LoggerFactory.getLogger("AppView"), "Sweeping expired labels", { delay(LabelSubscriber.SWEEP_INTERVAL) }) {
+            store.sweepExpired()
         }
     }
     return subscribers

@@ -2,7 +2,7 @@ package io.github.solcott.activitytracker.appview.labels
 
 import io.github.solcott.activitytracker.appview.AppViewConfig
 import io.github.solcott.activitytracker.appview.ops.WorkerHandle
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.appview.ops.reconnecting
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
@@ -13,7 +13,6 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.delay
 import org.slf4j.LoggerFactory
 
 /**
@@ -69,19 +68,13 @@ class LabelSubscriber(
     )
 
     /** Runs until cancelled, reporting each applied frame and each failed connection to [worker]. */
-    suspend fun run(worker: WorkerHandle = WorkerHandle.None) {
-        var backoff = 1.seconds
-        while (true) {
-            runSuspendCatching { consume(worker) }
-                .onSuccess { backoff = 1.seconds }
-                .onFailure {
-                    worker.failure(it)
-                    log.warn("Labeler {} stream failed ({}); retrying in {}", labeler.did, it.message, backoff)
-                }
-            delay(backoff)
-            backoff = (backoff * 2).coerceAtMost(maxBackoff)
+    suspend fun run(worker: WorkerHandle = WorkerHandle.None): Nothing =
+        worker.reconnecting(
+            maxBackoff,
+            { e, backoff -> log.warn("Labeler {} stream failed ({}); retrying in {}", labeler.did, e.message, backoff) },
+        ) {
+            consume(worker)
         }
-    }
 
     /** One connection: from the stored cursor until the stream ends or fails. */
     suspend fun consume(worker: WorkerHandle = WorkerHandle.None) {

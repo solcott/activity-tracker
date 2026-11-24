@@ -3,8 +3,8 @@ package io.github.solcott.activitytracker.appview.index
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.ops.WorkerHandle
+import io.github.solcott.activitytracker.appview.ops.everyRound
 import io.github.solcott.activitytracker.lexicon.Did
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.delay
@@ -25,18 +25,7 @@ class HandleSweep(private val db: Database, private val indexer: Indexer, privat
 
     /** Runs until cancelled, reporting each round to [worker]. */
     suspend fun run(worker: WorkerHandle = WorkerHandle.None): Nothing {
-        while (true) {
-            try {
-                runDue()
-                worker.success()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                worker.failure(e)
-                log.warn("Checking due handles failed; retrying: {}", e.message)
-            }
-            delay(POLL_INTERVAL)
-        }
+        worker.everyRound(log, "Checking due handles", { delay(POLL_INTERVAL) }) { runDue() }
     }
 
     /** Checks every actor that is due, up to [BATCH]. Exposed for tests. */

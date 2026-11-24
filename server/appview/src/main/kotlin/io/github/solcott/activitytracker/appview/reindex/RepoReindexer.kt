@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.appview.ipld.CarFile
 import io.github.solcott.activitytracker.appview.ipld.CarLimits
 import io.github.solcott.activitytracker.appview.ipld.RepoFormatException
 import io.github.solcott.activitytracker.appview.ops.WorkerHandle
+import io.github.solcott.activitytracker.appview.ops.attempt
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -179,14 +180,14 @@ class RepoReindexer(
      * reported to [worker] (dev/worker-telemetry); a run's own failure is its row's, not the worker's.
      */
     suspend fun run(scope: CoroutineScope, worker: WorkerHandle = WorkerHandle.None): Nothing {
-        var recovered = runCatchingLogged("marking interrupted reindexes", worker) { recoverInterrupted() } != null
+        var recovered = worker.attempt(log, "Marking interrupted reindexes") { recoverInterrupted() } != null
         var lastPrune = 0L
         while (true) {
-            if (!recovered) recovered = runCatchingLogged("marking interrupted reindexes", worker) { recoverInterrupted() } != null
-            var ok = runCatchingLogged("starting queued reindexes", worker) { launchDue(scope) } != null
+            if (!recovered) recovered = worker.attempt(log, "Marking interrupted reindexes") { recoverInterrupted() } != null
+            var ok = worker.attempt(log, "Starting queued reindexes") { launchDue(scope) } != null
             val now = clock.now().toEpochMilliseconds()
             if (now - lastPrune >= PRUNE_INTERVAL.inWholeMilliseconds) {
-                ok = runCatchingLogged("pruning old reindexes", worker) { prune() } != null && ok
+                ok = worker.attempt(log, "Pruning old reindexes") { prune() } != null && ok
                 lastPrune = now
             }
             if (ok && recovered) worker.success()
@@ -274,7 +275,7 @@ class RepoReindexer(
                 ?.takeIf { resync }
                 ?.let { resyncOf ->
                     update(id) { it[phase] = ReindexPhase.SPACES.code }
-                    runCatchingLogged("resyncing $did's spaces") { resyncOf(did) }
+                    WorkerHandle.None.attempt(log, "Resyncing $did's spaces") { resyncOf(did) }
                 }
         update(id) {
             it[state] = outcome.state.code
@@ -422,17 +423,6 @@ class RepoReindexer(
     private suspend fun update(id: Long, body: RepoReindexes.(UpdateStatement) -> Unit) = db.tx {
         RepoReindexes.update({ RepoReindexes.id eq id }, body = body)
     }
-
-    private suspend fun <T> runCatchingLogged(what: String, worker: WorkerHandle = WorkerHandle.None, block: suspend () -> T): T? =
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            log.warn("Failed {}: {}", what, e.message)
-            worker.failure(e)
-            null
-        }
 
     companion object {
         private const val GET_REPO = "com.atproto.sync.getRepo"
