@@ -1,5 +1,8 @@
+@file:Suppress("TooManyFunctions") // Every read of trail reports: the summary and its inputs, the lists, the photos and the media check.
+
 package io.github.solcott.activitytracker.appview.api
 
+import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.TrailReportBlobs
 import io.github.solcott.activitytracker.appview.db.TrailReportTags
 import io.github.solcott.activitytracker.appview.db.TrailReports
@@ -26,8 +29,10 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -67,19 +72,25 @@ internal fun JdbcTransaction.conditionsOf(
     media: MediaUrls,
     withPhotos: Boolean,
 ): Map<String, TrailConditions> {
-    val rows =
+    val since = now - TRAIL_REPORT_CURRENT_WINDOW.inWholeMilliseconds
+    // The summary reads only the reports in the window, and the newest tagged one before it for a segment with nothing counted.
+    val current =
         segments.chunked(LOOKUP_CHUNK).flatMap { chunk ->
-            TrailReports.selectAll().where { (TrailReports.segmentUri inList chunk) and reportsShownTo(viewer) }.toList()
+            TrailReports.selectAll()
+                .where { (TrailReports.segmentUri inList chunk) and (TrailReports.indexedAt greaterEq since) and reportsShownTo(viewer) }
+                .toList()
         }
-    if (rows.isEmpty()) return emptyMap()
+    val counted = current.filter { it[TrailReports.hasConditions] }.map { it[TrailReports.segmentUri] }.toSet()
+    val rows = current + newestTaggedBefore(segments.filterNot { it in counted }, since, viewer)
+    // Every segment with a report the viewer may see has a summary, as one with only older untagged reports still shows its photos.
+    val reported = rows.map { it[TrailReports.segmentUri] }.toSet() + withReports(segments.filterNot { it in counted }, viewer)
+    if (reported.isEmpty()) return emptyMap()
     val tags = tagsOf(rows.map { it[TrailReports.uri] })
-    // Which authors the viewer mutes.
-    val muted =
-        if (viewer == null) emptySet()
-        else rows.map { it[TrailReports.authorDid] }.distinct().filter { ownMute(viewer.value, it) != null }.toSet()
+    val muted = mutedAmong(viewer, rows.map { it[TrailReports.authorDid] })
+    val bySegment = rows.groupBy { it[TrailReports.segmentUri] }
     val summaries =
-        rows
-            .groupBy { it[TrailReports.segmentUri] }
+        reported
+            .associateWith { bySegment[it].orEmpty() }
             .mapValues { (_, reports) ->
                 summarizeConditions(
                     reports.map {
@@ -108,6 +119,50 @@ internal fun JdbcTransaction.conditionsOf(
                 if (withPhotos) trailPhotos(TrailReports.segmentUri eq segment, viewer, SEGMENT_PHOTOS, null, avatars, media).photos
                 else emptyList(),
         )
+    }
+}
+
+/**
+ * For each of [segments], its newest report with tags before [since] that [viewer] may see (and any indexed at the same moment): what a
+ * summary with nothing current shows as the last report. One grouped query for the times, one for the rows.
+ */
+private fun JdbcTransaction.newestTaggedBefore(segments: Collection<String>, since: Long, viewer: Did?): List<ResultRow> {
+    if (segments.isEmpty()) return emptyList()
+    val newest = TrailReports.indexedAt.max()
+    val older = (TrailReports.hasConditions eq true) and (TrailReports.indexedAt less since) and reportsShownTo(viewer)
+    return segments.chunked(LOOKUP_CHUNK).flatMap { chunk ->
+        val times =
+            TrailReports.select(TrailReports.segmentUri, newest)
+                .where { (TrailReports.segmentUri inList chunk) and older }
+                .groupBy(TrailReports.segmentUri)
+                .mapNotNull { row -> row[newest]?.let { row[TrailReports.segmentUri] to it } }
+                .toMap()
+        if (times.isEmpty()) {
+            emptyList()
+        } else {
+            TrailReports.selectAll()
+                .where { (TrailReports.segmentUri inList times.keys) and (TrailReports.indexedAt inList times.values.distinct()) and older }
+                .filter { times[it[TrailReports.segmentUri]] == it[TrailReports.indexedAt] }
+        }
+    }
+}
+
+/** Of [segments], those with any report [viewer] may see. */
+private fun JdbcTransaction.withReports(segments: Collection<String>, viewer: Did?): Set<String> =
+    segments.chunked(LOOKUP_CHUNK).flatMapTo(mutableSetOf()) { chunk ->
+        TrailReports.select(TrailReports.segmentUri)
+            .where { (TrailReports.segmentUri inList chunk) and reportsShownTo(viewer) }
+            .withDistinct()
+            .map { it[TrailReports.segmentUri] }
+    }
+
+/** Of [authors], those [viewer] mutes, in one query. */
+private fun JdbcTransaction.mutedAmong(viewer: Did?, authors: Collection<String>): Set<String> {
+    if (viewer == null || authors.isEmpty()) return emptySet()
+    return authors.distinct().chunked(LOOKUP_CHUNK).flatMapTo(mutableSetOf()) { chunk ->
+        Mutes.select(Mutes.subjectDid)
+            .where { (Mutes.authorDid eq viewer.value) and (Mutes.subjectDid inList chunk) }
+            .map { it[Mutes.subjectDid] }
     }
 }
 
