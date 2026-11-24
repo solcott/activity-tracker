@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentStarRecord
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.dataresult.Origin
 import io.github.solcott.dataresult.Outcome
@@ -165,7 +166,7 @@ class SegmentStars(
 
     /** The star [this] record holds, if it decodes and is stored under its subject's rkey. */
     private suspend fun Space.ListRecords.Record.star(): SegmentStar? {
-        val record = value?.let { runCatching { AtJson.decodeFromJsonElement(SegmentStarRecord.serializer(), it) }.getOrNull() }
+        val record = value?.let { AtJson.decodeOrNull(SegmentStarRecord.serializer(), it) }
         return record?.takeIf { segmentStarRkey(it.subject.uri) == rkey }?.let { SegmentStar(it.subject, it.createdAt) }
     }
 

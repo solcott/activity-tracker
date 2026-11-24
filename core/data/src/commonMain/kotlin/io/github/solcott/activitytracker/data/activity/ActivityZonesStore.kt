@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlin.time.Clock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -196,8 +197,7 @@ class ActivityZonesStore(
             }
             if (at == Visibility.PUBLIC || !clients.canWriteToSpaces(Nsid.FEED_ACTIVITY_DETAILS)) continue
             for ((rkey, record) in list(Nsid.FEED_ACTIVITY_DETAILS, at)) {
-                val details =
-                    runCatching { AtJson.decodeFromJsonElement(ActivityDetailsRecord.serializer(), record) }.getOrNull() ?: continue
+                val details = AtJson.decodeOrNull(ActivityDetailsRecord.serializer(), record) ?: continue
                 if (DetailCategory.SUMMARY_FIELDS.any { it.category in ZONE_CATEGORIES && it.inDetails(details) }) charts[rkey] = at
             }
         }

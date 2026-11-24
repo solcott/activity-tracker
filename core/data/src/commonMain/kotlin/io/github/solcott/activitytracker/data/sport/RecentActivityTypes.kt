@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.activityType
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -41,7 +42,7 @@ class RecentActivityTypes(
         db.keyValue().put(KeyValueEntity(key, AtJson.encodeToString(serializer, updated)))
     }
 
-    private fun decode(json: String): List<ActivityType>? = runCatching { AtJson.decodeFromString(serializer, json) }.getOrNull()
+    private fun decode(json: String): List<ActivityType>? = AtJson.decodeOrNull(serializer, json)
 
     private companion object {
         const val MAX = 6

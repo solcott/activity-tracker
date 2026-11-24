@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDevice
 import io.github.solcott.activitytracker.lexicon.app.ActivityDevicesRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlin.time.Clock
 
 /**
@@ -88,9 +89,7 @@ class PdsActivityDevicesStore(
         if (!canWrite) return emptyList()
         return when (val read = clients.spaces.listAllRecords(self, clients.did, Nsid.FEED_ACTIVITY_DEVICES, LIST_PAGE)) {
             is SpaceRead.Found ->
-                read.value.mapNotNull { record ->
-                    record.value?.let { runCatching { AtJson.decodeFromJsonElement(ActivityDevicesRecord.serializer(), it) }.getOrNull() }
-                }
+                read.value.mapNotNull { record -> record.value?.let { AtJson.decodeOrNull(ActivityDevicesRecord.serializer(), it) } }
             SpaceRead.NotFound -> emptyList()
             SpaceRead.NoAccess -> error("The self space refused its own athlete")
         }

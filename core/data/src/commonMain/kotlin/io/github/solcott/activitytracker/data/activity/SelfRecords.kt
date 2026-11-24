@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlinx.serialization.KSerializer
 
 // The athlete's one-record settings in their `self` space (activity and gear defaults, privacy zones, segment, grouping and leaderboard
@@ -15,7 +16,7 @@ import kotlinx.serialization.KSerializer
  */
 internal suspend fun <T> SessionClients.readSelfRecord(collection: String, rkey: String, serializer: KSerializer<T>): SpaceRead<T?> =
     when (val read = spaces.getRecord(tiers.uri(AthleteSpace.SELF), did, collection, rkey)) {
-        is SpaceRead.Found -> SpaceRead.Found(runCatching { AtJson.decodeFromJsonElement(serializer, read.value.value) }.getOrNull())
+        is SpaceRead.Found -> SpaceRead.Found(AtJson.decodeOrNull(serializer, read.value.value))
         SpaceRead.NotFound -> SpaceRead.NotFound
         SpaceRead.NoAccess -> SpaceRead.NoAccess
     }

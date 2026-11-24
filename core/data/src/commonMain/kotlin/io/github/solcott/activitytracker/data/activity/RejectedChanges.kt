@@ -18,11 +18,11 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.RepostRecord
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.KSerializer
 
 /**
  * A change the athlete's PDS refused (data/outbox): its rejected write and the writes held behind it, which share its [rkey]. [kind] says
@@ -125,22 +125,22 @@ class RejectedChanges(
             }
             Nsid.FEED_LIKE -> {
                 localLikes.forget(uri)
-                listOfNotNull(row.recordJson?.let { decodeOrNull(LikeRecord.serializer(), it) }?.subject?.uri)
+                listOfNotNull(row.recordJson?.let { AtJson.decodeOrNull(LikeRecord.serializer(), it) }?.subject?.uri)
             }
             Nsid.FEED_REPOST -> {
                 feed.localReposts.forget(uri)
-                listOfNotNull(row.recordJson?.let { decodeOrNull(RepostRecord.serializer(), it) }?.subject?.uri)
+                listOfNotNull(row.recordJson?.let { AtJson.decodeOrNull(RepostRecord.serializer(), it) }?.subject?.uri)
             }
             Nsid.FEED_COMMENT -> {
                 feed.localComments.restore(uri, null)
-                listOfNotNull(row.recordJson?.let { decodeOrNull(CommentRecord.serializer(), it) }?.subject?.uri)
+                listOfNotNull(row.recordJson?.let { AtJson.decodeOrNull(CommentRecord.serializer(), it) }?.subject?.uri)
             }
             else -> emptyList()
         }
     }
 
     private fun RejectedOutboxWrite.toChange(): RejectedChange {
-        val activity = activityJson?.let { decodeOrNull(ActivityRecord.serializer(), it) }
+        val activity = activityJson?.let { AtJson.decodeOrNull(ActivityRecord.serializer(), it) }
         return RejectedChange(
             rkey = rkey,
             kind = kindOf(collection),
@@ -150,11 +150,6 @@ class RejectedChanges(
             startedAt = activity?.startedAt,
         )
     }
-
-    private fun <T> decodeOrNull(serializer: KSerializer<T>, json: String): T? = runCatching {
-        AtJson.decodeFromString(serializer, json)
-    }
-        .getOrNull()
 
     private companion object {
         /** An activity's own records, which share its rkey and so stand for it. */

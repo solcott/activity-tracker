@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.RouteTrimRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Clock
 import kotlinx.coroutines.async
@@ -249,9 +250,7 @@ class RouteTrimmer(
 
     /** The last finished sweep's marker; null when there's none, or it doesn't decode, which a sweep then replaces. */
     private suspend fun marker(): RouteTrimRecord? =
-        clients.readOwn(Nsid.ACTOR_ROUTE_TRIM, RouteTrimRecord.RKEY, self)?.let {
-            runCatching { AtJson.decodeFromJsonElement(RouteTrimRecord.serializer(), it) }.getOrNull()
-        }
+        clients.readOwn(Nsid.ACTOR_ROUTE_TRIM, RouteTrimRecord.RKEY, self)?.let { AtJson.decodeOrNull(RouteTrimRecord.serializer(), it) }
 
     private companion object {
         val PLACES = listOf(Visibility.PUBLIC) + AthleteSpaces.TIERS
@@ -266,22 +265,10 @@ class RouteTrimmer(
 private fun mapTierOf(at: String, record: ActivityRecord?, details: Map<String, ActivityDetailsRecord?>): String? =
     Visibility.all.lastOrNull { details[it]?.polyline != null } ?: at.takeIf { record?.polyline != null }
 
-private fun decodeRecord(value: JsonObject): ActivityRecord? = runCatching {
-    AtJson.decodeFromJsonElement(ActivityRecord.serializer(), value)
-}
-    .getOrNull()
+private fun decodeRecord(value: JsonObject): ActivityRecord? = AtJson.decodeOrNull(ActivityRecord.serializer(), value)
 
-private fun decodeRecordJson(value: String): ActivityRecord? = runCatching {
-    AtJson.decodeFromString(ActivityRecord.serializer(), value)
-}
-    .getOrNull()
+private fun decodeRecordJson(value: String): ActivityRecord? = AtJson.decodeOrNull(ActivityRecord.serializer(), value)
 
-private fun decodeDetails(value: JsonObject): ActivityDetailsRecord? = runCatching {
-    AtJson.decodeFromJsonElement(ActivityDetailsRecord.serializer(), value)
-}
-    .getOrNull()
+private fun decodeDetails(value: JsonObject): ActivityDetailsRecord? = AtJson.decodeOrNull(ActivityDetailsRecord.serializer(), value)
 
-private fun decodeDetailsJson(value: String): ActivityDetailsRecord? = runCatching {
-    AtJson.decodeFromString(ActivityDetailsRecord.serializer(), value)
-}
-    .getOrNull()
+private fun decodeDetailsJson(value: String): ActivityDetailsRecord? = AtJson.decodeOrNull(ActivityDetailsRecord.serializer(), value)

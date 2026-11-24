@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,8 +102,7 @@ class SegmentNames(
         return places
             .mapNotNull { place ->
                 val json = clients.readOwn(Nsid.FEED_POST, rkey, place) ?: return@mapNotNull null
-                val record =
-                    runCatching { AtJson.decodeFromJsonElement(PostRecord.serializer(), json) }.getOrNull() ?: return@mapNotNull null
+                val record = AtJson.decodeOrNull(PostRecord.serializer(), json) ?: return@mapNotNull null
                 PostShare(place?.skey ?: Visibility.PUBLIC, record.text, record.createdAt)
             }
             .lastOrNull()

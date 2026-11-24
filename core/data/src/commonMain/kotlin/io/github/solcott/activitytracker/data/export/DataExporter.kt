@@ -34,6 +34,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
@@ -338,9 +339,7 @@ class DataExporter(
             ?.let(::readGpxTrack)
 
     private suspend fun sourceOf(id: String, rkey: String): ActivitySourceRecord? =
-        staged(id, AthleteSpace.SELF, Nsid.FEED_ACTIVITY_SOURCE, rkey)?.let {
-            runCatching { AtJson.decodeFromJsonElement(ActivitySourceRecord.serializer(), it) }.getOrNull()
-        }
+        staged(id, AthleteSpace.SELF, Nsid.FEED_ACTIVITY_SOURCE, rkey)?.let { AtJson.decodeOrNull(ActivitySourceRecord.serializer(), it) }
 
     private suspend fun staged(id: String, place: String, collection: String, rkey: String): JsonObject? =
         files.read(id, recordPath(place, collection, rkey))?.let {

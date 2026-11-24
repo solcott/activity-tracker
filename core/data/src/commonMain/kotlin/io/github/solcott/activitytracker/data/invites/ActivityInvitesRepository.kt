@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.lexicon.app.InviteView
 import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.dataresult.Outcome
@@ -216,7 +217,7 @@ class ActivityInvitesRepository(
         }
 
     private fun declineSubject(json: JsonObject?): AtUri? = json?.let {
-        runCatching { AtJson.decodeFromJsonElement(ActivityInviteDeclineRecord.serializer(), it).subject }.getOrNull()
+        AtJson.decodeOrNull(ActivityInviteDeclineRecord.serializer(), it)?.subject
     }
 
     private companion object {

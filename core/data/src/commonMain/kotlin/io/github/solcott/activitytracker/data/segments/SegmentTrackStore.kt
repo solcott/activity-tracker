@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackRecord
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlin.time.Clock
 
 /**
@@ -117,10 +118,9 @@ class PdsSegmentTrackStore(
 
     override suspend fun list(): Map<String, StoredSegmentTrack> =
         clients.listOwn(Nsid.FEED_SEGMENT_TRACK, self).mapValues { (_, value) ->
-            runCatching { AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), value) }
-                .getOrNull()
-                ?.let { StoredSegmentTrack(it.zonesRevision, it.excludeFromLeaderboards == true, it.groupExcluded == true) }
-                ?: StoredSegmentTrack(null)
+            AtJson.decodeOrNull(SegmentTrackRecord.serializer(), value)?.let {
+                StoredSegmentTrack(it.zonesRevision, it.excludeFromLeaderboards == true, it.groupExcluded == true)
+            } ?: StoredSegmentTrack(null)
         }
 
     override suspend fun excluded(activity: AtUri): Boolean? = runSuspendCatching {
@@ -168,7 +168,7 @@ class PdsSegmentTrackStore(
         val marksOnly = last.operation == OutboxProcessor.OP_PUT && queued.none { it.blobField != null || it.blobKey != null }
         return last.recordJson
             ?.takeIf { marksOnly }
-            ?.let { runCatching { AtJson.decodeFromString(SegmentTrackRecord.serializer(), it) }.getOrNull() }
+            ?.let { AtJson.decodeOrNull(SegmentTrackRecord.serializer(), it) }
             ?.takeIf { it.data != null }
     }
 
@@ -178,7 +178,7 @@ class PdsSegmentTrackStore(
         if (db.outbox().pending(clients.did.value, rkey).any { it.collection == Nsid.FEED_SEGMENT_TRACK }) return null
         val read = clients.spaces.getRecord(self, clients.did, Nsid.FEED_SEGMENT_TRACK, rkey)
         return (read as? SpaceRead.Found)
-            ?.let { runCatching { AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), it.value.value) }.getOrNull() }
+            ?.let { AtJson.decodeOrNull(SegmentTrackRecord.serializer(), it.value.value) }
             ?.takeIf { it.data != null }
     }
 }

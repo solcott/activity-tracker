@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -125,9 +126,7 @@ class SegmentTrackSweeper(
         PLACES.flatMapTo(mutableSetOf()) { at ->
             clients
                 .listOwn(Nsid.FEED_ACTIVITY, clients.placeOf(at))
-                .filterValues { value ->
-                    runCatching { AtJson.decodeFromJsonElement(ActivityRecord.serializer(), value).combined != null }.getOrDefault(false)
-                }
+                .filterValues { value -> AtJson.decodeOrNull(ActivityRecord.serializer(), value)?.combined != null }
                 .keys
         }
 

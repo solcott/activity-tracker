@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 
 /**
  * One of the signed-in athlete's activities, as an import compares against it. [cid] is null while it waits in the outbox. [visibility] is
@@ -25,7 +26,7 @@ data class OwnActivity(
 /** The activity this outbox write publishes for [did], or null when it's another kind of write. */
 internal fun OutboxEntity.pendingActivity(did: Did): OwnActivity? {
     val json = recordJson?.takeIf { collection == Nsid.FEED_ACTIVITY && operation == OutboxProcessor.OP_PUT }
-    val record = json?.let { runCatching { AtJson.decodeFromString(ActivityRecord.serializer(), it) }.getOrNull() } ?: return null
+    val record = json?.let { AtJson.decodeOrNull(ActivityRecord.serializer(), it) } ?: return null
     val visibility = space?.let { SpaceUri(it).skey } ?: Visibility.PUBLIC
     return OwnActivity(AtUri.of(did, Nsid.FEED_ACTIVITY, rkey), cid = null, record, visibility)
 }

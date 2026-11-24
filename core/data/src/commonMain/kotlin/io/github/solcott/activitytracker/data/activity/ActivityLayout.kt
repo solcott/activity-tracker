@@ -25,6 +25,7 @@ import io.github.solcott.activitytracker.lexicon.app.holdsCore
 import io.github.solcott.activitytracker.lexicon.app.mergeStreams
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import kotlin.time.Clock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -268,9 +269,8 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
                         val streams = clients.readOwn(Nsid.FEED_ACTIVITY_STREAMS, rkey, place)
                         tier to
                             PlaceRecords(
-                                activity = activity?.let { decodeOrNull { AtJson.decodeFromJsonElement(ActivityRecord.serializer(), it) } },
-                                details =
-                                    details?.let { decodeOrNull { AtJson.decodeFromJsonElement(ActivityDetailsRecord.serializer(), it) } },
+                                activity = activity?.let { AtJson.decodeOrNull(ActivityRecord.serializer(), it) },
+                                details = details?.let { AtJson.decodeOrNull(ActivityDetailsRecord.serializer(), it) },
                                 streams = streams?.let { streamData(it, tier) },
                             )
                     }
@@ -362,9 +362,9 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
      * Throws when the blob can't be had: read as no streams, a save would write this tier's streams without the channels it holds.
      */
     private suspend fun streamData(value: JsonObject, tier: String): ActivityStreamData? {
-        val cid = decodeOrNull { AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), value) }?.data?.ref?.link?.let(::Cid)
+        val cid = AtJson.decodeOrNull(ActivityStreamsRecord.serializer(), value)?.data?.ref?.link?.let(::Cid)
         val bytes = cid?.let { blob(it, clients.placeOf(tier)) ?: throw StreamsUnreadableException(tier) }
-        return bytes?.let { decodeOrNull { AtJson.decodeFromString(ActivityStreamData.serializer(), it.decodeToString()) } }
+        return bytes?.let { AtJson.decodeOrNull(ActivityStreamData.serializer(), it.decodeToString()) }
     }
 
     /** The blob [cid]'s bytes at [place] (null: the repo); null when the space doesn't have it. */
@@ -378,9 +378,6 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
 
 /** A streams record at [tier] names data its space doesn't have, so the activity can't be rewritten without losing channels. */
 class StreamsUnreadableException(tier: String) : IllegalStateException("The streams data at $tier can't be read")
-
-/** [block]'s record, or null when it doesn't decode: any client can write the athlete's records. */
-private inline fun <T> decodeOrNull(block: () -> T): T? = runCatching(block).getOrNull()
 
 private fun JsonElement.asObject() = this as JsonObject
 

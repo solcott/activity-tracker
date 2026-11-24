@@ -49,6 +49,7 @@ import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
+import io.github.solcott.activitytracker.lexicon.decodeOrNull
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.dataresult.Outcome
@@ -451,7 +452,7 @@ class FeedRepository(
                 val prefix = "at://${did.value}/${Nsid.FEED_ACTIVITY}/"
                 db.feed()
                     .byUriPrefix(prefix)
-                    .mapNotNull { item -> runCatching { AtJson.decodeFromString(ActivityView.serializer(), item.json) }.getOrNull() }
+                    .mapNotNull { item -> AtJson.decodeOrNull(ActivityView.serializer(), item.json) }
                     // Deleted this session: no longer in the log. A member combined meanwhile still is, so it stays.
                     .filter { it.author.did == did && it.uri !in deletes }
                     .map { it.toOwnActivity() }
@@ -459,8 +460,7 @@ class FeedRepository(
         val logged =
             localRead("upload log") {
                 db.uploads().loggedRecords(did.value, since.toEpochMilliseconds(), until.toEpochMilliseconds()).mapNotNull { row ->
-                    runCatching { AtJson.decodeFromString(ActivityRecord.serializer(), row.recordJson) }
-                        .getOrNull()
+                    AtJson.decodeOrNull(ActivityRecord.serializer(), row.recordJson)
                         // Its visibility isn't logged, and with no CID it can't be combined into yet: Only me, the narrowest, if ever read.
                         ?.let { OwnActivity(AtUri.of(did, Nsid.FEED_ACTIVITY, row.rkey), cid = null, it, Visibility.SELF) }
                 }
@@ -485,7 +485,7 @@ class FeedRepository(
                 .firstNotNullOfOrNull { record -> record.polyline?.let(TrackMath::decodePolylineOrNull)?.firstOrNull() }
         val cached = runSuspendCatching {
             db.feed().byUriPrefix("at://${did.value}/${Nsid.FEED_ACTIVITY}/").mapNotNull { item ->
-                runCatching { AtJson.decodeFromString(ActivityView.serializer(), item.json) }.getOrNull()
+                AtJson.decodeOrNull(ActivityView.serializer(), item.json)
             }
         }
             .getOrDefault(emptyList())
