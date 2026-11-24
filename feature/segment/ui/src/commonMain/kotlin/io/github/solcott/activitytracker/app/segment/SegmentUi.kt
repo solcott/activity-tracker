@@ -86,6 +86,7 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
         }
     }
     SegmentNameDialogs(state)
+    TrailContributionSheets(state.trail)
 }
 
 /**
@@ -153,7 +154,21 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
             item { Figures(state.figures(units).toImmutableList()) }
             state.profile?.let { profile -> item { ProfileCard(profile) } }
             if (state.showsBoards) item { Boards(state) }
-            state.trailGroups().takeIf { it.isNotEmpty() }?.let { groups -> item { TrailDetailGroups(groups.toImmutableList()) } }
+            // After a recent ride, the details riders check (segments/trail-detail-suggestions).
+            state.trail.quickCheck?.let { check -> item { QuickCheckCard(check, state.trail.eventSink) } }
+            state
+                .trailGroups()
+                .takeIf { it.isNotEmpty() }
+                ?.let { groups ->
+                    item {
+                        TrailDetailGroups(groups.toImmutableList(), lastConfirmed = state.trailLastConfirmed) {
+                            state.trail.eventSink(TrailEvent.Open(it))
+                        }
+                    }
+                }
+            if (state.invitesTrailDetails || state.offersMissingDetail) {
+                item { MissingDetails(state.trail, invite = state.invitesTrailDetails) }
+            }
             if (!lift) item { SegmentNames(state, segment) }
             item { Text(SegmentPageTexts.efforts(lift).string(), style = MaterialTheme.typography.titleMedium) }
             if (state.efforts.isEmpty()) {

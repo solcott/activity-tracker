@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.lexicon.app.PathView
+import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.textfield.TextFieldState
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
@@ -161,10 +162,17 @@ data class PathState(
     fun trailDetails(): List<TrailDetail> = TrailTexts.rows(path?.trail, sport = null)
 
     /** [trailDetails] in their cards, every scale shown; empty when the AppView sent no `trail`. */
-    fun trailGroups(): List<TrailDetailGroup> = TrailTexts.groups(path?.trail, sport = null)
+    fun trailGroups(): List<TrailDetailGroup> = TrailContributionTexts.pathGroups(path, pathSegments)
 
     /** The folded Trail details line; null when there's nothing in it (the control still shows while [offersDetails]). */
-    fun detailsSummary(): AppText? = TrailTexts.summary(path?.trail)
+    fun detailsSummary(): AppText? = TrailContributionTexts.pathSummary(path, pathSegments)
+
+    /** The event opening the segment [uri] a Trail details row lists as varying, for Swift, which builds no `AtUri`. */
+    fun openSegmentEvent(uri: String): PathEvent = PathEvent.Open(io.github.solcott.activitytracker.lexicon.AtUri(uri))
+
+    /** Every segment the page lists, before the search and filters: riders' values on them vary its details (segments/trail-attributes). */
+    private val pathSegments: List<SegmentView>
+        get() = content.data.groups.flatMap { it.members }
 
     /** Whether the Trail details line and its control show: the AppView sent a `trail` with anything in it. */
     val offersDetails: Boolean

@@ -17,6 +17,10 @@ import io.github.solcott.activitytracker.lexicon.app.PathOneWay
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailDetail
+import io.github.solcott.activitytracker.lexicon.app.TrailDetailInfo
+import io.github.solcott.activitytracker.lexicon.app.TrailDog
+import io.github.solcott.activitytracker.lexicon.app.TrailSource
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import kotlin.math.PI
 import kotlin.math.roundToInt
@@ -268,6 +272,22 @@ object PathSamples {
     val trailExpanded: PathState
         get() = trail.copy(detailsExpanded = true)
 
+    /**
+     * [trailExpanded] where riders adopted "No dogs" on its first segment (segments/trail-attributes): Dogs reads "Varies along the trail"
+     * with that segment listed, and the folded line says dogs vary.
+     */
+    val trailVarying: PathState
+        get() {
+            val first = groups.first()
+            val changed =
+                first.shown.copy(
+                    trail = TrailAttributes(dog = TrailDog.NO),
+                    trailDetails = listOf(TrailDetailInfo(TrailDetail.DOG, TrailSource.COMMUNITY, riders = 9)),
+                )
+            val rows = listOf(SegmentGroupRow.groupOf(listOf(changed) + first.members.drop(1))) + groups.drop(1)
+            return trailExpanded.copy(content = ContentStates.loaded(trailExpanded.content.data.copy(groups = rows.toImmutableList())))
+        }
+
     /** [sections] with Through the Trees Trail collapsed: its rows hidden, and the control offering Expand all. */
     val sectionsCollapsed: PathState
         get() = sections.copy(collapsed = persistentSetOf("Through the Trees Trail"))
@@ -328,6 +348,7 @@ object PathSamples {
                     "sectionsCollapsed" to sectionsCollapsed,
                     TRAIL to trail,
                     TRAIL_EXPANDED to trailExpanded,
+                    TRAIL_VARYING to trailVarying,
                     FILTERS to filters,
                     FILTERED to filtered,
                     NO_MATCHES to noMatches,
@@ -341,6 +362,7 @@ object PathSamples {
 
     const val TRAIL = "trail"
     const val TRAIL_EXPANDED = "trailExpanded"
+    const val TRAIL_VARYING = "trailVarying"
     const val FILTERS = "filters"
     const val FILTERED = "filtered"
     const val NO_MATCHES = "noMatches"

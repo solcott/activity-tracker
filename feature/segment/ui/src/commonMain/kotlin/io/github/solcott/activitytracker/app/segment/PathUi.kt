@@ -60,6 +60,7 @@ import io.github.solcott.activitytracker.app.ui.rememberMapSheetState
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.GetPath
 import io.github.solcott.activitytracker.location.GeoPoint
 import kotlinx.collections.immutable.persistentSetOf
@@ -250,7 +251,14 @@ private fun DetailsFold(state: PathState) {
             Text(TrailTexts.title.string(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             PlatformIcon(if (expanded) AppIcon.ChevronUp else AppIcon.ChevronDown, null)
         }
-        if (expanded) TrailDetailGroups(state.trailGroups().toImmutableList(), Modifier.padding(bottom = 4.dp), titled = false)
+        if (expanded) {
+            TrailDetailGroups(
+                state.trailGroups().toImmutableList(),
+                Modifier.padding(bottom = 4.dp),
+                titled = false,
+                onOpenSegment = { state.eventSink(PathEvent.Open(AtUri(it))) },
+            )
+        }
     }
 }
 

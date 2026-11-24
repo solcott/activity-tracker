@@ -19,13 +19,41 @@ import io.github.solcott.activitytracker.lexicon.app.TrailSurfaces
 import io.github.solcott.activitytracker.lexicon.app.TrailVisibility
 import io.github.solcott.activitytracker.lexicon.app.TrailWheelchair
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 
 /**
  * One row of a Trail details section (segments/trail-attributes): what it is ([label]) and what the data says ([value]). [link] is the
  * http(s) URL a Website row opens in the system browser; null for every other row.
  */
-@Immutable data class TrailDetail(val label: AppText, val value: AppText, val link: String? = null)
+@Immutable
+data class TrailDetail(
+    val label: AppText,
+    val value: AppText,
+    val link: String? = null,
+    /** The detail the row shows, a lexicon `TrailDetail` name, which its sheet and suggestions name (segments/trail-detail-suggestions). */
+    val key: String? = null,
+    /** Where the value came from, under it: "OpenStreetMap", "Forest Service", "Imported"; null where sources aren't shown. */
+    val source: AppText? = null,
+    /** Whether riders adopted the value: [source] then reads as a badge, "Community · 12 riders". */
+    val community: Boolean = false,
+    /** A line after [source]: its open suggestions, or that riders report it may have changed. */
+    val note: AppText? = null,
+    /** Whether [value] is only suggested so far, shown as a question ("Paved?") until riders adopt it. */
+    val question: Boolean = false,
+    /** Whether tapping the row opens its sheet: a rider's, on a detail riders may change. */
+    val opens: Boolean = false,
+    /** On the Trail page, the segments riders changed this detail on to differ from the trail's (segments/trail-attributes). */
+    val varying: ImmutableList<VaryingSegment> = persistentListOf(),
+) {
+    /** [varying] as a plain list, a copy, for Swift. */
+    val shownVarying: List<VaryingSegment>
+        get() = varying.toList()
+}
+
+/** A segment whose community value of a detail differs from its trail's: its [name], [value] and [source], opening its page by [uri]. */
+@Immutable data class VaryingSegment(val uri: String, val name: String, val value: AppText, val source: AppText)
 
 /**
  * One card of a Trail details section (segments/trail-attributes): its [title] and its [rows], in the section's order. Swift reads
@@ -133,7 +161,7 @@ object TrailTexts {
             word("trail_detail_wheelchair", trail.wheelchair, TrailWheelchair.all, "trail_wheelchair_"),
             season(trail)?.let { row("trail_detail_season", it) },
             trail.operator?.trim()?.takeIf { it.isNotEmpty() }?.let { row("trail_detail_operator", AppText.written(it)) },
-            website(trail.website)?.let { TrailDetail(named("trail_detail_website"), AppText.written(it), link = it) },
+            website(trail.website)?.let { TrailDetail(named("trail_detail_website"), AppText.written(it), link = it, key = "website") },
         )
 
     /** A row naming [value] by its string `<prefix><value>`, when it is one of [values]. */
@@ -213,7 +241,33 @@ object TrailTexts {
         return DateText.monthDay(text.take(2).toInt(), text.takeLast(2).toInt())
     }
 
-    private fun row(label: String, value: AppText) = TrailDetail(named(label), value)
+    private fun row(label: String, value: AppText) = TrailDetail(named(label), value, key = LABEL_KEYS[label])
+
+    /** Each row's label to the detail it shows. */
+    private val LABEL_KEYS =
+        persistentMapOf(
+            "trail_detail_surface" to "surface",
+            "trail_detail_hiking" to "sacScale",
+            "trail_detail_mtb" to "mtbScale",
+            "trail_detail_mtb_uphill" to "mtbScaleUphill",
+            "trail_detail_imba" to "mtbScaleImba",
+            "trail_detail_piste" to "pisteDifficulty",
+            "trail_detail_grooming" to "pisteGrooming",
+            "trail_detail_class" to "trailClass",
+            "trail_detail_visibility" to "visibility",
+            "trail_detail_width" to "width",
+            "trail_detail_grade" to "grade",
+            "trail_detail_lit" to "lit",
+            "trail_detail_dog" to "dog",
+            "trail_detail_horse" to "horse",
+            "trail_detail_wheelchair" to "wheelchair",
+            "trail_detail_season" to "season",
+            "trail_detail_operator" to "operator",
+            "trail_detail_website" to "website",
+        )
+
+    /** The row label of the detail [key] (a lexicon `TrailDetail` name). */
+    fun labelOf(key: String): AppText = named(LABEL_KEYS.entries.firstOrNull { it.value == key }?.key ?: "trail_detail_smoothness")
 
     private fun joined(first: AppText, next: AppText): AppText = named("segment_browse_details", first, next)
 

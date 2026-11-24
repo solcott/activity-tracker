@@ -7,6 +7,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.RouteMap
 import io.github.solcott.activitytracker.app.chart.LineChart
 import io.github.solcott.activitytracker.app.names.PlaceNameFields
+import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -68,6 +69,8 @@ data class SegmentState(
      * The segment the page is showing or loading: the screen's, or another of its segment group chosen on the page; null before it's known.
      */
     val shown: AtUri? = null,
+    /** Keeping its trail details true (segments/trail-detail-suggestions): the sheet, the picker, the quick check and their events. */
+    val trail: TrailFields = TrailFields(),
     val eventSink: (SegmentEvent) -> Unit = {},
 ) : CircuitUiState {
     /** [content]'s segment: the last loaded, or null before the first. */
@@ -106,8 +109,24 @@ data class SegmentState(
      */
     fun trailDetails(): List<TrailDetail> = TrailTexts.rows(segment?.trail, segment?.record?.sport)
 
-    /** [trailDetails] in their cards (segments/trail-attributes); empty when the AppView sent no `trail`. */
-    fun trailGroups(): List<TrailDetailGroup> = TrailTexts.groups(segment?.trail, segment?.record?.sport)
+    /**
+     * [trailDetails] in their cards (segments/trail-attributes), each row with its source and notes, opening its sheet for a rider, and
+     * each detail with only open suggestions as a question row (segments/trail-detail-suggestions); empty when there's nothing to show.
+     */
+    fun trailGroups(): List<TrailDetailGroup> =
+        TrailContributionTexts.groups(segment, rider = segment?.viewer?.canVoteOnTrailDetails == true && trail.canVoteHere)
+
+    /** "Riders confirmed these in Nov 2026", over the cards; null when no detail was confirmed by enough riders. */
+    val trailLastConfirmed: AppText?
+        get() = TrailContributionTexts.lastConfirmed(segment)
+
+    /** Whether the empty segment's invitation shows in place of the cards: a regular, and no details or suggestions at all. */
+    val invitesTrailDetails: Boolean
+        get() = segment?.let { it.trail == null && it.trailSuggestions.isEmpty() && trail.missing.isNotEmpty() } == true
+
+    /** Whether "Add a missing detail" shows under the cards: a regular, and the segment already has some details. */
+    val offersMissingDetail: Boolean
+        get() = trail.missing.isNotEmpty() && !invitesTrailDetails
 
     /** The figure row in [units] (segments/segment-page); empty before the segment loads. */
     fun figures(units: UnitSystem): List<SegmentFigure> = segment?.let { SegmentPageTexts.figures(it, profile, units) }.orEmpty()

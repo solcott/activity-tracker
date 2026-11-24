@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStars
+import io.github.solcott.activitytracker.data.segments.TrailContributions
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
@@ -49,6 +50,7 @@ fun SegmentPresenter(
     segments: SegmentRepository,
     stars: SegmentStars,
     names: SegmentNames,
+    trailContributions: TrailContributions,
 ): SegmentState {
     // The segment shown: the screen's, or another of its segment group chosen on the page (segments/segment-groups), swapped in place so
     // the page
@@ -68,8 +70,8 @@ fun SegmentPresenter(
         ) {
             combineOutcomes(
                 // The viewer's own proposals, edits and votes show at once, laid over each read until the AppView catches up.
-                combine(segments.segmentDetailOutcome(uri), names.changes) { outcome, _ ->
-                    outcome.mapData { it.copy(segment = names.applyTo(it.segment)) }
+                combine(segments.segmentDetailOutcome(uri), names.changes, trailContributions.changes) { outcome, _, _ ->
+                    outcome.mapData { it.copy(segment = trailContributions.applyTo(names.applyTo(it.segment))) }
                 },
                 segments.ownEffortsOutcome(uri).map { outcome ->
                     outcome.mapData { efforts -> efforts.sortedBy { it.elapsed }.toImmutableList() }
@@ -101,6 +103,8 @@ fun SegmentPresenter(
             names = names,
         )
 
+    val trail = rememberTrailFields(segment, trailContributions)
+
     return SegmentState(
         content = content,
         polyline = polyline,
@@ -115,6 +119,7 @@ fun SegmentPresenter(
         profile = profile,
         group = group,
         shown = uri,
+        trail = trail,
     ) { event ->
         when (event) {
             SegmentEvent.Back -> navigator.pop()

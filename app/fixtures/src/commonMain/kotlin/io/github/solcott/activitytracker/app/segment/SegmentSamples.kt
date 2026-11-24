@@ -39,6 +39,14 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.TrailAttributes
+import io.github.solcott.activitytracker.lexicon.app.TrailDetail
+import io.github.solcott.activitytracker.lexicon.app.TrailDetailInfo
+import io.github.solcott.activitytracker.lexicon.app.TrailDetailSuggestionView
+import io.github.solcott.activitytracker.lexicon.app.TrailDetailVoteDirection
+import io.github.solcott.activitytracker.lexicon.app.TrailDog
+import io.github.solcott.activitytracker.lexicon.app.TrailLit
+import io.github.solcott.activitytracker.lexicon.app.TrailSource
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.textfield.textFieldStateOf
 import io.github.solcott.dataresult.DataError
@@ -142,6 +150,11 @@ object SegmentSamples {
                 ELEVATION to elevation,
                 ELEVATION_FROM_EFFORTS to elevationFromEfforts,
                 TRAIL to trail,
+                TRAIL_COMMUNITY to trailCommunity,
+                TRAIL_SHEET to trailSheet,
+                TRAIL_SUGGEST to trailSuggest,
+                TRAIL_QUICK_CHECK to trailQuickCheck,
+                TRAIL_INVITE to trailInvite,
             )
 
     const val LIFT = "lift"
@@ -162,6 +175,102 @@ object SegmentSamples {
                     ),
                 )
                 .copy(credit = SegmentCredit.OpenStreetMap("ODbL-1.0"))
+
+    const val TRAIL_COMMUNITY = "trailCommunity"
+    const val TRAIL_SHEET = "trailSheet"
+    const val TRAIL_SUGGEST = "trailSuggest"
+    const val TRAIL_QUICK_CHECK = "trailQuickCheck"
+    const val TRAIL_INVITE = "trailInvite"
+
+    /**
+     * [trail] as a rider sees it (segments/trail-detail-suggestions): each detail's source, riders' adopted dogs value, Maya's open
+     * lighting suggestion, and the month riders last confirmed it.
+     */
+    val trailCommunity: SegmentState
+        get() {
+            val maya = fakeProfileBasic(Fixed.BOB).copy(displayName = "Maya Chen")
+            val view =
+                checkNotNull(trail.segment)
+                    .copy(
+                        trail = fakeTrailAttributes().copy(dog = TrailDog.NO),
+                        trailDetails =
+                            listOf(
+                                TrailDetailInfo(TrailDetail.SAC_SCALE, TrailSource.OSM),
+                                TrailDetailInfo(TrailDetail.MTB_SCALE, TrailSource.OSM),
+                                TrailDetailInfo(TrailDetail.TRAIL_CLASS, TrailSource.USFS),
+                                TrailDetailInfo(TrailDetail.SURFACE, TrailSource.OSM, confirmations = 8, confirmedMonth = "2026-10"),
+                                TrailDetailInfo(TrailDetail.SMOOTHNESS, TrailSource.OSM),
+                                TrailDetailInfo(TrailDetail.WIDTH, TrailSource.USFS),
+                                TrailDetailInfo(TrailDetail.LIT, TrailSource.OSM, mayHaveChanged = true),
+                                TrailDetailInfo(
+                                    TrailDetail.DOG,
+                                    TrailSource.COMMUNITY,
+                                    riders = 12,
+                                    confirmations = 3,
+                                    confirmedMonth = "2026-11",
+                                ),
+                                TrailDetailInfo(TrailDetail.HORSE, TrailSource.OSM),
+                                TrailDetailInfo(TrailDetail.SEASON, TrailSource.USFS),
+                                TrailDetailInfo(TrailDetail.OPERATOR, TrailSource.OSM),
+                                TrailDetailInfo(TrailDetail.WEBSITE, TrailSource.OSM),
+                            ),
+                        trailSuggestions =
+                            listOf(
+                                TrailDetailSuggestionView(
+                                    uri = Fixed.uri(maya.did, Nsid.FEED_TRAIL_DETAIL_SUGGESTION, "3ksuggest1"),
+                                    cid = Fixed.cid("3ksuggest1"),
+                                    detail = TrailDetail.LIT,
+                                    value = TrailAttributes(lit = TrailLit.NO),
+                                    author = maya,
+                                    openedAt = Fixed.NOW - 5.days,
+                                    up = 4,
+                                    down = 1,
+                                ),
+                            ),
+                        viewer = SegmentViewerState(canVoteOnTrailDetails = true, canSuggestTrailDetails = true, recentEffort = true),
+                    )
+            return trail.copy(content = ContentStates.loaded(view))
+        }
+
+    /** [trailCommunity] with the lighting sheet open: its source, the viewer's answer, and Maya's suggestion. */
+    val trailSheet: SegmentState
+        get() = trailCommunity.let {
+            it.copy(trail = TrailFields(sheet = TrailContributionTexts.sheet(checkNotNull(it.segment), TrailDetail.LIT, Fixed.ALICE.value)))
+        }
+
+    /** [trailCommunity] with the picker suggesting a width open, Doubletrack chosen. */
+    val trailSuggest: SegmentState
+        get() = trailCommunity.let {
+            it.copy(
+                trail = TrailFields(picker = TrailContributionTexts.picker(checkNotNull(it.segment), TrailDetail.WIDTH).copy(selected = 1)),
+            )
+        }
+
+    /** [trailCommunity] after a recent ride: the quick check, surface answered still right. */
+    val trailQuickCheck: SegmentState
+        get() = trailCommunity.let { state ->
+            val check = checkNotNull(TrailContributionTexts.quickCheck(checkNotNull(state.segment)))
+            state.copy(
+                trail =
+                    TrailFields(
+                        quickCheck =
+                            check.copy(
+                                rows =
+                                    check.rows
+                                        .map { if (it.key == TrailDetail.SURFACE) it.copy(answer = TrailDetailVoteDirection.STILL) else it }
+                                        .toImmutableList(),
+                            ),
+                    ),
+            )
+        }
+
+    /** An athlete's segment with no details, to a regular: the invitation to describe it. */
+    val trailInvite: SegmentState
+        get() {
+            val view = segment.copy(viewer = SegmentViewerState(canVoteOnTrailDetails = true, canSuggestTrailDetails = true))
+            return state(ContentStates.loaded(view))
+                .copy(trail = TrailFields(missing = TrailContributionTexts.missing(view).toImmutableList()))
+        }
 
     const val ELEVATION = "elevation"
     const val ELEVATION_FROM_EFFORTS = "elevationFromEfforts"

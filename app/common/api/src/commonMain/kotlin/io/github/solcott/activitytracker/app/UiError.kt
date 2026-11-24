@@ -65,6 +65,12 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         VoteSegmentName,
         DeleteSegmentName,
 
+        /** A trail detail suggestion wasn't sent (segments/trail-detail-suggestions). */
+        SuggestTrailDetail,
+
+        /** A vote on a trail detail suggestion, or a confirmation of a trail detail, wasn't sent. */
+        VoteTrailDetail,
+
         /** How the athlete's proposal is shared to the feed couldn't be read, so its sharing can't be changed (feed/posts). */
         LoadPostShare,
 
