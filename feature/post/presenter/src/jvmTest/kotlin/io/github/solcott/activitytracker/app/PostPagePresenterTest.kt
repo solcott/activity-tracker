@@ -35,6 +35,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 
 /** The post page's presenter (feed/post-page): loading the post, NotFound, retry, liking, reposting, its comments block, and quotes. */
@@ -60,11 +62,20 @@ class PostPagePresenterTest : ActivityTestBase() {
     private suspend fun app.cash.turbine.ReceiveTurbine<PostPageState>.awaitPage(done: (PostPage) -> Boolean = { true }): PostPage =
         awaitUntil { state -> state.content.data?.let(done) == true }.content.data!!
 
+    /**
+     * The queued writes of [collection], once there are any: a post shows its repost or quote before the write is queued, so the test waits
+     * for the outbox rather than reading it the moment the page changes.
+     */
     private suspend fun Repos.queued(collection: String) =
         db.outbox()
-            .pending(alice.value)
-            .filter { it.collection == collection }
-            .map { it.space?.substringAfterLast('/') to it.recordJson.orEmpty() }
+            .count(alice.value)
+            .map { _ ->
+                db.outbox()
+                    .pending(alice.value)
+                    .filter { it.collection == collection }
+                    .map { it.space?.substringAfterLast('/') to it.recordJson.orEmpty() }
+            }
+            .first { it.isNotEmpty() }
 
     @Test
     fun loadsThePostWithItsComments() = runTest {

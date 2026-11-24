@@ -52,6 +52,8 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
 import kotlin.time.Clock
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.io.IOException
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -185,6 +187,12 @@ open class ActivityTestBase {
     /** Holds `getActivityStreams` requests until completed, while set. */
     protected var streamsGate: CompletableDeferred<Unit>? = null
 
+    /**
+     * `getActivityStreams` requests [streamsGate] held, counted apart from [streamsRequests]: the page reloads its charts on its own
+     * schedule (an activity indexed late), so only reads made while an action is held say how many that action made.
+     */
+    protected val heldStreamsRequests = MutableStateFlow(0)
+
     /** Holds `getComments` pages (not lookups) until completed, while set. */
     protected var commentsGate: CompletableDeferred<Unit>? = null
 
@@ -280,7 +288,10 @@ open class ActivityTestBase {
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
                         streamsRequests++
                         if (notIndexedFor > 0) return@MockEngine respond("""{"error":"NotFound"}""", HttpStatusCode.NotFound, json)
-                        streamsGate?.await()
+                        streamsGate?.let { gate ->
+                            if (!gate.isCompleted) heldStreamsRequests.update { it + 1 }
+                            gate.await()
+                        }
                         streams?.let { respond(it, headers = json) }
                             ?: respond("""{"error":"NotFound","message":"none"}""", HttpStatusCode.NotFound, json)
                     }
