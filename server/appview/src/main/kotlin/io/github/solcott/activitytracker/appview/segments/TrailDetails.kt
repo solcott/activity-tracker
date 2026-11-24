@@ -2,10 +2,8 @@
 
 package io.github.solcott.activitytracker.appview.segments
 
-import io.github.solcott.activitytracker.appview.api.LabelValues
 import io.github.solcott.activitytracker.appview.api.TrailAttributesSanitizer
 import io.github.solcott.activitytracker.appview.api.labelled
-import io.github.solcott.activitytracker.appview.api.served
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
 import io.github.solcott.activitytracker.appview.db.TrailDetailVotes
@@ -27,11 +25,9 @@ import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.not
-import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -41,46 +37,84 @@ import org.jetbrains.exposed.v1.jdbc.update
 // Crowd-sourced trail details (segments/trail-detail-suggestions): what the indexer, the adoption pass and SegmentViews share, so the
 // flags a viewer sees and the checks a suggestion meets can't disagree.
 
-/** The thresholds of trail detail suggestions, each configurable (`TRAIL_DETAIL_*`, [fromEnv]). */
+/** The thresholds of trail detail suggestions, each configurable (`TRAIL_DETAIL_*`, [fromEnv]); the shared ones are [VotingRules]. */
 @Suppress("MagicNumber") // The defaults, as segments/trail-detail-suggestions gives them.
 data class TrailDetailRules(
     /** Distinct local dates with efforts a suggester needs. */
     val suggesterDays: Int = 5,
-    /** The fewest up votes that adopt a suggestion, however few riders. */
-    val minUp: Int = 3,
-    /** The share of the segment's riders in the last 365 days whose up votes adopt a suggestion, in percent, rounded up. */
-    val riderPercent: Int = 10,
-    /** How long a suggestion must be open before it can be adopted. */
-    val minOpenDays: Int = 7,
-    /** The up-minus-down score at or below which a suggestion is rejected; negative. */
-    val rejectScore: Int = -5,
-    /** How long a suggestion stays open without being adopted. */
-    val expiryDays: Int = 90,
+    override val minUp: Int = 3,
+    override val riderPercent: Int = 10,
+    override val minOpenDays: Int = 7,
+    override val rejectScore: Int = -5,
+    override val expiryDays: Int = 90,
     /** How long after an adoption new suggestions on that detail are ignored. */
-    val cooldownDays: Int = 30,
-) {
-    /** The up votes that adopt a suggestion on a segment with [riders] distinct athletes in the last 365 days. */
-    fun upNeeded(riders: Long): Long = maxOf(minUp.toLong(), (riders * riderPercent + PERCENT - 1) / PERCENT)
-
+    override val cooldownDays: Int = 30,
+) : VotingRules {
     companion object {
-        private const val PERCENT = 100
-
         /** The rules from `TRAIL_DETAIL_*`, each falling back to its default when unset or invalid. */
         fun fromEnv(env: Map<String, String>): TrailDetailRules {
             val defaults = TrailDetailRules()
-            fun int(key: String, default: Int, valid: (Int) -> Boolean) = env[key]?.trim()?.toIntOrNull()?.takeIf(valid) ?: default
+            val read = RulesEnv(env, "TRAIL_DETAIL")
             return TrailDetailRules(
-                suggesterDays = int("TRAIL_DETAIL_SUGGESTER_DAYS", defaults.suggesterDays) { it >= 1 },
-                minUp = int("TRAIL_DETAIL_MIN_UP", defaults.minUp) { it >= 1 },
-                riderPercent = int("TRAIL_DETAIL_RIDER_PERCENT", defaults.riderPercent) { it in 0..PERCENT },
-                minOpenDays = int("TRAIL_DETAIL_MIN_OPEN_DAYS", defaults.minOpenDays) { it >= 0 },
-                rejectScore = int("TRAIL_DETAIL_REJECT_SCORE", defaults.rejectScore) { it <= -1 },
-                expiryDays = int("TRAIL_DETAIL_EXPIRY_DAYS", defaults.expiryDays) { it >= 1 },
-                cooldownDays = int("TRAIL_DETAIL_COOLDOWN_DAYS", defaults.cooldownDays) { it >= 0 },
+                suggesterDays = read.positive("SUGGESTER_DAYS", defaults.suggesterDays),
+                minUp = read.minUp(defaults),
+                riderPercent = read.riderPercent(defaults),
+                minOpenDays = read.minOpenDays(defaults),
+                rejectScore = read.rejectScore(defaults),
+                expiryDays = read.expiryDays(defaults),
+                cooldownDays = read.cooldownDays(defaults),
             )
         }
     }
 }
+
+/**
+ * Trail detail suggestions and their votes (confirmations aside), for the shared voting machinery: suggestions compete per detail, and a
+ * label counts at any version ([notLabelled]).
+ */
+internal val TRAIL_SUGGESTIONS =
+    ProposalTable(
+        table = TrailDetailSuggestions,
+        uri = TrailDetailSuggestions.uri,
+        cid = TrailDetailSuggestions.cid,
+        subject = TrailDetailSuggestions.segmentUri,
+        author = TrailDetailSuggestions.authorDid,
+        topic = TrailDetailSuggestions.detail,
+        state = TrailDetailSuggestions.state,
+        openedAt = TrailDetailSuggestions.openedAt,
+        closedAt = TrailDetailSuggestions.closedAt,
+        finalUp = TrailDetailSuggestions.finalUp,
+        finalDown = TrailDetailSuggestions.finalDown,
+        recordGone = TrailDetailSuggestions.recordGone,
+        notLabelled = ::notLabelled,
+        votes =
+            ProposalVotes(
+                table = TrailDetailVotes,
+                uri = TrailDetailVotes.uri,
+                voter = TrailDetailVotes.voterDid,
+                indexedAt = TrailDetailVotes.indexedAt,
+                columns =
+                    listOf(
+                        TrailDetailVotes.uri,
+                        TrailDetailVotes.suggestionUri,
+                        TrailDetailVotes.voterDid,
+                        TrailDetailVotes.suggestionCid,
+                        TrailDetailVotes.direction,
+                    ),
+                on = { suggestions -> TrailDetailVotes.suggestionUri inList suggestions },
+                read = { row ->
+                    row[TrailDetailVotes.suggestionUri]?.let { suggestion ->
+                        VoteRow(
+                            uri = row[TrailDetailVotes.uri],
+                            voter = row[TrailDetailVotes.voterDid],
+                            proposal = suggestion,
+                            cid = row[TrailDetailVotes.suggestionCid],
+                            up = row[TrailDetailVotes.direction] == TrailDetailVoteDirection.UP,
+                        )
+                    }
+                },
+            ),
+    )
 
 /** One detail's adopted community value in effect, as [Segments.trailCommunity] holds it: [riders] are the up votes that adopted it. */
 @Serializable internal data class CommunityValue(val detail: String, val value: TrailAttributes, val riders: Int)
@@ -136,15 +170,10 @@ internal fun JdbcTransaction.effectiveTrailOf(segment: String, importer: Did?): 
         }
 
 /** Suggestions with no `!hide` or `!takedown` on their record (at any version) or their author's account. */
-internal fun unlabelledSuggestion(): Op<Boolean> = notLabelled(LabelValues.HIDE) and notLabelled(LabelValues.TAKEDOWN)
+internal fun unlabelledSuggestion(): Op<Boolean> = TRAIL_SUGGESTIONS.unlabelled()
 
 /** The open suggestions a list shows [viewer]: as [listedProposal] for names, their own staying listed to them under `!hide`. */
-internal fun listedSuggestion(viewer: Did?): Op<Boolean> {
-    val own = viewer?.let { TrailDetailSuggestions.authorDid eq stringParam(it.value) } ?: Op.FALSE
-    return notLabelled(LabelValues.TAKEDOWN) and
-        (own or notLabelled(LabelValues.HIDE)) and
-        served(viewer?.let { stringParam(it.value) }, TrailDetailSuggestions.authorDid, null, null)
-}
+internal fun listedSuggestion(viewer: Did?): Op<Boolean> = TRAIL_SUGGESTIONS.listedTo(viewer?.let { stringParam(it.value) })
 
 /**
  * No [value] label on the suggestion, at any version (a same-value rewrite keeps the stored CID, so a label on the new one must still
@@ -160,27 +189,11 @@ internal fun JdbcTransaction.suggestable(segment: String): Boolean =
 
 /** Whether [segment] adopted a value for [detail] still in effect within [TrailDetailRules.cooldownDays] before [now]. */
 internal fun JdbcTransaction.inDetailCooldown(segment: String, detail: String, now: Long, rules: TrailDetailRules): Boolean =
-    TrailDetailSuggestions.select(TrailDetailSuggestions.uri)
-        .where {
-            (TrailDetailSuggestions.segmentUri eq segment) and
-                (TrailDetailSuggestions.detail eq detail) and
-                (TrailDetailSuggestions.state eq ProposalState.ADOPTED) and
-                (TrailDetailSuggestions.closedAt greater now - rules.cooldownDays * DAY_MS) and
-                unlabelledSuggestion()
-        }
-        .any()
+    adoptedWithin(TRAIL_SUGGESTIONS, segment, detail, now, rules.cooldownDays)
 
 /** [did]'s open suggestion on [segment]'s [detail], if any. */
 internal fun JdbcTransaction.openSuggestionOf(segment: String, detail: String, did: String): String? =
-    TrailDetailSuggestions.select(TrailDetailSuggestions.uri)
-        .where {
-            (TrailDetailSuggestions.segmentUri eq segment) and
-                (TrailDetailSuggestions.detail eq detail) and
-                (TrailDetailSuggestions.authorDid eq did) and
-                (TrailDetailSuggestions.state eq ProposalState.OPEN)
-        }
-        .firstOrNull()
-        ?.get(TrailDetailSuggestions.uri)
+    openProposalBy(TRAIL_SUGGESTIONS, segment, detail, did)
 
 /** Whether [did] is a regular of [segment]: efforts on it on [TrailDetailRules.suggesterDays] distinct dates, within the speed cap. */
 internal fun JdbcTransaction.isRegular(segment: String, did: String, rules: TrailDetailRules): Boolean =
@@ -218,56 +231,15 @@ internal fun JdbcTransaction.valueTaken(segment: String, detail: String, value: 
 }
 
 /**
- * Per suggestion in [suggestions] (all on [segment]), each counted voter's latest vote (true for up): by first indexing, only while it
- * names the suggestion's stored version, the voter has an effort on the segment, and isn't its author.
+ * Per suggestion in [suggestions] (all on [segment]), each counted voter's vote, by [countedVotes]: their latest by first indexing, only
+ * while it names the suggestion's stored version, the voter has an effort on the segment, and isn't its author.
  */
-internal fun JdbcTransaction.suggestionVotes(
-    segment: String,
-    suggestions: Collection<String>,
-): Map<String, Map<String, CountedVote>> {
-    if (suggestions.isEmpty()) return emptyMap()
-    val stored =
-        TrailDetailSuggestions.select(TrailDetailSuggestions.uri, TrailDetailSuggestions.cid, TrailDetailSuggestions.authorDid)
-            .where { TrailDetailSuggestions.uri inList suggestions }
-            .associate { it[TrailDetailSuggestions.uri] to (it[TrailDetailSuggestions.cid] to it[TrailDetailSuggestions.authorDid]) }
-    // (suggestion, voter) to the vote's cid and the vote.
-    val latest = mutableMapOf<Pair<String, String>, Triple<String?, String, Boolean>>()
-    TrailDetailVotes.select(
-            TrailDetailVotes.uri,
-            TrailDetailVotes.suggestionUri,
-            TrailDetailVotes.voterDid,
-            TrailDetailVotes.suggestionCid,
-            TrailDetailVotes.direction,
-        )
-        .where { TrailDetailVotes.suggestionUri inList suggestions }
-        .orderBy(TrailDetailVotes.indexedAt to SortOrder.ASC, TrailDetailVotes.uri to SortOrder.ASC)
-        .forEach { row ->
-            val suggestion = row[TrailDetailVotes.suggestionUri] ?: return@forEach
-            latest[suggestion to row[TrailDetailVotes.voterDid]] =
-                Triple(
-                    row[TrailDetailVotes.suggestionCid],
-                    row[TrailDetailVotes.uri],
-                    row[TrailDetailVotes.direction] == TrailDetailVoteDirection.UP,
-                )
-        }
-    val riders = ridersAmong(segment, latest.keys.map { it.second }.toSet())
-    return suggestions.associateWith { suggestion ->
-        val (cid, author) = stored[suggestion] ?: return@associateWith emptyMap()
-        latest
-            .filter { (key, vote) -> key.first == suggestion && vote.first == cid && key.second != author && key.second in riders }
-            .map { (key, vote) -> key.second to CountedVote(vote.second, vote.third) }
-            .toMap()
-    }
-}
+internal fun JdbcTransaction.suggestionVotes(segment: String, suggestions: Collection<String>): Map<String, Map<String, CountedVote>> =
+    countedVotes(TRAIL_SUGGESTIONS, segment, suggestions)
 
 /** The counted totals of each of [suggestions] (all on [segment]), by [suggestionVotes]. */
 internal fun JdbcTransaction.suggestionTallies(segment: String, suggestions: Collection<String>): Map<String, Tally> =
-    suggestionVotes(segment, suggestions).mapValues { (_, votes) ->
-        Tally(up = votes.values.count { it.up }, down = votes.values.count { !it.up })
-    }
-
-/** A voter's counted vote on a suggestion: its record's [uri], and whether it's [up]. */
-internal data class CountedVote(val uri: String, val up: Boolean)
+    countedTallies(TRAIL_SUGGESTIONS, segment, suggestions)
 
 /** How riders see one detail in effect: [TrailDetailInfo]'s getSegment fields. */
 internal data class DetailConfirmations(
@@ -383,33 +355,17 @@ internal fun JdbcTransaction.recomputeTrailCommunity(segment: String) {
 /** After labels changed on [subjects]: recomputes the community values of every segment with an adopted suggestion among or by them. */
 internal fun JdbcTransaction.recomputeTrailsLabelled(subjects: Collection<String>) {
     if (subjects.isEmpty()) return
-    TrailDetailSuggestions.select(TrailDetailSuggestions.segmentUri)
-        .where {
-            (TrailDetailSuggestions.state eq ProposalState.ADOPTED) and
-                ((TrailDetailSuggestions.uri inList subjects) or (TrailDetailSuggestions.authorDid inList subjects))
-        }
-        .withDistinct()
-        .map { it[TrailDetailSuggestions.segmentUri] }
-        .forEach { recomputeTrailCommunity(it) }
+    adoptedSubjects(TRAIL_SUGGESTIONS, among = subjects).forEach { recomputeTrailCommunity(it) }
 }
 
 /** Recomputes the community values of every segment with an adopted suggestion: the pass's backstop, which also catches expired labels. */
 internal fun JdbcTransaction.recomputeAllTrailCommunities() {
-    TrailDetailSuggestions.select(TrailDetailSuggestions.segmentUri)
-        .where { TrailDetailSuggestions.state eq ProposalState.ADOPTED }
-        .withDistinct()
-        .map { it[TrailDetailSuggestions.segmentUri] }
-        .forEach { recomputeTrailCommunity(it) }
+    adoptedSubjects(TRAIL_SUGGESTIONS).forEach { recomputeTrailCommunity(it) }
 }
 
 /** The suggestions on [segments] and every vote and confirmation on them, for deleted segments. */
 internal fun JdbcTransaction.deleteTrailDetails(segments: Collection<String>) {
     if (segments.isEmpty()) return
-    val suggestions =
-        TrailDetailSuggestions.select(TrailDetailSuggestions.uri)
-            .where { TrailDetailSuggestions.segmentUri inList segments }
-            .map { it[TrailDetailSuggestions.uri] }
-    if (suggestions.isNotEmpty()) TrailDetailVotes.deleteWhere { suggestionUri inList suggestions }
+    deleteProposalsOn(TRAIL_SUGGESTIONS, segments)
     TrailDetailVotes.deleteWhere { segmentUri inList segments }
-    TrailDetailSuggestions.deleteWhere { segmentUri inList segments }
 }

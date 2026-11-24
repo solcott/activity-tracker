@@ -2,8 +2,11 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
+import io.github.solcott.activitytracker.appview.segments.NAME_PROPOSALS
 import io.github.solcott.activitytracker.appview.segments.ProposalState
 import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
+import io.github.solcott.activitytracker.appview.segments.deleteProposals
+import io.github.solcott.activitytracker.appview.segments.deleteProposalsBy
 import io.github.solcott.activitytracker.appview.segments.mayPropose
 import io.github.solcott.activitytracker.appview.segments.nameTaken
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -16,12 +19,10 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteRecord
 import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
@@ -79,29 +80,10 @@ internal fun JdbcTransaction.upsertNameProposal(
  * Deleted proposals: an adopted one keeps its row without its proposer ([SegmentNameProposals.recordGone]), so the segment keeps the name;
  * any other goes with its votes (an open one is withdrawn).
  */
-internal fun JdbcTransaction.deleteNameProposals(uris: Collection<String>) {
-    if (uris.isEmpty()) return
-    SegmentNameProposals.update({ (SegmentNameProposals.uri inList uris) and (SegmentNameProposals.state eq ProposalState.ADOPTED) }) {
-        it[recordGone] = true
-    }
-    val gone =
-        SegmentNameProposals.select(SegmentNameProposals.uri)
-            .where { (SegmentNameProposals.uri inList uris) and not(SegmentNameProposals.state eq ProposalState.ADOPTED) }
-            .map { it[SegmentNameProposals.uri] }
-    if (gone.isEmpty()) return
-    SegmentNameVotes.deleteWhere { proposalUri inList gone }
-    SegmentNameProposals.deleteWhere { SegmentNameProposals.uri inList gone }
-}
+internal fun JdbcTransaction.deleteNameProposals(uris: Collection<String>) = deleteProposals(NAME_PROPOSALS, uris)
 
 /** [author]'s proposals and votes, for a deleted account. */
-internal fun JdbcTransaction.deleteSegmentNamesBy(author: Did) {
-    deleteNameProposals(
-        SegmentNameProposals.select(SegmentNameProposals.uri)
-            .where { SegmentNameProposals.proposerDid eq author.value }
-            .map { it[SegmentNameProposals.uri] },
-    )
-    SegmentNameVotes.deleteWhere { voterDid eq author.value }
-}
+internal fun JdbcTransaction.deleteSegmentNamesBy(author: Did) = deleteProposalsBy(NAME_PROPOSALS, author.value)
 
 /**
  * A vote from [author]'s interactions space, on a proposal at the version its subject names. Its first indexing time is kept on a replay:

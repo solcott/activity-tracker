@@ -1,10 +1,11 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
-import io.github.solcott.activitytracker.appview.segments.ProposalState
-import io.github.solcott.activitytracker.appview.segments.Tally
+import io.github.solcott.activitytracker.appview.segments.TRAIL_SUGGESTIONS
 import io.github.solcott.activitytracker.appview.segments.listedSuggestion
+import io.github.solcott.activitytracker.appview.segments.openProposalRows
 import io.github.solcott.activitytracker.appview.segments.suggestionVotes
+import io.github.solcott.activitytracker.appview.segments.tally
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -14,11 +15,8 @@ import io.github.solcott.activitytracker.lexicon.app.TrailDetailSuggestionView
 import io.github.solcott.activitytracker.lexicon.app.TrailDetailViewerVote
 import io.github.solcott.activitytracker.lexicon.app.TrailDetailVoteDirection
 import kotlin.time.Instant
-import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
-import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /** The most open suggestions `getSegment` lists, as its lexicon caps them. */
 private const val MAX_SUGGESTION_ROWS = 200
@@ -29,18 +27,11 @@ private const val MAX_SUGGESTION_ROWS = 200
  * Totals come from [suggestionVotes]; who voted is never served, except the viewer's own counted vote.
  */
 internal fun JdbcTransaction.trailSuggestions(viewer: Did?, segment: String, avatars: AvatarUrls): List<TrailDetailSuggestionView> {
-    val rows =
-        TrailDetailSuggestions.selectAll()
-            .where {
-                (TrailDetailSuggestions.segmentUri eq segment) and
-                    (TrailDetailSuggestions.state eq ProposalState.OPEN) and
-                    listedSuggestion(viewer) and
-                    notBlocked(viewer, TrailDetailSuggestions.authorDid) and
-                    notMuted(viewer, TrailDetailSuggestions.authorDid)
-            }
-            .orderBy(TrailDetailSuggestions.openedAt to SortOrder.ASC, TrailDetailSuggestions.uri to SortOrder.ASC)
-            .limit(MAX_SUGGESTION_ROWS)
-            .toList()
+    val listed =
+        listedSuggestion(viewer) and
+            notBlocked(viewer, TrailDetailSuggestions.authorDid) and
+            notMuted(viewer, TrailDetailSuggestions.authorDid)
+    val rows = openProposalRows(TRAIL_SUGGESTIONS, segment, listed, MAX_SUGGESTION_ROWS)
     if (rows.isEmpty()) return emptyList()
     val uris = rows.map { it[TrailDetailSuggestions.uri] }
     val votes = suggestionVotes(segment, uris)
@@ -52,7 +43,7 @@ internal fun JdbcTransaction.trailSuggestions(viewer: Did?, segment: String, ava
             runCatching { AtJson.decodeFromString(TrailAttributes.serializer(), it[TrailDetailSuggestions.value]) }.getOrNull()
                 ?: return@mapNotNull null
         val counted = votes[uri].orEmpty()
-        val tally = Tally(up = counted.values.count { v -> v.up }, down = counted.values.count { v -> !v.up })
+        val tally = counted.tally()
         TrailDetailSuggestionView(
             uri = AtUri(uri),
             cid = Cid(it[TrailDetailSuggestions.cid]),

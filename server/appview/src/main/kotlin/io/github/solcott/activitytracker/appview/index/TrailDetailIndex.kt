@@ -3,7 +3,10 @@ package io.github.solcott.activitytracker.appview.index
 import io.github.solcott.activitytracker.appview.db.TrailDetailSuggestions
 import io.github.solcott.activitytracker.appview.db.TrailDetailVotes
 import io.github.solcott.activitytracker.appview.segments.ProposalState
+import io.github.solcott.activitytracker.appview.segments.TRAIL_SUGGESTIONS
 import io.github.solcott.activitytracker.appview.segments.TrailDetailRules
+import io.github.solcott.activitytracker.appview.segments.deleteProposals
+import io.github.solcott.activitytracker.appview.segments.deleteProposalsBy
 import io.github.solcott.activitytracker.appview.segments.maySuggest
 import io.github.solcott.activitytracker.appview.segments.normalizedValue
 import io.github.solcott.activitytracker.appview.segments.valueTaken
@@ -18,12 +21,10 @@ import io.github.solcott.activitytracker.lexicon.app.TrailDetailVoteRecord
 import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
@@ -83,31 +84,10 @@ internal fun JdbcTransaction.upsertTrailSuggestion(
  * Deleted suggestions: an adopted one keeps its row ([TrailDetailSuggestions.recordGone]), so the segment keeps the value; any other goes
  * with its votes (an open one is withdrawn).
  */
-internal fun JdbcTransaction.deleteTrailSuggestions(uris: Collection<String>) {
-    if (uris.isEmpty()) return
-    TrailDetailSuggestions.update(
-        { (TrailDetailSuggestions.uri inList uris) and (TrailDetailSuggestions.state eq ProposalState.ADOPTED) },
-    ) {
-        it[recordGone] = true
-    }
-    val gone =
-        TrailDetailSuggestions.select(TrailDetailSuggestions.uri)
-            .where { (TrailDetailSuggestions.uri inList uris) and not(TrailDetailSuggestions.state eq ProposalState.ADOPTED) }
-            .map { it[TrailDetailSuggestions.uri] }
-    if (gone.isEmpty()) return
-    TrailDetailVotes.deleteWhere { suggestionUri inList gone }
-    TrailDetailSuggestions.deleteWhere { TrailDetailSuggestions.uri inList gone }
-}
+internal fun JdbcTransaction.deleteTrailSuggestions(uris: Collection<String>) = deleteProposals(TRAIL_SUGGESTIONS, uris)
 
-/** [author]'s suggestions, votes and confirmations, for a deleted account. */
-internal fun JdbcTransaction.deleteTrailDetailsBy(author: Did) {
-    deleteTrailSuggestions(
-        TrailDetailSuggestions.select(TrailDetailSuggestions.uri)
-            .where { TrailDetailSuggestions.authorDid eq author.value }
-            .map { it[TrailDetailSuggestions.uri] },
-    )
-    TrailDetailVotes.deleteWhere { voterDid eq author.value }
-}
+/** [author]'s suggestions, votes and confirmations (every row in the votes table is theirs as voter), for a deleted account. */
+internal fun JdbcTransaction.deleteTrailDetailsBy(author: Did) = deleteProposalsBy(TRAIL_SUGGESTIONS, author.value)
 
 /**
  * A vote or confirmation from [author]'s interactions space. A vote names a suggestion at a version and is up or down; a confirmation names

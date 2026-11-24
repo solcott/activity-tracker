@@ -2,9 +2,11 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.SegmentNameProposals
 import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
+import io.github.solcott.activitytracker.appview.segments.NAME_PROPOSALS
 import io.github.solcott.activitytracker.appview.segments.ProposalState
 import io.github.solcott.activitytracker.appview.segments.Tally
 import io.github.solcott.activitytracker.appview.segments.listedProposal
+import io.github.solcott.activitytracker.appview.segments.openProposalRows
 import io.github.solcott.activitytracker.appview.segments.tallies
 import io.github.solcott.activitytracker.appview.segments.unlabelledProposal
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -72,18 +74,11 @@ internal fun JdbcTransaction.nameHistory(viewer: Did?, segment: String, avatars:
  * the viewer's own vote on the version listed.
  */
 internal fun JdbcTransaction.nameProposals(viewer: Did?, segment: String, avatars: AvatarUrls): List<SegmentNameProposalView> {
-    val rows =
-        SegmentNameProposals.selectAll()
-            .where {
-                (SegmentNameProposals.segmentUri eq segment) and
-                    (SegmentNameProposals.state eq ProposalState.OPEN) and
-                    listedProposal(viewer) and
-                    notBlocked(viewer, SegmentNameProposals.proposerDid) and
-                    notMuted(viewer, SegmentNameProposals.proposerDid)
-            }
-            .orderBy(SegmentNameProposals.openedAt to SortOrder.ASC, SegmentNameProposals.uri to SortOrder.ASC)
-            .limit(MAX_NAME_ROWS)
-            .toList()
+    val listed =
+        listedProposal(viewer) and
+            notBlocked(viewer, SegmentNameProposals.proposerDid) and
+            notMuted(viewer, SegmentNameProposals.proposerDid)
+    val rows = openProposalRows(NAME_PROPOSALS, segment, listed, MAX_NAME_ROWS)
     if (rows.isEmpty()) return emptyList()
     val uris = rows.map { it[SegmentNameProposals.uri] }
     val tallies = tallies(segment, uris)
