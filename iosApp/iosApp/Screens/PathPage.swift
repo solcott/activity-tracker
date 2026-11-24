@@ -11,7 +11,9 @@ import SwiftUI
 /// chips, filters and sort are one toolbar menu, its icon filled while a filter is on; which rows they leave, and what each offers, is
 /// Kotlin's (`PathFilter`). A trail with a terrain profile (segments/path-profile) draws it at the top of the list (under the map beside
 /// the list when wide) with its rows' stretches marked and the selected one shaded (`PathProfile`), and scrubbing it marks the spot on the
-/// map. What it says is Kotlin's (`PathTexts`). Named so because `PathView` is the lexicon's.
+/// map. Its conditions (segments/trail-reports) head the list (`PathConditionsSection`), a closed segment's row says so under its name,
+/// and the map labels a closed line Closed. What it says is Kotlin's (`PathTexts`, `TrailReportTexts`). Named so because `PathView` is
+/// the lexicon's.
 struct PathPage: View {
     let state: PathState
     @State private var memory = SegmentsMapMemory()
@@ -145,7 +147,7 @@ struct PathPage: View {
                 map: state.segmentsMap, camera: state.camera, memory: memory,
                 onViewport: { send(PathEvent.ViewportChanged(viewport: $0)) },
                 onSelect: { send(state.selectEvent(uri: $0)) },
-                marker: state.profilePoint(x: scrubbed), coveredTop: coveredTop,
+                marker: state.profilePoint(x: scrubbed), closed: closedLines, coveredTop: coveredTop,
                 coveredBottom: coveredBottom)
             if wide {
                 profile
@@ -154,6 +156,11 @@ struct PathPage: View {
                     .background(Color(.systemBackground))
             }
         }
+    }
+
+    /// The lines the map marks Closed (segments/trail-reports).
+    private var closedLines: Set<String> {
+        Set(state.mapLines.elements(as: MapSegmentLine.self).filter(\.closed).map(\.uri))
     }
 
     /// The trail's elevation profile under its title, nothing without one.
@@ -174,6 +181,11 @@ struct PathPage: View {
                 }
                 header
                 RefreshStatusView(state: state.content, errorKind: .LoadPath, retry: retry).listStatusRow()
+                if let conditions = state.conditions {
+                    PathConditionsSection(
+                        card: conditions, open: { send(state.openSegmentEvent(uri: $0)) },
+                        openPhoto: { send(PathEvent.OpenPhoto(index: Int32($0))) })
+                }
                 if state.offersDetails {
                     detailsFold
                     if state.detailsExpanded {
@@ -258,9 +270,12 @@ struct PathPage: View {
         let leader = state.leaderOf(group: group)
         // The viewer's own place reads in the row's text colour, apart from the grey details (segments/path-page).
         let yours = leader.flatMap { PathTexts.shared.yours(leader: $0) }.map { Text($0).foregroundStyle(.primary) }
+        // A closed segment says so under its name, in words as well as in red (segments/trail-reports).
+        let closed = state.conditions?.closedLine(uri: group.shown.uri.value).map { Text($0).foregroundStyle(.red) }
         return AppItemRow(
             Text(PathTexts.shared.name(group: group)),
-            lines: [Text(PathTexts.shared.details(group: group, units: stats.units))] + (yours.map { [$0] } ?? []),
+            lines: (closed.map { [$0] } ?? []) + [Text(PathTexts.shared.details(group: group, units: stats.units))]
+                + (yours.map { [$0] } ?? []),
             opens: { send(state.tapRowEvent(group: group)) }
         ) {
             RatingSwatch(rating: group.rating)
@@ -347,3 +362,61 @@ private struct PathSearch: ViewModifier {
         }
     }
 #endif
+
+/// The Trail page's Conditions (segments/trail-reports): how many of its segments have reports in the last 14 days, each such segment
+/// with its tags and riders, Closed ones first in red with their symbol, each opening its segment, and the trail's newest photos with
+/// See all. Kotlin's `PathConditionsCard` says what each shows.
+struct PathConditionsSection: View {
+    let card: PathConditionsCard
+    let open: (String) -> Void
+    let openPhoto: (Int) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(.trailConditionsTitle).font(.headline)
+            if let summary = card.summary {
+                Text(summary).font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+        .listRowBackground(Color.clear)
+        ForEach(card.shownSegments, id: \.uri) { row in
+            Button {
+                open(row.uri)
+            } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: row.name).font(.body.weight(.medium))
+                        if let lead = row.lead {
+                            ConditionLead(text: lead, closed: row.closed, font: .subheadline.weight(row.closed ? .semibold : .regular))
+                        }
+                        if let riders = row.riders {
+                            Text(riders).font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    DisclosureMark()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(Color.clear)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+        }
+        let photos = card.shownPhotos
+        if !photos.isEmpty {
+            TrailPhotoStrip(photos: photos, more: card.morePhotos, size: 72, open: openPhoto)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            if let seeAll = card.seeAll {
+                Button {
+                    openPhoto(0)
+                } label: {
+                    Text(seeAll)
+                }
+                .buttonStyle(.borderless)
+                .listRowBackground(Color.clear)
+            }
+        }
+    }
+}

@@ -553,6 +553,31 @@ typealias SegmentTrail = SegmentPackage.SegmentTrail
 typealias SegmentTexts = SegmentPackage.SegmentTexts
 typealias EffortTexts = SegmentPackage.EffortTexts
 typealias EffortView = LexiconAppPackage.EffortView
+// Trail reports (segments/trail-reports): the Segment page's Conditions card and report sheet, the reports list, the photo viewer and the
+// Trail page's card. Their sheet, fields and event are named apart from the moderation report sheet's.
+typealias TrailReportFields = SegmentPackage.ReportFields
+typealias TrailReportEvent = SegmentPackage.ReportEvent
+typealias TrailReportSheet = SegmentPackage.ReportSheet
+typealias TrailAddPhotos = SegmentPackage.AddPhotos
+typealias ConditionsCard = SegmentPackage.ConditionsCard
+typealias ReportNote = SegmentPackage.ReportNote
+typealias PhotoThumb = SegmentPackage.PhotoThumb
+typealias TagToggle = SegmentPackage.TagToggle
+typealias ReportPhotoChoice = SegmentPackage.ReportPhotoChoice
+typealias RidePhotos = SegmentPackage.RidePhotos
+typealias RidePhoto = SegmentPackage.RidePhoto
+typealias TrailReportTexts = SegmentPackage.TrailReportTexts
+typealias TrailReportsScreen = SegmentPackage.TrailReportsScreen
+typealias TrailReportsState = SegmentPackage.TrailReportsState
+typealias TrailReportsEvent = SegmentPackage.TrailReportsEvent
+typealias TrailReportRow = SegmentPackage.TrailReportRow
+typealias TrailPhotosScreen = SegmentPackage.TrailPhotosScreen
+typealias TrailPhotosState = SegmentPackage.TrailPhotosState
+typealias TrailPhotosEvent = SegmentPackage.TrailPhotosEvent
+typealias TrailPhotoPage = SegmentPackage.TrailPhotoPage
+typealias PathConditionsCard = SegmentPackage.PathConditionsCard
+typealias PathConditionRow = SegmentPackage.PathConditionRow
+typealias MapSegmentLine = AppPackage.MapSegmentLine
 // The activity page (ios-native-activity-page): its contract, what its figures, cards, zones, laps and own lines say, and its menu.
 typealias DetailPackage = AppPackage.detail
 typealias ActivityDetailScreen = DetailPackage.ActivityDetailScreen

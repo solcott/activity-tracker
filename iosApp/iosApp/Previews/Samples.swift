@@ -137,6 +137,10 @@
         /// The segment page (ios-native-charts) in each state it shows, states beyond content loading apart.
         static var segment: [String: SegmentState] { SegmentPackage.SegmentSamples.shared.all }
         static var segmentVariants: [String: SegmentState] { SegmentPackage.SegmentSamples.shared.variants }
+        /// Trail reports (segments/trail-reports): a segment's reports list in each loading state and the photo viewer; the Trail page
+        /// with its conditions is `path["conditions"]`.
+        static var trailReports: [String: TrailReportsState] { SegmentPackage.TrailReportSamples.shared.reportsAll }
+        static var trailPhotos: TrailPhotosState { SegmentPackage.TrailReportSamples.shared.photos }
         /// Line charts for the design gallery: one untinted with a gap, and a segment's profile tinted by grade.
         static var plainChart: LineChart { AppPackage.chart.LineChartSamples.shared.plain }
         static var profileChart: LineChart { AppPackage.chart.LineChartSamples.shared.profile }

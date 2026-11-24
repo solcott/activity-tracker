@@ -4,9 +4,10 @@ import SwiftUI
 /// segments/segment-mayors, segments/segment-leaderboards), drawn from the states `SegmentPresenter` publishes, in the shared page's order:
 /// Star in the bar, its line on the native route map (expanding to the enlarged map), the heading (what it is and its status, its name,
 /// "originally" its old one, the trails it lies on), the segment group's choices, the figure row, the native elevation chart
-/// (`LineChartView`) headed by its high and low points, the Leaderboard and Mayor cards for an active run, its Trail details in their
-/// cards (`TrailDetailsSection`), the names (`PlaceNamesSection`, not for a lift), the viewer's efforts, then who created it, its data's
-/// credit and licence, and the status of a segment that isn't active with Open the original. Every word and condition is Kotlin's (`SegmentPageTexts`,
+/// (`LineChartView`) headed by its high and low points, its Conditions (`TrailConditionsSection`, segments/trail-reports, with the report
+/// sheet over the page), the Leaderboard and Mayor cards for an active run, its Trail details in their cards (`TrailDetailsSection`), the
+/// names (`PlaceNamesSection`, not for a lift), the viewer's efforts, then who created it, its data's credit and licence, and the status
+/// of a segment that isn't active with Open the original. Every word and condition is Kotlin's (`SegmentPageTexts`, `TrailReportTexts`,
 /// `EffortTexts`, `PlaceTexts`, `SegmentState`'s getters), shared with the Compose page. The place-name sheet and its delete confirmation
 /// show over it (`placeNames(_:)`).
 ///
@@ -31,6 +32,7 @@ struct SegmentPage: View {
         }
         .placeNames(state.names)
         .trailSheets(state.trail)
+        .trailReportSheet(state.reports)
     }
 
     private func loaded(_ segment: SegmentView) -> some View {
@@ -62,6 +64,10 @@ struct SegmentPage: View {
                 } header: {
                     Text(texts.extremes(profile: profile, units: stats.units))
                 }
+            }
+            // What riders say it's like now (segments/trail-reports).
+            if let card = state.reports.card {
+                TrailConditionsSection(fields: state.reports, card: card)
             }
             if state.showsBoards {
                 Section {

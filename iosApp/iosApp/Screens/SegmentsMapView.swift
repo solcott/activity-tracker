@@ -17,6 +17,8 @@ struct SegmentsMapView: View {
     let onSelect: (String?) -> Void
     /// A place the map marks without moving, such as the spot a trail profile's readout marks (segments/path-profile).
     var marker: GeoPoint?
+    /// The lines riders say are closed (segments/trail-reports), each labelled Closed at its middle, in words as well as colour.
+    var closed: Set<String> = []
     /// How much of the map's top and bottom something lies over (the bars, the Trail page's sheet), so a camera request frames its
     /// place in the rest.
     var coveredTop: CGFloat = 0
@@ -29,9 +31,9 @@ struct SegmentsMapView: View {
             if liveMaps {
                 LiveSegmentsMap(
                     map: map, camera: camera, memory: memory, onViewport: onViewport, onSelect: onSelect, marker: marker,
-                    coveredTop: coveredTop, coveredBottom: coveredBottom)
+                    closed: closed, coveredTop: coveredTop, coveredBottom: coveredBottom)
             } else {
-                SegmentsSketch(map: map)
+                SegmentsSketch(map: map, closed: closed, coveredTop: coveredTop, coveredBottom: coveredBottom)
             }
         }
         .overlay(alignment: .topLeading) { RatingLegendView(map: map).padding(8).padding(.top, coveredTop) }
@@ -52,6 +54,7 @@ private struct LiveSegmentsMap: View {
     let onViewport: (MapViewport) -> Void
     let onSelect: (String?) -> Void
     let marker: GeoPoint?
+    let closed: Set<String>
     let coveredTop: CGFloat
     let coveredBottom: CGFloat
 
@@ -80,6 +83,12 @@ private struct LiveSegmentsMap: View {
                         if TrailRatingStyle.isDouble(rating) {
                             MapPolyline(coordinates: coordinates).stroke(.white, style: TrailRatingStyle.centre)
                         }
+                    }
+                }
+                ForEach(lines.filter { closed.contains($0.uri) }, id: \.uri) { line in
+                    if let middle = SegmentsMapGeometry.middle(of: line) {
+                        Annotation("", coordinate: middle, anchor: .bottom) { ClosedBadge() }
+                            .annotationTitles(.hidden)
                     }
                 }
                 if let marker {
@@ -164,6 +173,41 @@ enum SegmentsMapGeometry {
             east: centre.longitude + halfLng, centerLat: centre.latitude, centerLng: centre.longitude)
     }
 
+    /// Where a line's Closed label stands: halfway along its positions, or nil for a line with none.
+    static func middle(of line: MapSegment) -> CLLocationCoordinate2D? {
+        let points = line.points.elements(as: GeoPoint.self).map(coordinate)
+        return middle(points.map { CGPoint(x: $0.longitude, y: $0.latitude) }).map {
+            CLLocationCoordinate2D(latitude: $0.y, longitude: $0.x)
+        }
+    }
+
+    /// The point halfway through `points` by index: the middle one, or between the two middle ones.
+    static func middle(_ points: [CGPoint]) -> CGPoint? {
+        guard !points.isEmpty else { return nil }
+        let a = points[(points.count - 1) / 2]
+        let b = points[points.count / 2]
+        return CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+    }
+
+    /// Where a line drawn on a stand-in tile takes its label: the point along it nearest its middle whose height is in `open` (the tile
+    /// less what lies over it), else its middle moved into `open`, so the label shows even when the line is under the Trail page's sheet.
+    static func labelSpot(_ points: [CGPoint], open: ClosedRange<CGFloat>) -> CGPoint? {
+        guard let middle = middle(points) else { return nil }
+        if open.contains(middle.y) { return middle }
+        var samples: [CGPoint] = []
+        for (a, b) in zip(points, points.dropFirst()) {
+            for step in 0...20 {
+                let t = CGFloat(step) / 20
+                samples.append(CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t))
+            }
+        }
+        let visible = samples.filter { open.contains($0.y) }
+        if let nearest = visible.min(by: { hypot($0.x - middle.x, $0.y - middle.y) < hypot($1.x - middle.x, $1.y - middle.y) }) {
+            return nearest
+        }
+        return CGPoint(x: middle.x, y: min(max(middle.y, open.lowerBound), open.upperBound))
+    }
+
     /// How far apart two coordinates are on the ground, in metres: how far a tap reaches, from its point to one a finger's width away.
     static func meters(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> Double {
         CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
@@ -181,6 +225,10 @@ enum SegmentsMapStyle {
 /// The segments on a plain tile, in Kotlin's drawing order and fit (`SegmentsMap.sketch`): what previews and snapshots show for the map.
 private struct SegmentsSketch: View {
     let map: SegmentsMap
+    var closed: Set<String> = []
+    /// What lies over the tile's top and bottom (the bars, the Trail page's sheet), which a Closed label keeps out of.
+    var coveredTop: CGFloat = 0
+    var coveredBottom: CGFloat = 0
 
     var body: some View {
         Canvas { context, size in
@@ -207,6 +255,38 @@ private struct SegmentsSketch: View {
             }
         }
         .background(Color(.quaternarySystemFill))
+        .overlay {
+            if !closed.isEmpty {
+                // The sketch keeps the drawn lines' order, so each closed line's middle is found by its place among them.
+                GeometryReader { geometry in
+                    let drawn = map.drawn.elements(as: MapSegment.self)
+                    let placed = map.sketch(width: geometry.size.width, height: geometry.size.height, pad: 16)
+                    ForEach(Array(zip(drawn, placed).enumerated()), id: \.offset) { _, pair in
+                        let points = pair.1.points.elements(as: ShapePoint.self).map { CGPoint(x: $0.x, y: $0.y) }
+                        let open = (coveredTop + 40)...max(coveredTop + 40, geometry.size.height - coveredBottom - 8)
+                        if closed.contains(pair.0.uri), let spot = SegmentsMapGeometry.labelSpot(points, open: open) {
+                            ClosedBadge().fixedSize().position(x: spot.x, y: spot.y - 14)
+                        }
+                    }
+                }
+            }
+        }
         .accessibilityHidden(true)
+    }
+}
+
+/// The label a closed line carries on a map (segments/trail-reports): Closed with its symbol, white on the error colour.
+struct ClosedBadge: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "xmark.octagon.fill").accessibilityHidden(true)
+            Text(.trailConditionClosed)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.red, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color(.systemBackground), lineWidth: 1.5))
     }
 }

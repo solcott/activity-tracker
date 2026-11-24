@@ -113,6 +113,9 @@ extension ScreenRegistry {
 
         // The segment page (ios-native-charts), with the native chart, map and names.
         registry.register(SegmentScreen.self, SegmentState.self) { state in SegmentPage(state: state) }
+        // Trail reports (segments/trail-reports): every report on a segment and their photos full screen, over the segment or Trail page.
+        registry.register(TrailReportsScreen.self, TrailReportsState.self) { state in TrailReportsView(state: state) }
+        registry.register(TrailPhotosScreen.self, TrailPhotosState.self) { state in TrailPhotosView(state: state) }
 
         // The activity page (ios-native-activity-page), with the native map, charts, comments and menus.
         registry.register(ActivityDetailScreen.self, ActivityDetailState.self) { state in ActivityPage(state: state) }

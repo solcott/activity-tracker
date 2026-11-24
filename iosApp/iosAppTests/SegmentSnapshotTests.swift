@@ -5,14 +5,15 @@ import Testing
 
 /// The segment page in each of its sample states against their references (segments/segment-page, segments/segment-efforts,
 /// segments/segment-elevation,
-/// segments/segment-names, dev/ios-snapshot-tests), on the samples' clock. Snapshots run outside a session, so the map draws the line
+/// segments/segment-names, segments/trail-reports, dev/ios-snapshot-tests), on the samples' clock. Snapshots run outside a session, so the map draws the line
 /// preview and loads no tiles (`\.liveMaps`). Their words are `SegmentTextTests`'.
 @MainActor
 @Suite(.enabled(if: Snapshots.comparesHere, Snapshots.skipped))
 struct SegmentSnapshotTests {
     nonisolated private static let samples = [
         "loading", "failed", "loaded", "refreshing", "refreshFailed", "renamed", "votingUnavailable", "lift", "elevation",
-        "elevationFromEfforts", "trail", "trailCommunity", "trailQuickCheck", "trailInvite",
+        "elevationFromEfforts", "trail", "trailCommunity", "trailQuickCheck", "trailInvite", "conditions", "conditionsClosed",
+        "conditionsAsk",
     ]
     nonisolated private static let variants = [
         "openStreetMap", "boardsFailed", "duplicate", "group", "oneWay", "groupByClimb",
@@ -51,6 +52,24 @@ struct SegmentSnapshotTests {
         assertAppSnapshot(
             of: TrailPickerView(picker: picker, send: { _ in }), size: CGSize(width: 393, height: 700), named: "trailPicker",
             precision: Snapshots.barButtons)
+    }
+
+    /// The report sheet (segments/trail-reports), drawn alone as its sheet shows it, and adding photos from the viewer's rides as the
+    /// sheet's stack pushes it.
+    @Test func reportSheet() throws {
+        let state = try #require(Samples.segment["reportSheet"])
+        let sheet = try #require(state.reports.sheet)
+        assertAppSnapshot(
+            of: TrailReportSheetView(sheet: sheet, fields: state.reports), size: CGSize(width: 393, height: 1_500), named: "reportSheet",
+            precision: Snapshots.barButtons)
+    }
+
+    @Test func reportAddPhotos() throws {
+        let state = try #require(Samples.segment["reportAddPhotos"])
+        let adding = try #require(state.reports.addPhotos)
+        assertAppSnapshot(
+            of: NavigationStack { TrailAddPhotosView(adding: adding, send: { _ in }) }, size: CGSize(width: 393, height: 700),
+            named: "reportAddPhotos", precision: Snapshots.barButtons)
     }
 
     @Test func imperialProfile() throws {
