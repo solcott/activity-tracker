@@ -163,7 +163,13 @@ struct SectionChips: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
-                        chip(label, selected: index == selected) { select(index) }.id(index)
+                        AppChip(filled: index == selected) {
+                            select(index)
+                        } label: {
+                            Text(label)
+                        }
+                        .accessibilityAddTraits(index == selected ? .isSelected : [])
+                        .id(index)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -173,18 +179,6 @@ struct SectionChips: View {
                 guard let index else { return }
                 withAnimation { proxy.scrollTo(index, anchor: .center) }
             }
-        }
-    }
-
-    @ViewBuilder private func chip(_ label: any AppText, selected: Bool, action: @escaping () -> Void) -> some View {
-        let button = Button(action: action) { Text(label).font(.subheadline) }
-            .buttonBorderShape(.capsule)
-            .controlSize(.small)
-            .accessibilityAddTraits(selected ? .isSelected : [])
-        if selected {
-            button.buttonStyle(.borderedProminent)
-        } else {
-            button.buttonStyle(.bordered)
         }
     }
 }
