@@ -94,7 +94,7 @@ session = must(
     f"createSession as {args.name}.test",
 )
 did, token = session["did"], session["accessJwt"]
-self_space = f"at://{did}/space/{SPACE_TYPE}/self"
+self_space = f"at:space/{did}/{SPACE_TYPE}/self"
 
 # The AppView's service DID, as the app resolves it: the managing app of the space, and the audience of notifySpace.
 with urllib.request.urlopen(f"{args.appview}/.well-known/did.json", timeout=10) as resp:

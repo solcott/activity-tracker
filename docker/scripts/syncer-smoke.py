@@ -331,7 +331,7 @@ def main():
     )
     did, owner = session["did"], {"Authorization": f"Bearer {session['accessJwt']}"}
     skey = "syncer"
-    space = f"at://{did}/space/{SPACE_TYPE}/{skey}"
+    space = f"at:space/{did}/{SPACE_TYPE}/{skey}"
     log(f"ok   signed in as {name}.test ({did})")
 
     status, payload, _ = xrpc(

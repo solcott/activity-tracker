@@ -48,7 +48,7 @@ session=$(xrpc com.atproto.server.createSession POST -H 'Content-Type: applicati
   -d "{\"identifier\":\"$name.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}")
 did=$(json_field did <<<"$session")
 auth=(-H "Authorization: Bearer $(json_field accessJwt <<<"$session")")
-space="at://$did/space/$space_type/smoke"
+space="at:space/$did/$space_type/smoke"
 echo "ok   signed in as $name.test ($did)"
 
 allow="SpaceAlreadyExists"
@@ -89,7 +89,7 @@ xrpc com.atproto.space.deleteRecord POST "${auth[@]}" -H 'Content-Type: applicat
 echo "ok   deleteRecord"
 
 # Space deletion (leave-activity-tracker): a throwaway space per run, so the space above stays for the other checks.
-gone="at://$did/space/$space_type/gone-$(date +%s)"
+gone="at:space/$did/$space_type/gone-$(date +%s)"
 xrpc com.atproto.space.createSpace POST "${auth[@]}" -H 'Content-Type: application/json' -d "{
   \"spaceType\":\"$space_type\",\"skey\":\"${gone##*/}\",
   \"policy\":{\"\$type\":\"com.atproto.memberspace.policy\"}}" >/dev/null

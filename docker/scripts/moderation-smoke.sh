@@ -126,7 +126,7 @@ public_uri="at://$(did bob)/app.activitytracker.feed.activity/$public_rkey"
 followers_uri="at://$(did bob)/app.activitytracker.feed.activity/$followers_rkey"
 put_repo bob app.activitytracker.feed.activity "$public_rkey" "$(run 'Moderation smoke (Public)' "$public_blob")"
 
-followers_space="at://$(did bob)/space/app.activitytracker.space.athlete/followers"
+followers_space="at:space/$(did bob)/app.activitytracker.space.athlete/followers"
 created=$(curl -sS -X POST -H "Authorization: Bearer $(jwt bob)" -H 'Content-Type: application/json' "$pds/xrpc/com.atproto.space.createSpace" -d "{
   \"spaceType\":\"app.activitytracker.space.athlete\",\"skey\":\"followers\",
   \"policy\":{\"\$type\":\"com.atproto.managedspace.policy\",\"managingApp\":\"$appview_did#activitytracker_space\"}}")
