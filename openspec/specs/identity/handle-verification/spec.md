@@ -30,7 +30,11 @@ The AppView SHALL verify an account's handle the first time it indexes anything 
 
 #### Scenario: Identity event
 - **WHEN** a Jetstream `#identity` event arrives for a known account, with or without a handle
-- **THEN** the AppView resolves the account's DID document and verifies its claimed handle again, rather than trusting the handle in the event
+- **THEN** the AppView makes the account's check due at once and verifies its claimed handle again from a freshly resolved DID document, rather than trusting the handle in the event
+
+#### Scenario: Burst of identity events
+- **WHEN** many `#identity` events arrive together, as when PDSes add a key to every account's DID document
+- **THEN** indexing goes on without waiting for any lookup, and the checks run in the background one after another, paced, until none is due
 
 #### Scenario: Stale check
 - **WHEN** an account's handle was last checked more than 24 hours ago
