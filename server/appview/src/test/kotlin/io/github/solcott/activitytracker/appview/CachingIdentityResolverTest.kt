@@ -57,7 +57,8 @@ class CachingIdentityResolverTest {
             entered.complete(Unit)
             release.await()
         }
-        val inFlight = async(Dispatchers.Default) { resolver.resolveDid(alice) }
+        // A fetch under way on another thread, as Jetstream's and a request's are.
+        @Suppress("InjectDispatcher") val inFlight = async(Dispatchers.Default) { resolver.resolveDid(alice) }
         entered.await()
         // The `#identity` event lands while the fetch that read the old document is still under way.
         resolver.invalidate(alice)
@@ -68,6 +69,25 @@ class CachingIdentityResolverTest {
         identities.claims[alice.value] = "alice.new.example"
         assertEquals("alice.new.example", resolver.resolveDid(alice).handle)
         assertEquals(2, identities.requests)
+    }
+
+    @Test
+    fun readersAskingDuringAFetchShareIt() = runTest {
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        identities.plcGate = {
+            entered.complete(Unit)
+            release.await()
+        }
+        val first = async { resolver.resolveDid(alice) }
+        entered.await()
+        val others = List(4) { async { resolver.resolveDid(alice) } }
+        testScheduler.runCurrent()
+        // The reader that started the fetch gives up; the others still get its document.
+        first.cancel()
+        release.complete(Unit)
+        others.forEach { assertEquals("alice.example.com", it.await().handle) }
+        assertEquals(1, identities.requests)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import com.github.benmanes.caffeine.cache.AsyncCache
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Ticker
@@ -19,6 +20,18 @@ internal fun <K : Any, V : Any> boundedCache(maxSize: Long, ttl: Duration? = nul
         .ticker(if (clock == Clock.System) Ticker.systemTicker() else clock.ticker())
         .executor(Runnable::run)
         .build()
+
+/**
+ * [boundedCache]'s bounds for values that are fetched: it holds each value's future, so callers asking for one being fetched share that
+ * fetch, a failed one is never kept, and [ttl] counts from when it finishes. Dropping a key while its fetch runs keeps the result out.
+ */
+internal fun <K : Any, V : Any> boundedAsyncCache(maxSize: Long, ttl: Duration? = null, clock: Clock = Clock.System): AsyncCache<K, V> =
+    Caffeine.newBuilder()
+        .maximumSize(maxSize)
+        .apply { if (ttl != null) expireAfterWrite(ttl.toJavaDuration()) }
+        .ticker(if (clock == Clock.System) Ticker.systemTicker() else clock.ticker())
+        .executor(Runnable::run)
+        .buildAsync()
 
 /** [clock] as Caffeine reads time: nanoseconds, here from the epoch. */
 internal fun Clock.ticker(): Ticker = Ticker { now().toEpochMilliseconds() * NANOS_PER_MILLI }

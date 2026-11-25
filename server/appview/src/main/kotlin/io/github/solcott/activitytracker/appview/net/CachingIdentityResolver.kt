@@ -1,24 +1,30 @@
 package io.github.solcott.activitytracker.appview.net
 
-import io.github.solcott.activitytracker.appview.boundedCache
+import io.github.solcott.activitytracker.appview.boundedAsyncCache
 import io.github.solcott.activitytracker.atproto.identity.IdentityRateLimitedException
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.atproto.DidDocument
 import io.ktor.client.HttpClient
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.coroutines.CoroutineContext
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.future.asDeferred
+import kotlinx.coroutines.future.future
 
 /**
  * The AppView's identity resolver (identity/outbound-requests): each DID document is kept for [ttl] after it's fetched, so the PLC
- * directory is asked about an account at most that often by every reader together, and dropped early by [invalidate] when an `#identity`
- * event names the account. [refreshDid] fetches past the cache and keeps what it got. Every `did:plc` fetch also goes through [pacing]:
- * once the directory answers 429, none is sent until its pause ends.
+ * directory is asked about an account at most that often by every reader together (readers asking while it's fetched share the fetch), and
+ * dropped early by [invalidate] when an `#identity` event names the account. [refreshDid] fetches past the cache and keeps what it got.
+ * Every `did:plc` fetch also goes through [pacing]: once the directory answers 429, none is sent until its pause ends.
  */
 @Suppress("LongParameterList") // The resolver's own four, then the cache's: pacing, TTL and a test clock.
 class CachingIdentityResolver(
@@ -30,38 +36,49 @@ class CachingIdentityResolver(
     ttl: Duration = DEFAULT_TTL,
     clock: Clock = Clock.System,
 ) : IdentityResolver(http, plcUrl, handleResolverUrl, untrusted) {
-    /** Bounded, since any DID can be asked about: every service-auth issuer, every photo's athlete. */
-    private val documents = boundedCache<Did, DidDocument>(MAX_DOCUMENTS, ttl, clock)
-
     /**
-     * Each invalidation's turn ([invalidations] counts them) by the DID it named, so a fetch that began before one never caches the
-     * document it read: it may be the one the `#identity` event replaced. Kept as long as a fetch could still be running.
+     * Bounded, since any DID can be asked about: every service-auth issuer, every photo's athlete. It holds each document's fetch, so
+     * readers asking about an account at once share one request, and [invalidate] dropping a fetch under way keeps the document it read
+     * out: it may be the one the `#identity` event replaced.
      */
-    private val invalidated = boundedCache<Did, Long>(MAX_DOCUMENTS, ttl, clock)
-    private val invalidations = AtomicLong()
+    private val documents = boundedAsyncCache<Did, DidDocument>(MAX_DOCUMENTS, ttl, clock)
 
-    override suspend fun resolveDid(did: Did): DidDocument = documents.getIfPresent(did) ?: refreshDid(did)
+    override suspend fun resolveDid(did: Did): DidDocument {
+        documents.getIfPresent(did)?.let {
+            return it.asDeferred().await()
+        }
+        checkPacing(did)
+        val context = currentCoroutineContext()
+        return documents.get(did) { key, _ -> fetchShared(key, context) }.asDeferred().await()
+    }
 
     override suspend fun refreshDid(did: Did): DidDocument {
-        val fromPlc = did.method == "plc"
-        val started = invalidations.get()
-        if (fromPlc) pacing.pausedUntil()?.let { throw IdentityRateLimitedException(did, it) }
-        val document =
+        checkPacing(did)
+        val fetch = fetchShared(did, currentCoroutineContext())
+        documents.put(did, fetch)
+        return fetch.asDeferred().await()
+    }
+
+    /** Drops [did]'s document, or the fetch under way for it, so the next read fetches it again. */
+    fun invalidate(did: Did) = documents.synchronous().invalidate(did)
+
+    private fun checkPacing(did: Did) {
+        if (did.method == "plc") pacing.pausedUntil()?.let { throw IdentityRateLimitedException(did, it) }
+    }
+
+    /**
+     * Fetches [did]'s document in a job of its own on the caller's dispatcher, so a reader that gives up doesn't cancel it for the others
+     * waiting on it (they await it through `asDeferred`, which never cancels the future).
+     */
+    private fun fetchShared(did: Did, context: CoroutineContext): CompletableFuture<DidDocument> =
+        CoroutineScope(context.minusKey(Job)).future {
             try {
                 fetchDid(did)
             } catch (e: IdentityRateLimitedException) {
-                if (fromPlc) pacing.pause(e.retryAt)
+                if (did.method == "plc") pacing.pause(e.retryAt)
                 throw e
             }
-        if ((invalidated.getIfPresent(did) ?: Long.MIN_VALUE) <= started) documents.put(did, document)
-        return document
-    }
-
-    /** Drops [did]'s document, so the next read fetches it again, and keeps a fetch already under way from putting it back. */
-    fun invalidate(did: Did) {
-        invalidated.put(did, invalidations.incrementAndGet())
-        documents.invalidate(did)
-    }
+        }
 
     companion object {
         val DEFAULT_TTL = 10.minutes
