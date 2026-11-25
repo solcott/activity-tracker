@@ -175,6 +175,27 @@ class ServiceAuthVerifierTest {
     }
 
     @Test
+    fun anIdentityEventLetsTheNextBadSignatureFetchAfresh() = runTest {
+        var freshLookups = 0
+        val throttled =
+            ServiceAuthVerifier(
+                service,
+                keys = { key.multibase },
+                freshKeys = {
+                    freshLookups++
+                    key.multibase
+                },
+            )
+        fun forged() = TestAccountKey().serviceJwt(alice, service, "app.x.y")
+        repeat(3) { assertFailsWith<AuthException> { throttled.verify(forged(), "app.x.y") } }
+        assertEquals(1, freshLookups)
+        // The account's document changed: whatever the throttle saw before may be its old key.
+        throttled.forget(Did(alice))
+        assertFailsWith<AuthException> { throttled.verify(forged(), "app.x.y") }
+        assertEquals(2, freshLookups)
+    }
+
+    @Test
     fun aVerifierForOtherAudiencesSharesTheKeyCache() = runTest {
         var lookups = 0
         val appView = ServiceAuthVerifier(service, keys = { lookups++.let { key.multibase } })

@@ -71,10 +71,15 @@ private constructor(
     /** A verifier with the same keys, clock and caches that accepts only [audiences]. */
     fun forAudiences(audiences: Set<String>) = ServiceAuthVerifier(audiences, keys, freshKeys, clock, caches)
 
-    /** Forgets [did]'s key, after an `#identity` event says its document changed. */
+    /**
+     * Forgets [did]'s key, after an `#identity` event says its document changed, and lets the next bad signature fetch it afresh at once:
+     * tokens with bad signatures someone sent for [did] just before can't keep its rotated key from verifying until [REFETCH_INTERVAL]
+     * ends.
+     */
     fun forget(did: Did) {
         caches.keys.invalidate(did)
         caches.failed.invalidate(did)
+        caches.refetched.invalidate(did)
     }
 
     suspend fun verify(token: String, nsid: String): Did {
