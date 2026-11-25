@@ -130,6 +130,11 @@ class Indexer(
     segmentActiveAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
     /** Told of each `#identity` event, so caches of identities forget the account (identity/outbound-requests). */
     val identityChanges: IdentityChanges = IdentityChanges(),
+    /**
+     * When the PLC directory's pause after a 429 ends (`PlcPacing`), if one is on: a handle check it made unreachable is due then, not an
+     * hour on, so a short pause doesn't leave new accounts showing `handle.invalid` for the hour.
+     */
+    private val plcPausedUntil: () -> Instant? = { null },
 ) {
     private val log = LoggerFactory.getLogger(Indexer::class.java)
 
@@ -644,10 +649,17 @@ class Indexer(
         db.tx {
             Actors.update({ Actors.did eq did.value }) {
                 handleOf(check)?.let { handle -> it[Actors.handle] = handle }
-                it[handleCheckDueAt] = nextHandleCheck(check, now)
+                it[handleCheckDueAt] = nextCheck(check, now)
             }
         }
         return check
+    }
+
+    /** [nextHandleCheck], but an unreachable check made during a PLC pause is due when the pause ends. */
+    private fun nextCheck(check: HandleCheck, now: Instant): Long {
+        val next = nextHandleCheck(check, now)
+        val pauseEnd = plcPausedUntil()?.takeIf { check == HandleCheck.Unreachable }?.toEpochMilliseconds() ?: return next
+        return minOf(next, pauseEnd)
     }
 
     /** Makes a known account's handle check due now, for the handle sweep; nothing for an account with no `actors` row. */
@@ -674,7 +686,7 @@ class Indexer(
         Actors.insertIgnore {
             it[Actors.did] = did.value
             it[handle] = check?.let(::handleOf) ?: IdentityResolver.INVALID_HANDLE.value
-            it[handleCheckDueAt] = check?.let { found -> nextHandleCheck(found, Instant.fromEpochMilliseconds(now)) }
+            it[handleCheckDueAt] = check?.let { found -> nextCheck(found, Instant.fromEpochMilliseconds(now)) }
             it[indexedAt] = now
         }
         knownActors += did.value

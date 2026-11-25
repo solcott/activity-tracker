@@ -118,7 +118,7 @@ fun main() {
     val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
     val identityChanges = IdentityChanges()
-    val indexer = indexerOf(config, db, identity, identityChanges)
+    val indexer = indexerOf(config, db, outbound, identityChanges)
     val signingKey = config.signingKey?.let(::AppViewSigningKey)
     val registrations = signingKey?.let { SyncRegistrations(db, config.publicUrl) }
     val credentials = signingKey?.let { spaceCredentials(config, it, checkNotNull(registrations), guarded, identity) }
@@ -221,16 +221,17 @@ private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer
     )
 
 /** The indexer for [config]: the segment importer, the naming rules, and whether terrain tiles are configured. */
-private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityResolver, identityChanges: IdentityChanges): Indexer =
+private fun indexerOf(config: AppViewConfig, db: Database, outbound: Outbound, identityChanges: IdentityChanges): Indexer =
     Indexer(
         db,
-        HandleVerifier(identity),
+        HandleVerifier(outbound.identity),
         segmentImporter = config.segmentImporter,
         segmentNames = config.segmentNames,
         trailDetails = config.trailDetails,
         terrain = config.terrainTiles != null,
         segmentActiveAthletes = config.segmentActiveAthletes,
         identityChanges = identityChanges,
+        plcPausedUntil = outbound.plcPacing::pausedUntil,
     )
 
 /** What the background workers need. */

@@ -17,6 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
@@ -120,5 +121,36 @@ class HandleSweepTest {
             indexer.recheckHandle(Did(alice)),
         )
         assertEquals("alice.new.example", stored(alice).first)
+    }
+
+    @Test
+    fun anAccountAnIdentityEventNamedIsCheckedBeforeTheBacklog() = runTest {
+        profile(alice)
+        profile(bob)
+        // Bob has waited longest (no due time at all); alice's event still comes first.
+        transaction(db) { Actors.update({ Actors.did eq bob }) { it[handleCheckDueAt] = null } }
+        indexer.handle(JetstreamEvent.Identity(alice, "2026-10-26T12:00:00.000000Z", identity = JetstreamEvent.Identity.Body(alice, null)))
+        identities.plcRequests.clear()
+        sweep.runDue()
+        assertEquals(listOf(alice, bob), identities.plcRequests)
+    }
+
+    @Test
+    fun aFirstSightCheckDuringAPlcPauseIsDueWhenThePauseEnds() = runTest {
+        val pauseEnd = clock.now + 30.seconds
+        val paused = Indexer(db, HandleVerifier(identities.resolver), clock, plcPausedUntil = { pauseEnd })
+        identities.plcLimited = 30
+        paused.handle(
+            JetstreamEvent.Commit(
+                did = alice,
+                time = "2026-10-26T12:00:00.000000Z",
+                operation = "create",
+                collection = Nsid.ACTOR_PROFILE,
+                rkey = "self",
+                record = AtJson.parseToJsonElement("""{"displayName":"x"}""").jsonObject,
+                cid = "bafya",
+            ),
+        )
+        assertEquals("handle.invalid" to pauseEnd.toEpochMilliseconds(), stored(alice))
     }
 }

@@ -29,7 +29,10 @@ fun interface HandleLookup {
         handleFor(did).let { if (it == IdentityResolver.INVALID_HANDLE.value) HandleCheck.Invalid else HandleCheck.Verified(it) }
 }
 
-/** Checks the handle a DID document claims (`alsoKnownAs`) by resolving it back. Nothing is cached: every call asks again. */
+/**
+ * Checks the handle a DID document claims (`alsoKnownAs`) by resolving it back. The handle lookups aren't cached; the DID document may come
+ * from the AppView's cache (`CachingIdentityResolver`, up to 10 minutes old), which an `#identity` event for the account clears.
+ */
 class HandleVerifier(private val resolver: IdentityResolver) : HandleLookup {
     override suspend fun handleFor(did: Did): String =
         (check(did) as? HandleCheck.Verified)?.handle ?: IdentityResolver.INVALID_HANDLE.value
