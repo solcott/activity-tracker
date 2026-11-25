@@ -65,6 +65,9 @@ class SpaceCredentials(
     private val pdsUrls = mutableMapOf<Did, String>()
     private val kemKeys = mutableMapOf<Did, String>()
 
+    /** How many times [forget] has run for each DID, so a lookup that began before one never stores what it read. */
+    private val forgotten = mutableMapOf<Did, Long>()
+
     suspend fun get(space: SpaceUri): Credential {
         var credential: Credential? = null
         while (credential == null) {
@@ -95,11 +98,20 @@ class SpaceCredentials(
     suspend fun forget(did: Did) = mutex.withLock {
         pdsUrls.remove(did)
         kemKeys.remove(did)
+        forgotten[did] = (forgotten[did] ?: 0) + 1
     }
 
     /** The authority's PDS base URL, resolved from its DID document once per session. */
-    suspend fun pdsUrl(did: Did): String =
-        mutex.withLock { pdsUrls[did] } ?: identity.resolve(did.value).pdsUrl.also { url -> mutex.withLock { pdsUrls[did] = url } }
+    suspend fun pdsUrl(did: Did): String {
+        val (cached, turn) = mutex.withLock { pdsUrls[did] to forgotten[did] }
+        if (cached != null) return cached
+        return identity.resolve(did.value).pdsUrl.also { url -> storeUnlessForgotten(did, turn) { pdsUrls[did] = url } }
+    }
+
+    /** Runs [store] unless [forget] ran for [did] since [turn] was read: what was fetched may be the document the change replaced. */
+    private suspend fun storeUnlessForgotten(did: Did, turn: Long?, store: () -> Unit) = mutex.withLock {
+        if (forgotten[did] == turn) store()
+    }
 
     /**
      * [did]'s `#atproto_kem` key, which MAC'd reads of its repos agree a secret with: resolved once per session, or again with [refresh]
@@ -107,14 +119,10 @@ class SpaceCredentials(
      * reads.
      */
     suspend fun kemKey(did: Did, refresh: Boolean = false): String {
-        if (!refresh)
-            mutex
-                .withLock { kemKeys[did] }
-                ?.let {
-                    return it
-                }
+        val (cached, turn) = mutex.withLock { kemKeys[did] to forgotten[did] }
+        if (!refresh && cached != null) return cached
         val key = identity.resolveDid(did).kemKey ?: throw IdentityException("$did publishes no #atproto_kem key")
-        mutex.withLock { kemKeys[did] = key }
+        storeUnlessForgotten(did, turn) { kemKeys[did] = key }
         return key
     }
 

@@ -184,6 +184,27 @@ class SpaceCredentialsTest {
         assertEquals(1, f.requestsTo("plc.test/${f.alice.value}").size)
     }
 
+    @Test
+    fun aLookupUnderWayWhenTheAccountIsForgottenIsNotKept() = runTest {
+        val credentials = credentials()
+        val gate = CompletableDeferred<Unit>()
+        val reached = CompletableDeferred<Unit>()
+        val moved = f.network.handlerFor("plc.test/${f.alice.value}")
+        f.network.on("plc.test/${f.alice.value}") { request ->
+            reached.complete(Unit)
+            gate.await()
+            moved(request)
+        }
+        val lookup = async { credentials.pdsUrl(f.alice) }
+        reached.await()
+        // An `#identity` event lands while the old document is on its way.
+        credentials.forget(f.alice)
+        gate.complete(Unit)
+        lookup.await()
+        credentials.pdsUrl(f.alice)
+        assertEquals(2, f.requestsTo("plc.test/${f.alice.value}").size, "the lookup that began before the forget wasn't kept")
+    }
+
     private fun HttpRequestData.jsonBody(): JsonObject =
         AtJson.decodeFromString(JsonObject.serializer(), (body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
 }

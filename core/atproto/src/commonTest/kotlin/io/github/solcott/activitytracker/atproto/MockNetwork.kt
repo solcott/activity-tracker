@@ -33,6 +33,10 @@ class MockNetwork {
         routes[hostAndPath] = handler
     }
 
+    /** The handler [on] set for [hostAndPath], so a test can wrap it. */
+    fun handlerFor(hostAndPath: String): suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData =
+        checkNotNull(routes[hostAndPath])
+
     val client =
         HttpClient(
             MockEngine { request ->
