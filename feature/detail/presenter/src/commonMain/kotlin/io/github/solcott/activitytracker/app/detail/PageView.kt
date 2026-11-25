@@ -34,7 +34,11 @@ internal class PageView {
             }
             is ActivityDetailEvent.OpenAllData ->
                 if (event.inPane) allData = event.section ?: DataSection.Stats
-                else navigator.goTo(ActivityDataScreen(uri, event.section?.name))
+                else {
+                    // The window has no side pane now: one left open from a wider window mustn't come back when it widens again.
+                    allData = null
+                    navigator.goTo(ActivityDataScreen(uri, event.section?.name))
+                }
             ActivityDetailEvent.CloseAllData -> allData = null
             else -> {}
         }
