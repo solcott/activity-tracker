@@ -23,13 +23,24 @@ class FakeIdentities {
     /** Every handle lookup fails to connect. */
     var lookupsDown = false
 
+    /** The PLC directory answers 429, with `Retry-After` this many seconds when set. */
+    var plcLimited: Long? = null
+
+    /** Every request sent, PLC and handle lookups alike. */
+    var requests = 0
+        private set
+
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
 
-    private val client =
+    val client =
         HttpClient(
             MockEngine { request ->
+                requests++
                 val url = request.url
+                val limited = plcLimited
                 when {
+                    url.host == "plc.test" && limited != null ->
+                        respond("", HttpStatusCode.TooManyRequests, headersOf(HttpHeaders.RetryAfter, limited.toString()))
                     url.host == "plc.test" -> {
                         val did = url.encodedPath.trimStart('/')
                         if (did !in claims) throw IOException("PLC unreachable")

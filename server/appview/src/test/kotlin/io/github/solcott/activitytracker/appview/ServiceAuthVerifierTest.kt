@@ -141,4 +141,55 @@ class ServiceAuthVerifierTest {
         assertFailsWith<AuthException> { once.verify(TestAccountKey().serviceJwt(alice, service, "app.x.y"), "app.x.y") }
         assertEquals(2, lookups)
     }
+
+    @Test
+    fun badSignaturesFetchTheKeyAfreshAtMostOncePerMinute() = runTest {
+        val clock = MutableClock(Clock.System.now())
+        var cachedLookups = 0
+        var freshLookups = 0
+        val throttled =
+            ServiceAuthVerifier(
+                service,
+                keys = {
+                    cachedLookups++
+                    key.multibase
+                },
+                clock = clock,
+                freshKeys = {
+                    freshLookups++
+                    key.multibase
+                },
+            )
+        fun forged() = TestAccountKey().serviceJwt(alice, service, "app.x.y", now = clock.now)
+
+        repeat(10) { assertFailsWith<AuthException> { throttled.verify(forged(), "app.x.y") } }
+        assertEquals(1, cachedLookups)
+        assertEquals(1, freshLookups, "one fresh lookup within the minute")
+
+        clock.now += 2.minutes
+        assertFailsWith<AuthException> { throttled.verify(forged(), "app.x.y") }
+        assertEquals(2, freshLookups)
+        // A genuine token still verifies against the cached key meanwhile.
+        assertEquals(Did(alice), throttled.verify(key.serviceJwt(alice, service, "app.x.y", now = clock.now), "app.x.y"))
+    }
+
+    @Test
+    fun aVerifierForOtherAudiencesSharesTheKeyCache() = runTest {
+        var lookups = 0
+        val appView = ServiceAuthVerifier(service, keys = { lookups++.let { key.multibase } })
+        val managingApp = appView.forAudiences(setOf("$service#activitytracker_space"))
+        appView.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y")
+        managingApp.verify(key.serviceJwt(alice, "$service#activitytracker_space", "app.x.y"), "app.x.y")
+        assertEquals(1, lookups)
+    }
+
+    @Test
+    fun aForgottenKeyIsLookedUpAgain() = runTest {
+        var lookups = 0
+        val forgetful = ServiceAuthVerifier(service, keys = { lookups++.let { key.multibase } })
+        forgetful.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y")
+        forgetful.forget(Did(alice))
+        forgetful.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y")
+        assertEquals(2, lookups)
+    }
 }

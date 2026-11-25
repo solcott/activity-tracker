@@ -6,6 +6,7 @@ import inet.ipaddr.ipv4.IPv4Address
 import inet.ipaddr.ipv6.IPv6Address
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.UserAgent
 import java.net.InetAddress
 import java.net.UnknownHostException
 import okhttp3.Dns
@@ -21,12 +22,15 @@ import okhttp3.Response
  * instead.
  */
 object GuardedHttp {
-    fun create(allowPrivate: Boolean, dns: Dns = Dns.SYSTEM): HttpClient = create(allowPrivate, dns, ::isPrivate)
+    /** [userAgent], when given, names the AppView to every host it calls (identity/outbound-requests). */
+    fun create(allowPrivate: Boolean, dns: Dns = Dns.SYSTEM, userAgent: String? = null): HttpClient =
+        create(allowPrivate, dns, userAgent, ::isPrivate)
 
     /** [create] with [private] in place of [isPrivate], for tests that need a loopback server to count as public. */
-    internal fun create(allowPrivate: Boolean, dns: Dns, private: (InetAddress) -> Boolean): HttpClient =
+    internal fun create(allowPrivate: Boolean, dns: Dns, userAgent: String? = null, private: (InetAddress) -> Boolean): HttpClient =
         HttpClient(OkHttp) {
             expectSuccess = false
+            if (userAgent != null) install(UserAgent) { agent = userAgent }
             engine {
                 config {
                     followRedirects(false)

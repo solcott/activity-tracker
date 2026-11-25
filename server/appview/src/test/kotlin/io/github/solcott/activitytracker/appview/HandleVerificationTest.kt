@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
+import io.github.solcott.activitytracker.appview.index.HandleSweep
 import io.github.solcott.activitytracker.appview.index.HandleVerifier
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
@@ -22,6 +23,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
@@ -70,8 +72,12 @@ class HandleVerificationTest {
         )
     }
 
+    private val sweep = HandleSweep(db, indexer, clock, pace = Duration.ZERO)
+
+    /** An `#identity` event, then the sweep it makes the account due for (identity/outbound-requests). */
     private fun identityEvent(did: String, handle: String?) = runBlocking {
         indexer.handle(JetstreamEvent.Identity(did, "2026-10-26T12:00:00.000000Z", identity = JetstreamEvent.Identity.Body(did, handle)))
+        sweep.runDue()
     }
 
     private fun stored(did: String) =
@@ -137,6 +143,20 @@ class HandleVerificationTest {
         // An event for an account the AppView has never indexed stores nothing.
         identityEvent(bob, "bob.example.com")
         assertEquals(0L, transaction(db) { Actors.selectAll().where { Actors.did eq bob }.count() })
+    }
+
+    @Test
+    fun anIdentityEventOnlyMakesTheCheckDueAndLooksNothingUp() = runBlocking {
+        profile(alice, "Alice")
+        identities.claims[alice] = "alice.new.example"
+        identities.handles["alice.new.example"] = alice
+        val before = identities.requests
+        clock.now += 1.hours
+        indexer.handle(JetstreamEvent.Identity(alice, "2026-10-26T12:00:00.000000Z", identity = JetstreamEvent.Identity.Body(alice, null)))
+        assertEquals(before, identities.requests, "no lookup while indexing")
+        assertEquals("alice.example.com" to clock.now.toEpochMilliseconds(), stored(alice))
+        sweep.runDue()
+        assertEquals("alice.new.example", stored(alice).first)
     }
 
     @Test

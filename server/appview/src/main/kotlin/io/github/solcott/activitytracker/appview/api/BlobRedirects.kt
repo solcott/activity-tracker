@@ -90,6 +90,9 @@ class ResolvingPdsLookup(private val resolver: IdentityResolver, clock: Clock = 
         cache.getIfPresent(did)
             ?: runSuspendCatching { resolver.resolveDid(did).pdsEndpoint }.getOrNull()?.trimEnd('/')?.also { cache.put(did, it) }
 
+    /** Forgets [did]'s PDS, after an `#identity` event says its document changed (it may have moved). */
+    fun invalidate(did: Did) = cache.invalidate(did)
+
     private companion object {
         val TTL = 1.hours
         const val MAX_ENTRIES = 50_000L
