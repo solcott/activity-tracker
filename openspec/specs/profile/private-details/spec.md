@@ -34,7 +34,7 @@ A save that puts a detail in a tier whose space doesn't exist yet SHALL create t
 
 #### Scenario: First Mutuals detail
 - **WHEN** an athlete with no `mutuals` space saves a detail as Mutuals
-- **THEN** the space `at://{did}/space/app.activitytracker.space.athlete/mutuals` exists with a managing-app read policy naming the AppView, and the detail is saved in it
+- **THEN** the space `at:space/{did}/app.activitytracker.space.athlete/mutuals` exists with a managing-app read policy naming the AppView, and the detail is saved in it
 
 #### Scenario: Space already exists
 - **WHEN** an athlete saves a Mutuals detail and their `mutuals` space already exists

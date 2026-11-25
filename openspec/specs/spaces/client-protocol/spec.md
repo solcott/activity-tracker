@@ -105,7 +105,7 @@ The signed-in athlete SHALL be able to create one of their spaces, look it up, u
 
 #### Scenario: Create a space
 - **WHEN** the athlete creates a space of type `app.activitytracker.space.athlete` with a given key and a `com.atproto.managedspace.policy` naming the AppView as managing app
-- **THEN** the space exists at `at://{did}/space/app.activitytracker.space.athlete/{key}`
+- **THEN** the space exists at `at:space/{did}/app.activitytracker.space.athlete/{key}`
 
 #### Scenario: Create an existing space
 - **WHEN** the athlete creates a space that already exists
@@ -224,3 +224,18 @@ A client SHALL be able to delete one of the signed-in athlete's own spaces by it
 #### Scenario: Already deleted
 - **WHEN** alice's client deletes her `self` space a second time
 - **THEN** the call succeeds without error
+
+### Requirement: Space URIs
+Clients and the AppView SHALL write and accept space URIs only in the `at:space/` form of the 2026-11-24 Spaces alpha: a space as `at:space/{did}/{type}/{skey}`, a record in it as `at:space/{did}/{type}/{skey}/{repo}/{collection}/{rkey}`. The authority and repo SHALL be DIDs. The earlier `at://{did}/space/...` form, a handle authority and any other number of parts SHALL be refused. A member read SHALL check the record MAC against the record URI in this form.
+
+#### Scenario: Space URI built
+- **WHEN** the client names alice's `followers` space
+- **THEN** it sends `at:space/did:plc:alice/app.activitytracker.space.athlete/followers`
+
+#### Scenario: Old form refused
+- **WHEN** a host or a caller supplies `at://did:plc:alice/space/app.activitytracker.space.athlete/followers`
+- **THEN** it isn't accepted as a space URI
+
+#### Scenario: Member read under the new form
+- **WHEN** a member reads a record from alice's `followers` space
+- **THEN** the read succeeds only if the `Atproto-Space-Record` header's `uri` is `at:space/did:plc:alice/app.activitytracker.space.athlete/followers/{repo}/{collection}/{rkey}` and its MAC verifies
