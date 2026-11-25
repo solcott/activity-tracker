@@ -1,7 +1,7 @@
 package io.github.solcott.activitytracker.atproto
 
 /**
- * Key agreement and MAC vectors from `@atproto/space` and `@atproto/crypto` `0.0.0-spaces-alpha-20261112204144` (the Nov 12 Spaces alpha),
+ * Key agreement and MAC vectors from `@atproto/space` and `@atproto/crypto` `0.0.0-spaces-alpha-20261124235736` (the Nov 24 Spaces alpha),
  * regenerated on each alpha bump. The ephemeral key stands in for `encapsulate`'s random one: [SHARED_SECRET] is `decapsulate(author,
  * KEY_SHARE)`, the requests are `formatMacRequest`, and the response headers are `createCommitMacHeaders`/`createRecordMacHeaders` under it
  * (each accepted by `verify*Mac`). [CID] is CIDv1 dag-cbor of `sha256("record")`.
@@ -28,7 +28,7 @@ object SpaceMacVectors {
     const val HPKE_PK_RM_DID_KEY = "did:key:zDnaepxWioy4TQi6a94tSHKU4aqQkz6rksDiBfnuiGbwf4i5N"
     const val HPKE_SECRET = "2060e0558d1b34c10086bc137f849bb79ba59fcdc30544418e35c9cd301f0d0d"
 
-    const val SPACE = "at://did:plc:alice/space/app.activitytracker.space.athlete/followers"
+    const val SPACE = "at:space/did:plc:alice/app.activitytracker.space.athlete/followers"
     const val REPO = "did:plc:alice"
     const val REV = "3m2xyzabcde22"
     const val DATA = "00010203a0b0c0d0e0f0ff"
@@ -36,17 +36,17 @@ object SpaceMacVectors {
     const val COMMIT_REQUEST = """mac=("atproto-space-commit";sf);keyid="$KEY_SHARE";tag="atproto-space-commit""""
     const val COMMIT_HEADER = """ver=1, repo="$REPO", space="$SPACE", rev="$REV", data=:AAECA6CwwNDg8P8=:"""
     const val COMMIT_SIGNATURE_INPUT = COMMIT_REQUEST
-    const val COMMIT_SIGNATURE = "mac=:Okjw1Bd0hIAaUtpX7bT4Fo3A1W4lGR2SQIJeCAikjtc=:"
+    const val COMMIT_SIGNATURE = "mac=:z52ktbbcv5Z63qGJ88Oo4SGGVA8MHxS1uXqDODEpqHc=:"
 
     const val URI =
-        "at://did:plc:alice/space/app.activitytracker.space.athlete/followers/did:plc:alice/app.activitytracker.feed.activity/3m2xyzabcde22"
+        "at:space/did:plc:alice/app.activitytracker.space.athlete/followers/did:plc:alice/app.activitytracker.feed.activity/3m2xyzabcde22"
     const val CID = "bafyreidqz2dr7cr5h62etpb4hlhgkr6o6aw7y5h74sgzcjjsu4sl7w7fxe"
     const val CID_BYTES = "0171122070ce871f8a3d3fb449bc3c3ace6547cef02dfc74ffe48d912532a724bfdbe5b9"
 
     const val RECORD_REQUEST = """mac=("atproto-space-record";sf);keyid="$KEY_SHARE";tag="atproto-space-record""""
     const val RECORD_HEADER = """uri="$URI", cid="$CID""""
     const val RECORD_SIGNATURE_INPUT = RECORD_REQUEST
-    const val RECORD_SIGNATURE = "mac=:0a9P5KzuGnbHxud986r7xiLrlDTdvZaxKRN3uf/bc1k=:"
+    const val RECORD_SIGNATURE = "mac=:slXVsjSyb54LM9DU6YILAKEvU8d/AFkk5d2OANf+Kbo=:"
 
     const val CID_V0 = "QmVw12TXLgQqUGqrJvu19NnoYV7hio3oyfPxrTRjiHhyRA"
     const val K256_DID_KEY = "did:key:zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme"

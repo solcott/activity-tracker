@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.DescribeServer
 import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceRecordUri
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUpdate
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.test.Test
@@ -18,6 +19,7 @@ import kotlinx.serialization.json.put
 
 class SpaceSerializationTest {
     private val alice = Did("did:plc:alice")
+    private val bob = Did("did:plc:bob")
     private val space = SpaceUri.of(alice, Nsid.SPACE_ATHLETE, "mutuals")
 
     @Test
@@ -41,7 +43,7 @@ class SpaceSerializationTest {
 
     @Test
     fun spaceUriFormatsAndParses() {
-        assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/mutuals", space.value)
+        assertEquals("at:space/did:plc:alice/app.activitytracker.space.athlete/mutuals", space.value)
         val parsed = SpaceUri(space.value)
         assertEquals(alice, parsed.authority)
         assertEquals(Nsid.SPACE_ATHLETE, parsed.type)
@@ -52,13 +54,39 @@ class SpaceSerializationTest {
     fun spaceUriRejectsOtherUris() {
         listOf(
                 "at://did:plc:alice/app.activitytracker.feed.activity/3k",
-                "at://did:plc:alice/space/app.activitytracker.space.athlete",
-                "at://did:plc:alice/space/app.activitytracker.space.athlete/mutuals/extra",
-                "at://alice.test/space/app.activitytracker.space.athlete/mutuals",
-                "at://did:plc:alice/space//mutuals",
-                "https://did:plc:alice/space/app.activitytracker.space.athlete/mutuals",
+                // The form before the 2026-11-24 alpha.
+                "at://did:plc:alice/space/app.activitytracker.space.athlete/mutuals",
+                "at:space/did:plc:alice/app.activitytracker.space.athlete",
+                "at:space/did:plc:alice/app.activitytracker.space.athlete/mutuals/extra",
+                "at:space/alice.test/app.activitytracker.space.athlete/mutuals",
+                "at:space/did:plc:alice//mutuals",
+                "at:space/did:plc:alice/athlete/mutuals",
+                "https://did:plc:alice/app.activitytracker.space.athlete/mutuals",
             )
             .forEach { assertFailsWith<IllegalArgumentException>(it) { SpaceUri(it) } }
+    }
+
+    @Test
+    fun spaceRecordUriFormatsAndParses() {
+        val uri = space.record(bob, Nsid.FEED_ACTIVITY, "3k")
+        assertEquals("at:space/did:plc:alice/app.activitytracker.space.athlete/mutuals/did:plc:bob/${Nsid.FEED_ACTIVITY}/3k", uri.value)
+        val parsed = SpaceRecordUri(uri.value)
+        assertEquals(space, parsed.space)
+        assertEquals(bob, parsed.repo)
+        assertEquals(Nsid.FEED_ACTIVITY, parsed.collection)
+        assertEquals("3k", parsed.rkey)
+    }
+
+    @Test
+    fun spaceRecordUriRejectsOtherUris() {
+        listOf(
+                space.value,
+                "at://did:plc:alice/space/app.activitytracker.space.athlete/mutuals/did:plc:bob/${Nsid.FEED_ACTIVITY}/3k",
+                "${space.value}/bob.test/${Nsid.FEED_ACTIVITY}/3k",
+                "${space.value}/did:plc:bob/${Nsid.FEED_ACTIVITY}",
+                "${space.value}/did:plc:bob/${Nsid.FEED_ACTIVITY}/3k/extra",
+            )
+            .forEach { assertFailsWith<IllegalArgumentException>(it) { SpaceRecordUri(it) } }
     }
 
     @Test

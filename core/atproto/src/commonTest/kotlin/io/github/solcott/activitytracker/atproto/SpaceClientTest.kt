@@ -11,12 +11,12 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceRecordUri
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpHeaders
@@ -128,7 +128,7 @@ class SpaceClientTest {
 
     @Test
     fun recordForAnotherUriFailsTheRead() = runTest {
-        val other = AtUri("${f.aliceSpace.value}/did:plc:alice/$collection/other")
+        val other = SpaceRecordUri("${f.aliceSpace.value}/did:plc:alice/$collection/other")
         f.network.on(getRecord) { with(f) { respondRecord(it, value, uri = other) } }
         assertFailsWith<SpaceMacException> { viewer().readAlice() }
     }

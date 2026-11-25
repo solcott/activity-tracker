@@ -55,7 +55,7 @@ class AthleteSpacesTest {
                     }
                 calls += method to body
                 val skey = body?.get("skey")?.jsonPrimitive?.content ?: AthleteSpace.MUTUALS
-                val space = "at://${alice.value}/space/app.activitytracker.space.athlete/$skey"
+                val space = "at:space/${alice.value}/app.activitytracker.space.athlete/$skey"
                 when (method) {
                     "com.atproto.space.createSpace" ->
                         when {
@@ -104,7 +104,7 @@ class AthleteSpacesTest {
     fun createsTheTierSpaceManagedByTheAppView() = runTest {
         val uri = spaces().ensure(AthleteSpace.MUTUALS)
 
-        assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/mutuals", uri.value)
+        assertEquals("at:space/did:plc:alice/app.activitytracker.space.athlete/mutuals", uri.value)
         val (method, body) = calls.single()
         assertEquals("com.atproto.space.createSpace", method)
         val policy = body!!["policy"]!!.jsonObject
@@ -159,7 +159,7 @@ class AthleteSpacesTest {
     fun createsTheInteractionsSpaceAsATierIsCreated() = runTest {
         val uri = spaces().ensure(AthleteSpace.INTERACTIONS)
 
-        assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/interactions", uri.value)
+        assertEquals("at:space/did:plc:alice/app.activitytracker.space.athlete/interactions", uri.value)
         val body = calls.single { it.first == "com.atproto.space.createSpace" }.second!!
         assertEquals(AthleteSpace.INTERACTIONS, body["skey"]?.jsonPrimitive?.content)
         assertEquals(current, body["policy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
@@ -216,7 +216,7 @@ class AthleteSpacesTest {
         assertEquals(listOf("com.atproto.space.createSpace", "com.atproto.space.putRecord"), calls.map { it.first })
         assertEquals(AthleteSpace.SELF, calls[0].second!!["skey"]?.jsonPrimitive?.content)
         val put = calls[1].second!!
-        assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/self", put["space"]?.jsonPrimitive?.content)
+        assertEquals("at:space/did:plc:alice/app.activitytracker.space.athlete/self", put["space"]?.jsonPrimitive?.content)
         assertEquals(Nsid.GRAPH_FOLLOW_DECLINE, put["collection"]?.jsonPrimitive?.content)
         assertEquals("did:plc:bob", put["rkey"]?.jsonPrimitive?.content)
         assertEquals("did:plc:bob", put["record"]!!.jsonObject["subject"]?.jsonPrimitive?.content)

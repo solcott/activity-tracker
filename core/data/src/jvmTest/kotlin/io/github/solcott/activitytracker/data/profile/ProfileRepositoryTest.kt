@@ -7,7 +7,6 @@ import io.github.solcott.activitytracker.atproto.space.SpaceMacHost
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.lexicon.AtJson
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -27,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceRecordUri
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.dataresult.Outcome
 import io.ktor.client.HttpClient
@@ -162,7 +162,7 @@ class ProfileRepositoryTest {
                     "pds.test/xrpc/com.atproto.space.createSpace" -> {
                         val tier = AtJson.parseToJsonElement(body()).jsonObject.getValue("skey").jsonPrimitive.content
                         spacesEnsured += tier
-                        respond("""{"space":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""", headers = json)
+                        respond("""{"space":"at:space/$did/${Nsid.SPACE_ATHLETE}/$tier"}""", headers = json)
                     }
 
                     "pds.test/xrpc/com.atproto.space.getRecord" -> {
@@ -276,7 +276,7 @@ class ProfileRepositoryTest {
         details: ProfileDetails,
     ): HttpResponseData {
         val p = request.url.parameters
-        val uri = AtUri("${p["space"]}/${p["repo"]}/${p["collection"]}/${p["rkey"]}")
+        val uri = SpaceRecordUri("${p["space"]}/${p["repo"]}/${p["collection"]}/${p["rkey"]}")
         val cid = Cid(MEMBER_RECORD_CID)
         val mac = SpaceMacHost.recordMacHeaders(bobKem(), request.headers[SpaceMac.ACCEPT_SIGNATURE], uri, cid).orEmpty()
         return respond(

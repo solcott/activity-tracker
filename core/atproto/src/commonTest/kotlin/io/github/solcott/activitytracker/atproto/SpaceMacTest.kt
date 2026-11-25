@@ -11,11 +11,11 @@ import io.github.solcott.activitytracker.atproto.space.SpaceKem
 import io.github.solcott.activitytracker.atproto.space.SpaceMac
 import io.github.solcott.activitytracker.atproto.space.SpaceMacHost
 import io.github.solcott.activitytracker.atproto.space.SpaceMacResult
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.atproto.LexBytes
 import io.github.solcott.activitytracker.lexicon.atproto.Space
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceRecordUri
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.http.Headers
 import io.ktor.http.headersOf
@@ -42,7 +42,7 @@ class SpaceMacTest {
     private suspend fun commitVerifier(space: String = V.SPACE, repo: String = V.REPO) =
         SpaceMac.CommitVerifier(fixedKem(), SpaceUri(space), Did(repo))
 
-    private suspend fun recordVerifier(uri: String = V.URI) = SpaceMac.RecordVerifier(fixedKem(), AtUri(uri))
+    private suspend fun recordVerifier(uri: String = V.URI) = SpaceMac.RecordVerifier(fixedKem(), SpaceRecordUri(uri))
 
     private fun commit(rev: String = V.REV, data: String = V.DATA, space: String = V.SPACE, repo: String = V.REPO) =
         Space.ListRepoOps.Commit(1, Did(repo), SpaceUri(space), rev, LexBytes.of(data.hexToByteArray()))
@@ -122,7 +122,7 @@ class SpaceMacTest {
                 "Signature-Input" to V.RECORD_SIGNATURE_INPUT,
                 "Signature" to V.RECORD_SIGNATURE,
             ),
-            SpaceMacHost.recordMacHeaders(kem, V.RECORD_REQUEST, AtUri(V.URI), Cid(V.CID)),
+            SpaceMacHost.recordMacHeaders(kem, V.RECORD_REQUEST, SpaceRecordUri(V.URI), Cid(V.CID)),
         )
     }
 
@@ -201,7 +201,7 @@ class SpaceMacTest {
         assertEquals(SpaceMacResult.Mismatch, verifier.verify(commitHeaders(covered = V.COMMIT_HEADER.replace("ver=1", "ver=2")), commit()))
         assertEquals(
             SpaceMacResult.Mismatch,
-            verifier.verify(commitHeaders(signature = V.COMMIT_SIGNATURE.replace("Okjw", "Okjx")), commit()),
+            verifier.verify(commitHeaders(signature = V.COMMIT_SIGNATURE.replace("z52k", "z52j")), commit()),
         )
         // Reordered fields serialize differently, so the MAC no longer covers them.
         val reordered = V.COMMIT_HEADER.split(", ").reversed().joinToString(", ")
@@ -220,8 +220,8 @@ class SpaceMacTest {
 
     @Test
     fun forRecordAgreesAFreshKey() = runTest {
-        val first = SpaceMac.forRecord(V.AUTHOR_MULTIKEY, AtUri(V.URI))
-        val second = SpaceMac.forRecord(V.AUTHOR_MULTIKEY, AtUri(V.URI))
+        val first = SpaceMac.forRecord(V.AUTHOR_MULTIKEY, SpaceRecordUri(V.URI))
+        val second = SpaceMac.forRecord(V.AUTHOR_MULTIKEY, SpaceRecordUri(V.URI))
         assertNotEquals(first.acceptSignature, second.acceptSignature)
         // A MAC for someone else's key share never validates: its keyid isn't this request's.
         assertIs<SpaceMacResult.Malformed>(first.verify(recordHeaders(), Cid(V.CID)))

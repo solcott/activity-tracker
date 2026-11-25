@@ -3,10 +3,10 @@ package io.github.solcott.activitytracker.atproto.space
 import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.HMAC
 import dev.whyoleg.cryptography.algorithms.SHA256
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.atproto.Space
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceRecordUri
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.http.Headers
 
@@ -37,7 +37,7 @@ object SpaceMac {
         CommitVerifier(SpaceKem.encapsulate(authorKem), space, repo)
 
     /** A verifier for one `getRecord` response for [uri], against the author's [authorKem]. */
-    suspend fun forRecord(authorKem: String, uri: AtUri): RecordVerifier = RecordVerifier(SpaceKem.encapsulate(authorKem), uri)
+    suspend fun forRecord(authorKem: String, uri: SpaceRecordUri): RecordVerifier = RecordVerifier(SpaceKem.encapsulate(authorKem), uri)
 
     class CommitVerifier internal constructor(private val kem: SpaceKem, private val space: SpaceUri, private val repo: Did) {
         /** The `Accept-Signature` value to send. */
@@ -59,7 +59,7 @@ object SpaceMac {
             }
     }
 
-    class RecordVerifier internal constructor(private val kem: SpaceKem, private val uri: AtUri) {
+    class RecordVerifier internal constructor(private val kem: SpaceKem, private val uri: SpaceRecordUri) {
         /** The `Accept-Signature` value to send. */
         val acceptSignature: String = formatRequest(RECORD_PROFILE, kem.keyShare)
 

@@ -425,9 +425,9 @@ class RecordSerializationTest {
 
     @Test
     fun notifySpaceInputRoundTrips() {
-        val input = NotifySpace.Input(SpaceUri("at://did:plc:alice/space/${Nsid.SPACE_ATHLETE}/followers"))
+        val input = NotifySpace.Input(SpaceUri("at:space/did:plc:alice/${Nsid.SPACE_ATHLETE}/followers"))
         val json = AtJson.encodeToJsonElement(NotifySpace.Input.serializer(), input).jsonObject
-        assertEquals("at://did:plc:alice/space/${Nsid.SPACE_ATHLETE}/followers", json["space"]?.jsonPrimitive?.content)
+        assertEquals("at:space/did:plc:alice/${Nsid.SPACE_ATHLETE}/followers", json["space"]?.jsonPrimitive?.content)
         assertEquals(input, AtJson.decodeFromJsonElement(NotifySpace.Input.serializer(), json))
         assertEquals("app.activitytracker.space.notifySpace", NotifySpace.method.nsid)
     }

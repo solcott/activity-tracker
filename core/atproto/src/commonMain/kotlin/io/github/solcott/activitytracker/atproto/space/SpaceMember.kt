@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.atproto.crypto.DpopKey
 import io.github.solcott.activitytracker.atproto.xrpc.RequestAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
@@ -55,7 +54,7 @@ class SpaceMember(private val credentials: SpaceCredentials, private val http: H
 
     /** `getRecord` from [repo]'s copy of [space], returned only with a verified record MAC. */
     suspend fun getRecord(space: SpaceUri, repo: Did, collection: String, rkey: String): Space.GetRecord.Output {
-        val uri = AtUri("${space.value}/${repo.value}/$collection/$rkey")
+        val uri = space.record(repo, collection, rkey)
         return verified(repo, "record $uri") { kem ->
             val verifier = SpaceMac.forRecord(kem, uri)
             val response =
@@ -68,7 +67,7 @@ class SpaceMember(private val credentials: SpaceCredentials, private val http: H
                 }
             val record = response.value
             val result =
-                if (record.uri != uri) SpaceMacResult.Malformed("Response is for ${record.uri}")
+                if (record.uri != uri.value) SpaceMacResult.Malformed("Response is for ${record.uri}")
                 else verifier.verify(response.headers, record.cid)
             record to result
         }

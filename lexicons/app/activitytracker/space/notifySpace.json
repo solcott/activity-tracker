@@ -14,7 +14,7 @@
             "space": {
               "type": "string",
               "format": "space-ref",
-              "description": "One of the caller's athlete spaces: at://{caller}/space/app.activitytracker.space.athlete/{key}, where key is a tier (followers, mutuals, self) or interactions."
+              "description": "One of the caller's athlete spaces: at:space/{caller}/app.activitytracker.space.athlete/{key}, where key is a tier (followers, mutuals, self) or interactions."
             }
           }
         }

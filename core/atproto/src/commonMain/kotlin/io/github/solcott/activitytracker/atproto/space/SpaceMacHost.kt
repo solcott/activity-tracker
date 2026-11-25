@@ -4,9 +4,9 @@ import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.EC
 import dev.whyoleg.cryptography.algorithms.ECDH
 import io.github.solcott.activitytracker.atproto.crypto.p256DidKey
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.atproto.Space
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceRecordUri
 import kotlin.io.encoding.Base64
 
 /**
@@ -44,7 +44,7 @@ object SpaceMacHost {
         )
 
     /** The response headers for a record, or null when [acceptSignature] isn't a usable record MAC request. */
-    suspend fun recordMacHeaders(kem: KemKey, acceptSignature: String?, uri: AtUri, cid: Cid): Map<String, String>? =
+    suspend fun recordMacHeaders(kem: KemKey, acceptSignature: String?, uri: SpaceRecordUri, cid: Cid): Map<String, String>? =
         macHeaders(
             kem,
             acceptSignature,

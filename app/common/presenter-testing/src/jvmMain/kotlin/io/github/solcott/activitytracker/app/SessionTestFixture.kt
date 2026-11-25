@@ -612,7 +612,7 @@ class SessionTestFixture {
 
     private fun body(request: HttpRequestData) = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
 
-    private fun space(tier: String) = "at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"
+    private fun space(tier: String) = "at:space/$did/${Nsid.SPACE_ATHLETE}/$tier"
 
     @Suppress("LongParameterList") // One per repository a presenter test needs.
     class Repos(

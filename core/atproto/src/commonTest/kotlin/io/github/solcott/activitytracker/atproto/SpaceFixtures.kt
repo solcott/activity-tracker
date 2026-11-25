@@ -4,10 +4,10 @@ import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.space.SpaceMac
 import io.github.solcott.activitytracker.atproto.space.SpaceMacHost
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceRecordUri
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.request.HttpRequestData
@@ -71,7 +71,7 @@ class SpaceFixtures {
         value: String,
         macKem: SpaceMacHost.KemKey? = null,
         withMac: Boolean = true,
-        uri: AtUri = recordUri(request),
+        uri: SpaceRecordUri = recordUri(request),
     ): HttpResponseData {
         val mac =
             if (withMac) SpaceMacHost.recordMacHeaders(macKem ?: aliceKem(), request.headers[SpaceMac.ACCEPT_SIGNATURE], uri, RECORD_CID)
@@ -81,9 +81,9 @@ class SpaceFixtures {
     }
 
     /** `<space>/<repo>/<collection>/<rkey>`, the URI a space `getRecord` answers with. */
-    fun recordUri(request: HttpRequestData): AtUri {
+    fun recordUri(request: HttpRequestData): SpaceRecordUri {
         val p = request.url.parameters
-        return AtUri("${p["space"]}/${p["repo"]}/${p["collection"]}/${p["rkey"]}")
+        return SpaceRecordUri("${p["space"]}/${p["repo"]}/${p["collection"]}/${p["rkey"]}")
     }
 
     companion object {

@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.lexicon.atproto
 
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.NoOutput
@@ -21,16 +20,15 @@ import kotlinx.serialization.json.JsonObject
  * Spaces wire type lives in this file; bump it together with the image.
  */
 
-/** `space-ref`: `at://{authority}/space/{type}/{skey}`, one space of a type under its authority. */
+/**
+ * `space-ref`: `at:space/{authority}/{type}/{skey}`, one space of a type under its authority. Only this form is accepted: the
+ * `at://{authority}/space/...` form of alphas before 2026-11-24 is refused.
+ */
 @Serializable
 @JvmInline
 value class SpaceUri(val value: String) {
     init {
-        val parts = value.removePrefix(PREFIX).split('/')
-        require(value.startsWith(PREFIX) && parts.size == PARTS && parts[1] == SEGMENT && parts.none(String::isEmpty)) {
-            "Not a space URI: $value"
-        }
-        require(parts[0].startsWith("did:")) { "A space's authority must be a DID: $value" }
+        requireSpaceParts(value, PARTS)
     }
 
     private val parts: List<String>
@@ -41,23 +39,66 @@ value class SpaceUri(val value: String) {
 
     /** The space type's NSID. */
     val type: String
-        get() = parts[2]
+        get() = parts[1]
 
     /** The space key, which tells apart spaces of one type under one authority. */
     val skey: String
-        get() = parts[3]
+        get() = parts[2]
+
+    /** The URI of [repo]'s record [collection]/[rkey] in this space. */
+    fun record(repo: Did, collection: String, rkey: String) = SpaceRecordUri("$value/$repo/$collection/$rkey")
 
     override fun toString(): String = value
 
     companion object {
-        private const val PREFIX = "at://"
-        private const val SEGMENT = "space"
+        /** What every space URI starts with; the space's authority follows. */
+        const val PREFIX = "at:space/"
 
-        /** Authority, `space`, type and key. */
-        private const val PARTS = 4
+        /** Authority, type and key. */
+        internal const val PARTS = 3
 
-        fun of(authority: Did, type: String, skey: String) = SpaceUri("$PREFIX$authority/$SEGMENT/$type/$skey")
+        fun of(authority: Did, type: String, skey: String) = SpaceUri("$PREFIX$authority/$type/$skey")
     }
+}
+
+/** A record in a space: `at:space/{authority}/{type}/{skey}/{repo}/{collection}/{rkey}`. */
+@Serializable
+@JvmInline
+value class SpaceRecordUri(val value: String) {
+    init {
+        requireSpaceParts(value, PARTS)
+        require(parts[SpaceUri.PARTS].startsWith("did:")) { "A space record's repo must be a DID: $value" }
+    }
+
+    private val parts: List<String>
+        get() = value.removePrefix(SpaceUri.PREFIX).split('/')
+
+    /** The space holding the record. */
+    val space: SpaceUri
+        get() = SpaceUri(SpaceUri.PREFIX + parts.take(SpaceUri.PARTS).joinToString("/"))
+
+    val repo: Did
+        get() = Did(parts[SpaceUri.PARTS])
+
+    val collection: String
+        get() = parts[SpaceUri.PARTS + 1]
+
+    val rkey: String
+        get() = parts[SpaceUri.PARTS + 2]
+
+    override fun toString(): String = value
+
+    private companion object {
+        /** The space's three parts, then repo, collection and key. */
+        const val PARTS = 6
+    }
+}
+
+private fun requireSpaceParts(value: String, count: Int) {
+    val parts = value.removePrefix(SpaceUri.PREFIX).split('/')
+    require(value.startsWith(SpaceUri.PREFIX) && parts.size == count && parts.none(String::isEmpty)) { "Not a space URI: $value" }
+    require(parts[0].startsWith("did:")) { "A space's authority must be a DID: $value" }
+    require('.' in parts[1]) { "A space type must be an NSID: $value" }
 }
 
 /**
@@ -307,7 +348,13 @@ object Space {
     object GetRecord {
         @Serializable data class Params(val space: SpaceUri, val repo: Did, val collection: String, val rkey: String)
 
-        @Serializable data class Output(val uri: AtUri, val cid: Cid, val value: JsonObject)
+        @Serializable
+        data class Output(
+            /** The record's [SpaceRecordUri], as text: a reader checks it against the one it asked for. */
+            val uri: String,
+            val cid: Cid,
+            val value: JsonObject,
+        )
 
         val method = XrpcQuery("com.atproto.space.getRecord", Params.serializer(), Output.serializer())
     }
@@ -351,7 +398,7 @@ object Space {
             val validate: Boolean? = false,
         )
 
-        @Serializable data class Output(val uri: AtUri, val cid: Cid)
+        @Serializable data class Output(val uri: String, val cid: Cid)
 
         val method = XrpcProcedure("com.atproto.space.putRecord", Input.serializer(), Output.serializer())
     }
