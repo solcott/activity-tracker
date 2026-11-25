@@ -211,7 +211,7 @@ enum RouteMarkerStyle {
     static let endColor = Color(red: 0xE5 / 255, green: 0x39 / 255, blue: 0x35 / 255)
     static let breakColor = Color(red: 1, green: 0xA0 / 255, blue: 0)
     /// A highlighted stretch's colour: the catalog's, by name, since inside a map's content the asset symbols resolve as the system's.
-    static let highlightColor = Color("LikeColor")
+    static let highlightColor = Color(.like)
     static let radius: CGFloat = 7
     static let ring: CGFloat = 2
     static let resumeRing: CGFloat = 3

@@ -128,6 +128,8 @@ class Indexer(
     terrain: Boolean = false,
     /** How many distinct athletes make a proposed segment active: what unpinning a status promotes by (segments/segment-pins). */
     segmentActiveAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
+    /** Told of each `#identity` event, so caches of identities forget the account (identity/outbound-requests). */
+    val identityChanges: IdentityChanges = IdentityChanges(),
 ) {
     private val log = LoggerFactory.getLogger(Indexer::class.java)
 
@@ -193,9 +195,12 @@ class Indexer(
                 commit(Did(event.did), event)
             }
 
-            // identity/handle-verification: the event's handle is never trusted; the account is checked again instead.
+            // identity/handle-verification: the event's handle is never trusted; the account is checked again instead, by the handle
+            // sweep (identity/outbound-requests), so a burst of events never holds up indexing on lookups.
             is JetstreamEvent.Identity -> {
-                recheckHandle(Did(event.did))
+                val did = Did(event.did)
+                markHandleDue(did)
+                identityChanges.changed(did)
             }
 
             // `moderation/account-status`: a deleted account's data goes; a takendown, suspended or deactivated one is kept but not served
@@ -629,8 +634,8 @@ class Indexer(
     /**
      * Checks a known account's handle both ways again and stores the result (identity/handle-verification): the verified handle or
      * `handle.invalid`, and the next check a day on; when the lookups can't be reached, the stored handle stays and the next check is
-     * sooner. An account with no `actors` row is left alone. Called for `#identity` events, by `HandleSweep` and by the admin site's
-     * account page (admin/account-tools). Returns the check it stored, or null when there's no `actors` row.
+     * sooner. An account with no `actors` row is left alone. Called by `HandleSweep` (which an `#identity` event makes the account due for)
+     * and by the admin site's account page (admin/account-tools). Returns the check it stored, or null when there's no `actors` row.
      */
     suspend fun recheckHandle(did: Did): HandleCheck? {
         if (!actorExists(did)) return null
@@ -643,6 +648,12 @@ class Indexer(
             }
         }
         return check
+    }
+
+    /** Makes a known account's handle check due now, for the handle sweep; nothing for an account with no `actors` row. */
+    private suspend fun markHandleDue(did: Did) {
+        val now = clock.now().toEpochMilliseconds()
+        db.tx { Actors.update({ Actors.did eq did.value }) { it[handleCheckDueAt] = now } }
     }
 
     /** The handle check for [author]'s first record, or null when their `actors` row already exists. */

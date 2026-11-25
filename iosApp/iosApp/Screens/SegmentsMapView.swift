@@ -74,7 +74,7 @@ private struct LiveSegmentsMap: View {
                     case .Lift:
                         MapPolyline(coordinates: coordinates).stroke(Color(.systemGray), style: SegmentsMapStyle.lift)
                     case .Selected:
-                        MapPolyline(coordinates: coordinates).stroke(Color("LikeColor"), style: SegmentsMapStyle.selected)
+                        MapPolyline(coordinates: coordinates).stroke(Color(.like), style: SegmentsMapStyle.selected)
                     default:
                         let rating = line.rating
                         MapPolyline(coordinates: coordinates).stroke(TrailRatingStyle.casing(rating), style: TrailRatingStyle.casingStroke)
@@ -93,7 +93,7 @@ private struct LiveSegmentsMap: View {
                 }
                 if let marker {
                     Annotation("", coordinate: SegmentsMapGeometry.coordinate(marker), anchor: .center) {
-                        Circle().fill(Color("LikeColor"))
+                        Circle().fill(Color(.like))
                             .overlay(Circle().strokeBorder(Color(.systemBackground), lineWidth: 2))
                             .frame(width: 14, height: 14)
                     }
@@ -240,7 +240,7 @@ private struct SegmentsSketch: View {
                 for point in points.dropFirst() { path.addLine(to: point) }
                 switch line.role {
                 case .Lift: context.stroke(path, with: .color(Color(.systemGray)), style: SegmentsMapStyle.lift)
-                case .Selected: context.stroke(path, with: .color(Color("LikeColor")), style: SegmentsMapStyle.selected)
+                case .Selected: context.stroke(path, with: .color(Color(.like)), style: SegmentsMapStyle.selected)
                 default:
                     // A dive site's outline stays as it was: the accent colour, with no casing on the plain tile.
                     if line.trail {
@@ -279,7 +279,7 @@ private struct SegmentsSketch: View {
 struct ClosedBadge: View {
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "xmark.octagon.fill").accessibilityHidden(true)
+            Image(.closed).accessibilityHidden(true)
             Text(.trailConditionClosed)
         }
         .font(.caption.weight(.semibold))

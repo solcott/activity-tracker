@@ -119,7 +119,8 @@ struct AppIconButton: View {
         self.init(icon, labelText: Text(label), filled: filled, action: action)
     }
 
-    private init(_ icon: AppIcon, labelText: Text, filled: Bool, action: @escaping () -> Void) {
+    /// An icon button with its label already made, for a Design view that wraps one (`LikeButton`).
+    init(_ icon: AppIcon, labelText: Text, filled: Bool = false, action: @escaping () -> Void) {
         self.icon = icon
         self.label = labelText
         self.filled = filled

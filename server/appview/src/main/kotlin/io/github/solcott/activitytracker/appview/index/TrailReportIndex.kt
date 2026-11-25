@@ -67,7 +67,8 @@ internal fun JdbcTransaction.upsertTrailReport(json: JsonObject, author: Did, ur
         it[TrailReports.cid] = cid
         it[authorDid] = author.value
         it[segmentUri] = segment.value.take(MAX_URI_LENGTH)
-        it[note] = record.note?.trim()?.let { ActivityRecord.clampText(it, TrailReportRecord.MAX_NOTE_GRAPHEMES) }?.ifEmpty { null }
+        it[note] =
+            record.note?.trim()?.let { note -> ActivityRecord.clampText(note, TrailReportRecord.MAX_NOTE_GRAPHEMES) }?.ifEmpty { null }
         it[hasConditions] = tags.isNotEmpty()
         it[TrailReports.indexedAt] = indexedAt
         it[dayUtc] = stored?.get(TrailReports.dayUtc) ?: utcDate(now).toString()

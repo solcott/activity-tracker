@@ -20,36 +20,63 @@ import kotlinx.serialization.json.longOrNull
  * (`atproto-proxy`), or sent by a space authority's PDS to the managing app. Returns the issuing account's DID. Tokens must be addressed to
  * one of [audiences]: keep each purpose in its own verifier, so a token minted for one can't be replayed on another's routes.
  */
-class ServiceAuthVerifier(
+class ServiceAuthVerifier
+private constructor(
     private val audiences: Set<String>,
     private val keys: suspend (Did) -> String?,
-    private val clock: Clock = Clock.System,
+    /** [keys] past any cache, for the one retry after a signature fails (a rotated key). */
+    private val freshKeys: suspend (Did) -> String?,
+    private val clock: Clock,
+    private val caches: KeyCaches,
 ) {
+    constructor(
+        audiences: Set<String>,
+        keys: suspend (Did) -> String?,
+        clock: Clock = Clock.System,
+        freshKeys: suspend (Did) -> String? = keys,
+    ) : this(audiences, keys, freshKeys, clock, KeyCaches(clock))
+
     /** The AppView's own routes: tokens addressed to [serviceDid] or one of [extraAudiences]. */
     constructor(
         serviceDid: String,
         keys: suspend (Did) -> String?,
         clock: Clock = Clock.System,
         extraAudiences: Set<String> = emptySet(),
-    ) : this(appViewAudiences(serviceDid, extraAudiences), keys, clock)
+        freshKeys: suspend (Did) -> String? = keys,
+    ) : this(appViewAudiences(serviceDid, extraAudiences), keys, clock, freshKeys)
 
+    /** Keys from [resolver]'s documents, and for the retry its [IdentityResolver.refreshDid]. */
     constructor(
         serviceDid: String,
         resolver: IdentityResolver,
         extraAudiences: Set<String> = emptySet(),
-    ) : this(serviceDid, { did -> resolver.resolveDid(did).signingKey }, extraAudiences = extraAudiences)
+    ) : this(
+        serviceDid,
+        { did -> resolver.resolveDid(did).signingKey },
+        extraAudiences = extraAudiences,
+        freshKeys = { did -> resolver.refreshDid(did).signingKey },
+    )
 
     /**
-     * Keys by account, each reused for [KEY_TTL] after it was looked up, so a rotated key stops verifying soon after. Anyone can make DIDs
-     * (did:web on a wildcard domain), so both this and [failed] are bounded.
+     * Keys by account, each reused for [KEY_TTL] after it was looked up, so a rotated key stops verifying soon after; DIDs whose key
+     * couldn't be looked up, refused for [FAILED_TTL] without another lookup; and DIDs whose key was fetched afresh after a failed
+     * signature, which aren't again for [REFETCH_INTERVAL], so tokens with bad signatures can't each send a lookup to the PLC directory.
+     * Anyone can make DIDs (did:web on a wildcard domain), so all three are bounded. Verifiers made by [forAudiences] share them.
      */
-    private val keyCache = boundedCache<Did, SigningKey>(MAX_CACHED_KEYS, KEY_TTL, clock)
+    private class KeyCaches(clock: Clock) {
+        val keys = boundedCache<Did, SigningKey>(MAX_CACHED_KEYS, KEY_TTL, clock)
+        val failed = boundedCache<Did, Unit>(MAX_CACHED_KEYS, FAILED_TTL, clock)
+        val refetched = boundedCache<Did, Unit>(MAX_CACHED_KEYS, REFETCH_INTERVAL, clock)
+    }
 
-    /** DIDs whose signing key couldn't be looked up, refused for [FAILED_TTL] without another lookup. */
-    private val failed = boundedCache<Did, Unit>(MAX_CACHED_KEYS, FAILED_TTL, clock)
+    /** A verifier with the same keys, clock and caches that accepts only [audiences]. */
+    fun forAudiences(audiences: Set<String>) = ServiceAuthVerifier(audiences, keys, freshKeys, clock, caches)
 
-    /** A verifier with the same keys and clock that accepts only [audiences]. */
-    fun forAudiences(audiences: Set<String>) = ServiceAuthVerifier(audiences, keys, clock)
+    /** Forgets [did]'s key, after an `#identity` event says its document changed. */
+    fun forget(did: Did) {
+        caches.keys.invalidate(did)
+        caches.failed.invalidate(did)
+    }
 
     suspend fun verify(token: String, nsid: String): Did {
         val parts = token.split('.')
@@ -83,8 +110,9 @@ class ServiceAuthVerifier(
     }
 
     private suspend fun verifySigned(did: Did, alg: String?, data: ByteArray, signature: ByteArray) {
-        // Retry once with a freshly resolved key in case the account rotated its signing key.
+        // Retry once with a freshly resolved key in case the account rotated its signing key, at most once per DID per REFETCH_INTERVAL.
         for (fresh in listOf(false, true)) {
+            if (fresh && caches.refetched.getIfPresent(did) != null) break
             val key = signingKey(did, fresh)
             if (alg == key.curve.jwtAlg && key.verifies(data, signature)) return
             if (fresh && alg != key.curve.jwtAlg) throw AuthException("Algorithm $alg does not match key")
@@ -95,17 +123,18 @@ class ServiceAuthVerifier(
     /** [did]'s key, from the cache unless [fresh]. A DID whose lookup failed recently is refused without another lookup. */
     private suspend fun signingKey(did: Did, fresh: Boolean): SigningKey {
         if (!fresh)
-            keyCache.getIfPresent(did)?.let {
+            caches.keys.getIfPresent(did)?.let {
                 return it
             }
-        if (failed.getIfPresent(did) != null) throw AuthException("No signing key for $did")
-        val key = runSuspendCatching { keys(did)?.let(Multikey::decode) }.getOrNull()
+        if (caches.failed.getIfPresent(did) != null) throw AuthException("No signing key for $did")
+        if (fresh) caches.refetched.put(did, Unit)
+        val key = runSuspendCatching { (if (fresh) freshKeys else keys)(did)?.let(Multikey::decode) }.getOrNull()
         if (key == null) {
-            failed.put(did, Unit)
+            caches.failed.put(did, Unit)
             throw AuthException("No signing key for $did")
         }
-        failed.invalidate(did)
-        keyCache.put(did, key)
+        caches.failed.invalidate(did)
+        caches.keys.put(did, key)
         return key
     }
 
@@ -125,6 +154,7 @@ class ServiceAuthVerifier(
         private const val MAX_CACHED_KEYS = 10_000L
         private val KEY_TTL = 10.minutes
         private val FAILED_TTL = 5.minutes
+        private val REFETCH_INTERVAL = 1.minutes
         private val MAX_LIFETIME = 1.hours
     }
 }

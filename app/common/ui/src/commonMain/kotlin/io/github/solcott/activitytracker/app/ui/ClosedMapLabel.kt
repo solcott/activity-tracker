@@ -39,7 +39,7 @@ fun ClosedMapLabel(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            PlatformIcon(AppIcon.Lock, contentDescription = null, size = 14.dp)
+            PlatformIcon(AppIcon.Closed, contentDescription = null, size = 14.dp)
             Text(stringResource(Res.string.trail_condition_closed), style = MaterialTheme.typography.labelMedium)
         }
     }

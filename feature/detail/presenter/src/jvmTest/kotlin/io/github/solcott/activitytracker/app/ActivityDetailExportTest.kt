@@ -16,6 +16,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /** Exporting the owner's activity as a file (`feed/activity-export`) from its detail screen. */
@@ -119,16 +120,17 @@ class ActivityDetailExportTest : ActivityDetailTestBase() {
         streams = heartRate
         detail(repos()) {
             val ready = awaitUntil { it.loaded()?.export?.formats?.size == 3 }.loaded()!!
-            val before = streamsRequests
             val gate = CompletableDeferred<Unit>()
+            heldStreamsRequests.value = 0
             streamsGate = gate
             ready.eventSink(ActivityDetailEvent.Export(ExportFormat.GPX))
             ready.eventSink(ActivityDetailEvent.Export(ExportFormat.GPX))
             awaitUntil { it.loaded()?.export?.busy == true }
+            heldStreamsRequests.first { it > 0 }
             gate.complete(Unit)
             val doneState = awaitUntil { it.loaded()?.export?.let { e -> e.file != null && !e.busy } == true }
             val done = doneState.loaded()!!.export!!
-            assertEquals(1, streamsRequests - before, "one export read the streams")
+            assertEquals(1, heldStreamsRequests.value, "one export read the streams")
             val file = done.file!!
             assertTrue(file.name.startsWith("Run 2026-") && file.name.endsWith(".gpx"), file.name)
             assertTrue("<gpxtpx:hr>130</gpxtpx:hr>" in file.bytes.decodeToString())

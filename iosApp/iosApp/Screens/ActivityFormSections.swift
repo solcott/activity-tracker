@@ -163,22 +163,9 @@ private struct PhotoTile: View {
     let remove: () -> Void
 
     var body: some View {
-        picture
-            .frame(width: 88, height: 88)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(alignment: .topTrailing) {
-                Button(action: remove) {
-                    Image(systemName: "xmark.circle.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, .black.opacity(0.5))
-                        .font(.title3)
-                }
-                .buttonStyle(.plain)
-                .padding(4)
-                .accessibilityLabel(Text(.detailsRemovePhoto))
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(Text(.detailsPhoto))
+        RemovablePhotoTile(size: 88, label: Text(.detailsPhoto), removeLabel: Text(.detailsRemovePhoto), remove: remove) {
+            picture
+        }
     }
 
     @ViewBuilder private var picture: some View {

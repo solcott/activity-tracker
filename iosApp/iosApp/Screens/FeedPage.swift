@@ -100,7 +100,7 @@ struct FeedPage: View {
                 }
             }
         } label: {
-            Image(.add).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+            AppIconLabel(.add)
         }
         .accessibilityLabel(Text(FeedTexts.shared.add()))
     }

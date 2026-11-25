@@ -288,7 +288,7 @@ private struct ChartDotSymbol: View {
 /// The colours of a chart's other lines, in turn, in the shared chart's order: amber (the like colour, its tertiary), teal in place of
 /// its secondary, then red. None is violet, so no other line reads as the main one in the accent colour.
 enum ChartOtherColors {
-    static let all: [Color] = [Color("LikeColor"), Color(.systemTeal), Color(.systemRed)]
+    static let all: [Color] = [Color(.like), Color(.systemTeal), Color(.systemRed)]
 
     static func color(_ tone: Int) -> Color { all[((tone % all.count) + all.count) % all.count] }
 }

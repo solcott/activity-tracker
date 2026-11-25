@@ -57,7 +57,7 @@ class SpaceSyncSetHashTest : SpaceSyncFixture() {
     fun aWriteDuringABackfillStartsItOver() = testApplication {
         start()
         pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
-        pds.duringNextListing = { pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf2", activity()) }
+        pds.duringNextListing[aliceFollowers] = { pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf2", activity()) }
         client.notifySpace(aliceFollowers)
         runDue()
         assertEquals(setOf("3kf1", "3kf2"), activities().keys)

@@ -21,7 +21,7 @@ struct EditCombinationSheet: View {
                             Button(role: .destructive) {
                                 removing = member
                             } label: {
-                                Image(.close).frame(minWidth: 32, minHeight: 32).contentShape(Rectangle())
+                                AppIconLabel(.close, size: 32)
                             }
                             .buttonStyle(.borderless)
                             .accessibilityLabel(Text(texts.remove(member: member)))

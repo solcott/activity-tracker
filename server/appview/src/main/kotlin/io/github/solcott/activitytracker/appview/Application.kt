@@ -46,6 +46,7 @@ import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.index.HandleSweep
 import io.github.solcott.activitytracker.appview.index.HandleVerifier
+import io.github.solcott.activitytracker.appview.index.IdentityChanges
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamConsumer
 import io.github.solcott.activitytracker.appview.index.assignMissingGroups
@@ -54,7 +55,6 @@ import io.github.solcott.activitytracker.appview.labels.LabelSubscriber
 import io.github.solcott.activitytracker.appview.labels.LabelVerifier
 import io.github.solcott.activitytracker.appview.moderation.ModeratorSubjects
 import io.github.solcott.activitytracker.appview.moderation.OzoneClient
-import io.github.solcott.activitytracker.appview.net.GuardedHttp
 import io.github.solcott.activitytracker.appview.ops.AppViewMetrics
 import io.github.solcott.activitytracker.appview.ops.Readiness
 import io.github.solcott.activitytracker.appview.ops.WorkerKind
@@ -79,8 +79,6 @@ import io.github.solcott.activitytracker.atproto.space.SpaceMember
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.terrain.TerrainTiles
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -114,42 +112,38 @@ fun main() {
     val meterRegistry = config.metricsPort?.let { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
     val db = DatabaseFactory.connect(config.databaseUrl, config.databaseUser, config.databasePassword, meterRegistry)
     val metrics = meterRegistry?.let { AppViewMetrics(db, it) }
-    // Configured endpoints (PLC, the handle resolver, Jetstream, labelers, Ozone) are trusted; every host learned from a DID document or a
-    // handle goes through the guarded client, which refuses private addresses (identity/outbound-requests).
-    val http =
-        HttpClient(CIO) {
-            expectSuccess = false
-            install(WebSockets)
-        }
-    val guarded = GuardedHttp.create(config.allowPrivateAddresses)
-    val identity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl, untrusted = guarded)
-    // Only for the operator's own labeler and Ozone DIDs, whose endpoints may be on the local network.
-    val configuredIdentity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl)
+    val outbound = Outbound.of(config)
+    val guarded = outbound.guarded
+    val identity = outbound.identity
     val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
-    val indexer = indexerOf(config, db, identity)
+    val identityChanges = IdentityChanges()
+    val indexer = indexerOf(config, db, identity, identityChanges)
     val signingKey = config.signingKey?.let(::AppViewSigningKey)
     val registrations = signingKey?.let { SyncRegistrations(db, config.publicUrl) }
-    val member = signingKey?.let { spaceMember(config, it, checkNotNull(registrations), guarded, identity) }
+    val credentials = signingKey?.let { spaceCredentials(config, it, checkNotNull(registrations), guarded, identity) }
+    val member = credentials?.let { SpaceMember(it, guarded) }
     val syncer = member?.let { SpaceSyncer(db, indexer, it, outcomes = metrics?.syncOutcomes ?: SyncOutcomes.None) }
     // An operator's reindex of one account (admin/repo-reindex): its DID document resolved afresh, its repo fetched through [guarded].
-    val reindexer = RepoReindexer(db, indexer, guarded, identity::resolveDid, syncer?.let { it::resyncAccount }, config.reindex)
+    val reindexer = RepoReindexer(db, indexer, guarded, identity::refreshDid, syncer?.let { it::resyncAccount }, config.reindex)
     val spaceBlobs = member?.let(::MemberSpaceBlobs)
     // Every background worker's status (dev/worker-telemetry), for the metrics and the admin pages.
     val workers = WorkerRegistry()
 
     metrics?.serve(config.metricsHost, checkNotNull(config.metricsPort), log)
     val pds = ResolvingPdsLookup(identity)
+    // An `#identity` event: every cache of that account's identity forgets it, so the next use asks again (identity/outbound-requests).
+    identityChanges.onChange { did -> forgetIdentity(did, identity, verifier, pds, credentials) }
     val blockBackfill = BskyBlockBackfill(db, indexer, guarded, pds)
     val accounts = AccountsPage(db, indexer, blockBackfill, reindexer, syncer)
     embeddedServer(Netty, port = config.port) {
-            val ozone = ozoneOf(config, http, configuredIdentity)
+            val ozone = ozoneOf(config, outbound.http, outbound.configuredIdentity)
             // Started before the routes are, so the health page is given them (admin/ingest-health); nothing is served until `start`.
             val supervisor = WorkerSupervisor(this, workers)
             val started =
                 startWorkers(
                     supervisor,
-                    WorkerInputs(config, db, http, configuredIdentity, indexer, syncer, spaceBlobs, log, metrics, reindexer, blockBackfill),
+                    WorkerInputs(config, db, outbound, indexer, syncer, spaceBlobs, log, metrics, reindexer, blockBackfill),
                 )
             val health = HealthSources(supervisor, started, db, config.jetstreamRewindMax, syncer != null, DatabaseSizes.of(db))
             appView(
@@ -201,15 +195,15 @@ private fun AppViewMetrics.bind(workers: WorkerRegistry, started: StartedWorkers
  * The AppView's membership of athletes' spaces, with delegation tokens it signs itself. Each authorization of a synced space also registers
  * the AppView for its updates ([registrations]), at its public URL.
  */
-private fun spaceMember(
+private fun spaceCredentials(
     config: AppViewConfig,
     key: AppViewSigningKey,
     registrations: SyncRegistrations,
     http: HttpClient,
     identity: IdentityResolver,
-): SpaceMember {
+): SpaceCredentials {
     val tokens = SignedDelegationTokens(Did(config.serviceDid), key.jwtAlg, key::sign)
-    return SpaceMember(SpaceCredentials(tokens, http, identity, notify = registrations::notifyFor), http)
+    return SpaceCredentials(tokens, http, identity, notify = registrations::notifyFor)
 }
 
 private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer, blobs: SpaceBlobs, outcomes: SegmentJobOutcomes) =
@@ -227,7 +221,7 @@ private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer
     )
 
 /** The indexer for [config]: the segment importer, the naming rules, and whether terrain tiles are configured. */
-private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityResolver): Indexer =
+private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityResolver, identityChanges: IdentityChanges): Indexer =
     Indexer(
         db,
         HandleVerifier(identity),
@@ -236,6 +230,7 @@ private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityRes
         trailDetails = config.trailDetails,
         terrain = config.terrainTiles != null,
         segmentActiveAthletes = config.segmentActiveAthletes,
+        identityChanges = identityChanges,
     )
 
 /** What the background workers need. */
@@ -243,8 +238,7 @@ private fun indexerOf(config: AppViewConfig, db: Database, identity: IdentityRes
 private class WorkerInputs(
     val config: AppViewConfig,
     val db: Database,
-    val http: HttpClient,
-    val configuredIdentity: IdentityResolver,
+    val outbound: Outbound,
     val indexer: Indexer,
     val syncer: SpaceSyncer?,
     val spaceBlobs: SpaceBlobs?,
@@ -261,11 +255,11 @@ private class WorkerInputs(
 private fun startWorkers(supervisor: WorkerSupervisor, inputs: WorkerInputs): StartedWorkers =
     with(inputs) {
         val registry = supervisor.registry
-        val jetstream = config.jetstreamUrl?.let { JetstreamConsumer(http, it, db, indexer) }
+        val jetstream = config.jetstreamUrl?.let { JetstreamConsumer(outbound.http, it, db, indexer) }
         if (jetstream != null) supervisor.stream(WorkerNames.JETSTREAM) { jetstream.run(it) }
         else registry.disabled(WorkerNames.JETSTREAM, WorkerKind.STREAM, "JETSTREAM_URL is not set")
         supervisor.loop(WorkerNames.BSKY_BLOCK_BACKFILL) { blockBackfill.run(it) }
-        val handles = HandleSweep(db, indexer)
+        val handles = HandleSweep(db, indexer, plcPausedUntil = outbound.plcPacing::pausedUntil)
         supervisor.loop(WorkerNames.HANDLE_SWEEP) { handles.run(it) }
         // Segments indexed before segment groups get theirs (segments/segment-groups); indexing gives new ones theirs.
         supervisor.oneOff(WorkerNames.SEGMENT_GROUPS_BACKFILL) {
@@ -279,7 +273,7 @@ private fun startWorkers(supervisor: WorkerSupervisor, inputs: WorkerInputs): St
         val matcher = spaceBlobs?.let { segmentMatcher(config, db, indexer, it, metrics?.segmentJobOutcomes ?: SegmentJobOutcomes.None) }
         if (matcher != null) supervisor.loop(WorkerNames.SEGMENT_MATCHER) { matcher.run(it) }
         else registry.disabled(WorkerNames.SEGMENT_MATCHER, WorkerKind.LOOP, NO_SIGNING_KEY)
-        val labels = startLabelSubscribers(supervisor, config, db, http, configuredIdentity)
+        val labels = startLabelSubscribers(supervisor, config, db, outbound.http, outbound.configuredIdentity)
         // The moderator audit log keeps entries a little over a year.
         val accessLog = ModerationAccessLog(db)
         supervisor.loop(WorkerNames.MODERATION_ACCESS_LOG) { accessLog.run(it) }
@@ -310,7 +304,9 @@ private fun startLabelSubscribers(
         return emptyList()
     }
     val store = LabelStore(db, config.labeler?.did, config.bskyLabeler?.did)
-    val verifier = LabelVerifier { did, _ -> identity.resolveDid(Did(did)).verificationKey("#atproto_label") }
+    val verifier = LabelVerifier { did, fresh ->
+        (if (fresh) identity.refreshDid(Did(did)) else identity.resolveDid(Did(did))).verificationKey("#atproto_label")
+    }
     val endpoint: suspend (String) -> String? = { did -> identity.resolveDid(Did(did)).serviceEndpoint("#atproto_labeler") }
     val subscribers = labelers.map { labeler -> LabelSubscriber(http, labeler, store, verifier, endpoint) }
     subscribers.forEach { subscriber -> supervisor.stream(WorkerNames.labelSubscriber(subscriber.did)) { subscriber.run(it) } }

@@ -364,6 +364,53 @@
             .padding(24)
         }
 
+        /// Photos in a form with their Remove buttons (an activity's tile and a trail report's tighter one), and photos a label covers,
+        /// at each size: a gallery page on black, a media strip's tile, and a small tile in a row.
+        static var photos: some View {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    RemovablePhotoTile(size: 88, label: Text(.detailsPhoto), removeLabel: Text(.detailsRemovePhoto), remove: {}) {
+                        Color.teal
+                    }
+                    RemovablePhotoTile(
+                        size: 72, cornerStyle: .continuous, inset: 2, label: Text(.trailPhotosTitle),
+                        removeLabel: Text(.trailReportRemovePicked), remove: {}
+                    ) { Color.orange }
+                }
+                HStack(alignment: .top, spacing: 12) {
+                    CoveredPhoto(reason: Text(verbatim: "Graphic content"), show: Text(.labelShow), style: .tile, reveal: {}) {
+                        Color.teal
+                    }
+                    .frame(width: 140, height: 100).clipShape(RoundedRectangle(cornerRadius: 8))
+                    CoveredPhoto(reason: Text(verbatim: "Graphic content"), show: Text(.trailPhotoHidden), style: .smallTile, reveal: {}) {
+                        Color.orange
+                    }
+                    .frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                CoveredPhoto(reason: Text(verbatim: "Graphic content"), show: Text(.labelShow), style: .screen, reveal: {}) {
+                    Color.teal
+                }
+                .frame(width: 345, height: 140).background(.black).clipped()
+            }
+            .padding(24)
+        }
+
+        /// Like buttons liked and not, full and in a comment row's compact form, and More as a menu's label.
+        static var likes: some View {
+            HStack(spacing: 16) {
+                LikeButton(liked: false, label: .likeContentDescription) {}
+                LikeButton(liked: true, label: .likeContentDescription) {}
+                LikeButton(liked: false, label: .likeContentDescription, compact: true) {}
+                LikeButton(liked: true, label: .likeContentDescription, compact: true) {}
+                Menu {
+                    Button(String(localized: .actionEdit)) {}
+                } label: {
+                    AppIconLabel(.more)
+                }
+            }
+            .padding(24)
+        }
+
         static var messages: some View {
             VStack(spacing: 24) {
                 ErrorMessage(offline) {}
@@ -482,6 +529,8 @@
     #Preview("Step charts") { DesignGallery.stepCharts }
     #Preview("Layered charts") { DesignGallery.layeredCharts }
     #Preview("Icons") { DesignGallery.icons }
+    #Preview("Photos") { DesignGallery.photos }
+    #Preview("Likes") { DesignGallery.likes }
     #Preview("Messages") { DesignGallery.messages }
     #Preview("Empty messages") { DesignGallery.emptyMessages }
     #Preview("Content") {

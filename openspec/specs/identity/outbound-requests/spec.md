@@ -65,3 +65,23 @@ The AppView SHALL have a configuration setting, off by default, that lifts the p
 #### Scenario: Local stack
 - **WHEN** the AppView runs through the local development commands, with the setting on
 - **THEN** it fetches blobs from `http://localhost:2583`, resolves `did:web:localhost%3A8081`, and logs that private addresses are allowed
+
+### Requirement: Identity lookups are cached and paced
+The AppView SHALL keep each resolved DID document for a bounded time and drop it when a Jetstream `#identity` event names its account, with every other cache of that account's identity (signing keys, PDS URL, `#atproto_kem` key). Lookups that must see a change at once (a key retry after a failed signature, a repo reindex) SHALL fetch past the cache, a failed service-auth signature at most once per account a minute. When the PLC directory answers 429, the AppView SHALL send it no further `did:plc` fetch until its `Retry-After` (bounded) has passed. Every outbound request SHALL carry a `User-Agent` naming the AppView.
+
+#### Scenario: Repeated reads of one account
+- **WHEN** many requests within ten minutes need alice's DID document and no `#identity` event names her
+- **THEN** the PLC directory is asked for it once
+
+#### Scenario: Identity event
+- **WHEN** an `#identity` event names alice
+- **THEN** the next use of her DID document, signing key, PDS URL or `#atproto_kem` key resolves it again
+
+#### Scenario: Forged tokens
+- **WHEN** tokens naming alice but signed by another key keep arriving
+- **THEN** the AppView fetches her DID document afresh at most once a minute for them
+
+#### Scenario: Rate limited
+- **WHEN** the PLC directory answers 429 with `Retry-After: 30`
+- **THEN** no `did:plc` document is fetched for 30 seconds, and the handle sweep waits that long before its next check
+

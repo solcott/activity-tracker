@@ -88,6 +88,15 @@ class SpaceCredentials(
     /** Drops [space]'s credential, after the PDS reported it expired or revoked. */
     suspend fun invalidate(space: SpaceUri) = mutex.withLock { cache.remove(space) }
 
+    /**
+     * Forgets [did]'s PDS URL and `#atproto_kem` key, so the next use resolves its DID document again: the AppView calls it on each
+     * `#identity` event for [did], which is how a moved PDS or a new key shows.
+     */
+    suspend fun forget(did: Did) = mutex.withLock {
+        pdsUrls.remove(did)
+        kemKeys.remove(did)
+    }
+
     /** The authority's PDS base URL, resolved from its DID document once per session. */
     suspend fun pdsUrl(did: Did): String =
         mutex.withLock { pdsUrls[did] } ?: identity.resolve(did.value).pdsUrl.also { url -> mutex.withLock { pdsUrls[did] = url } }

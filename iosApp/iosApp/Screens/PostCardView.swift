@@ -80,7 +80,7 @@ struct PostCardView: View {
                         Text(content.menuItem())
                     }
                 } label: {
-                    Image(.more).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    AppIconLabel(.more)
                 }
                 .accessibilityLabel(Text(PostCardContent.Companion.shared.more()))
             }
@@ -165,14 +165,13 @@ struct PostCardView: View {
     private var actions: some View {
         HStack(spacing: 0) {
             if content.offersLike {
-                AppIconButton(.like, label: PostCardContent.Companion.shared.like(), filled: content.liked) {
+                LikeButton(liked: content.liked, label: PostCardContent.Companion.shared.like()) {
                     send(PostEvent.Like(post: post))
                 }
-                .foregroundStyle(content.liked ? Color("LikeColor") : Color.accentColor)
             }
             if content.offersRepost {
                 AppIconButton(.repost, label: content.repostLabel(), filled: content.reposted) { send(PostEvent.Repost(post: post)) }
-                    .foregroundStyle(content.reposted ? Color("LikeColor") : Color.accentColor)
+                    .likeTint(content.reposted, off: .accentColor)
             }
             if content.offersQuote {
                 AppIconButton(.quote, label: PostCardContent.Companion.shared.quote()) { send(PostEvent.Quote(post: post)) }

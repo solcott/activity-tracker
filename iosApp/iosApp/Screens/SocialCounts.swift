@@ -63,7 +63,7 @@ struct SocialCount: View {
 
     private var symbol: some View {
         Image(icon, filled: filled)
-            .foregroundStyle(filled ? Color("LikeColor") : Color.secondary)
+            .likeTint(filled)
             .accessibilityHidden(true)
     }
 

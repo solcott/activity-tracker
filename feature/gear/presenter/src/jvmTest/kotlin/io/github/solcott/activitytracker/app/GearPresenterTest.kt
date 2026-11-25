@@ -305,7 +305,9 @@ class GearPresenterTest {
             loaded().eventSink(GearEvent.Unmount(AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3chain3").value))
             val asking = awaitUntil { it.unmounting != null }
             asking.eventSink(GearEvent.ConfirmUnmount(LocalDate(2026, 6, 1)))
-            awaitUntil { it.unmounting == null && !it.mountSaving }
+            // A failed save keeps the question open, so stop on its error rather than wait out the timeout.
+            val saved = awaitUntil { (it.unmounting == null && !it.mountSaving) || it.error != null }
+            assertNull(saved.error, "the unmount was saved")
             assertEquals(listOf(GearMount(tarmac, march, LocalDate(2026, 6, 1).atStartOfDayIn(zone))), stored("3chain3").mounts)
             cancelAndIgnoreRemainingEvents()
         }

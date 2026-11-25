@@ -117,7 +117,7 @@ struct ConditionLead: View {
     var body: some View {
         HStack(spacing: 6) {
             if closed {
-                Image(systemName: "xmark.octagon.fill").accessibilityHidden(true)
+                Image(.closed).accessibilityHidden(true)
             }
             Text(text)
         }
@@ -136,7 +136,7 @@ struct ConditionTags: View {
                 // Closed in red with its symbol, as the lead and the Compose chips draw it, so it never reads as just another tag.
                 if TrailReportTexts.shared.isClosed(tag: tag) {
                     HStack(spacing: 4) {
-                        Image(systemName: "xmark.octagon.fill").accessibilityHidden(true)
+                        Image(.closed).accessibilityHidden(true)
                         Text(tag)
                     }
                     .font(.footnote.weight(.semibold))
@@ -189,21 +189,12 @@ struct TrailPhotoStrip: View {
             .overlay { RemoteImage(photo.url, maxSize: CGSize(width: size, height: size)) { Color(.secondarySystemFill) } }
             .clipped()
         if let blur = photo.blur, !revealed.contains(index) {
-            Button {
+            CoveredPhoto(reason: Text(blur), show: Text(.trailPhotoHidden), style: .smallTile) {
                 revealed.insert(index)
-            } label: {
-                ZStack {
-                    picture.blur(radius: 16).accessibilityHidden(true)
-                    Color(.secondarySystemBackground).opacity(0.8)
-                    VStack(spacing: 2) {
-                        Text(blur).font(.caption2.weight(.semibold)).multilineTextAlignment(.center).lineLimit(3)
-                        Text(.trailPhotoHidden).font(.caption2).foregroundStyle(.tint)
-                    }
-                    .padding(4)
-                }
-                .clipShape(shape)
+            } picture: {
+                picture
             }
-            .buttonStyle(.borderless)
+            .clipShape(shape)
         } else {
             let last = index == photos.count - 1
             Button {
@@ -389,24 +380,14 @@ struct TrailReportSheetView: View {
     }
 
     private func chosenTile(_ photo: ReportPhotoChoice) -> some View {
-        RemoteImage(photo.url, maxSize: CGSize(width: Self.tile, height: Self.tile)) { Color(.tertiarySystemFill) }
-            .frame(width: Self.tile, height: Self.tile)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(alignment: .topTrailing) {
-                Button {
-                    send(TrailReportEvent.RemovePhoto(key: photo.key))
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, .black.opacity(0.5))
-                        .font(.title3)
-                }
-                .buttonStyle(.borderless)
-                .padding(2)
-                .accessibilityLabel(Text(.trailReportRemovePicked))
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(photo.alt.map { Text(verbatim: $0) } ?? Text(.trailPhotosTitle))
+        RemovablePhotoTile(
+            size: Self.tile, cornerStyle: .continuous, inset: 2,
+            label: photo.alt.map { Text(verbatim: $0) } ?? Text(.trailPhotosTitle), removeLabel: Text(.trailReportRemovePicked)
+        ) {
+            send(TrailReportEvent.RemovePhoto(key: photo.key))
+        } picture: {
+            RemoteImage(photo.url, maxSize: CGSize(width: Self.tile, height: Self.tile)) { Color(.tertiarySystemFill) }
+        }
     }
 
     private func send(_ event: any TrailReportEvent) {

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.atproto.identity
 
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.atproto.xrpc.RateLimit
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -13,8 +14,12 @@ import io.github.solcott.activitytracker.lexicon.isDid
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -30,9 +35,10 @@ data class ResolvedIdentity(
 /**
  * Resolves handles and DIDs to a DID document and PDS endpoint. [http] reaches the configured endpoints (the PLC directory, the handle
  * resolver, DNS-over-HTTPS); [untrusted] reaches hosts named by the identity itself (`did:web` documents and handle `.well-known` checks),
- * which a server can guard against pointing it at its own network.
+ * which a server can guard against pointing it at its own network. Open so a server can cache [resolveDid] (the AppView's
+ * `CachingIdentityResolver`); clients resolve rarely enough not to.
  */
-class IdentityResolver(
+open class IdentityResolver(
     private val http: HttpClient,
     private val plcUrl: String,
     private val handleResolverUrl: String?,
@@ -84,9 +90,18 @@ class IdentityResolver(
         throw lookups.filterIsInstance<HandleLookup.Unreachable>().first().cause
     }
 
-    suspend fun resolveDid(did: Did): DidDocument {
+    /**
+     * [did]'s document: fetched here, perhaps cached by a subclass. Throws [IdentityRateLimitedException] when its directory or host
+     * answers 429.
+     */
+    open suspend fun resolveDid(did: Did): DidDocument = fetchDid(did)
+
+    /** [did]'s document fetched afresh, past any cache, for a caller that must see a change (a rotated key) at once. */
+    open suspend fun refreshDid(did: Did): DidDocument = fetchDid(did)
+
+    protected suspend fun fetchDid(did: Did): DidDocument {
         val response = (if (did.method == "web") untrusted else http).get(didDocumentUrl(did))
-        if (!response.status.isSuccess()) throw IdentityException("DID resolution failed for $did: ${response.status}")
+        if (!response.status.isSuccess()) throw failedResolution(did, response)
         val doc = AtJson.decodeFromString(DidDocument.serializer(), response.bodyAsText())
         if (doc.id != did.value) throw IdentityException("DID document id mismatch for $did")
         return doc
@@ -180,7 +195,16 @@ class IdentityResolver(
     }
 }
 
+/** Why fetching [did]'s document failed: [IdentityRateLimitedException] for a 429, with its `Retry-After`. */
+private fun failedResolution(did: Did, response: HttpResponse): IdentityException =
+    if (response.status == HttpStatusCode.TooManyRequests)
+        IdentityRateLimitedException(did, RateLimit.retryAfter(response.headers, Clock.System.now()))
+    else IdentityException("DID resolution failed for $did: ${response.status}")
+
 open class IdentityException(message: String) : Exception(message)
+
+/** [did]'s directory (or `did:web` host) answered 429: try again at [retryAt], when it said (`Retry-After`). */
+class IdentityRateLimitedException(val did: Did, val retryAt: Instant?) : IdentityException("DID resolution rate limited for $did")
 
 /** Every lookup that answered said [handle] points at no DID. */
 class HandleNotFoundException(val handle: Handle) : IdentityException("No account found for ${handle.value}")

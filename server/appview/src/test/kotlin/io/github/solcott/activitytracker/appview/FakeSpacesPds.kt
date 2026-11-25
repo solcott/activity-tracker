@@ -23,6 +23,7 @@ import io.ktor.http.headersOf
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
@@ -80,9 +81,10 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
     val wrongData = mutableSetOf<SpaceUri>()
 
     /**
-     * Runs once, the next time `listRecords` is answered, before the answer is built: a write that lands after the backfill read its head.
+     * Runs once, the next time `listRecords` is answered for its space, before the answer is built: a write that lands after the backfill
+     * read its head. Keyed by space, since a forced resync syncs an account's spaces at once and any of them may list first.
      */
-    var duringNextListing: (() -> Unit)? = null
+    val duringNextListing = ConcurrentHashMap<SpaceUri, () -> Unit>()
 
     /** Authorities whose PDS can't be reached. */
     val unreachable = mutableSetOf<Did>()
@@ -204,7 +206,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
                 json(answer.toString(), extraHeaders = mac.orEmpty().toList())
             }
             path == "/xrpc/com.atproto.space.listRecords" -> {
-                duringNextListing?.also { duringNextListing = null }?.invoke()
+                duringNextListing.remove(SpaceUri(request.url.parameters["space"]!!))?.invoke()
                 json(listRecords(request.url.parameters).toString())
             }
             else -> respond("", HttpStatusCode.NotFound)
