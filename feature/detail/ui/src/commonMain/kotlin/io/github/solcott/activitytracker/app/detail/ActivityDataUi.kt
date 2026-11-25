@@ -22,8 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -94,8 +97,15 @@ internal fun ActivityDataList(
 ) {
     val sections = data.sections
     val scope = rememberCoroutineScope()
-    LaunchedEffect(data.start) {
-        data.start?.let { start -> sections.indexOfFirst { it.section == start }.takeIf { it >= 0 }?.let { listState.scrollToItem(it) } }
+    // A table's section only shows once the streams load, after the activity, so this waits for the start section to be there, then
+    // scrolls to it once.
+    var startedAt by rememberSaveable { mutableStateOf(false) }
+    val startIndex = sections.indexOfFirst { it.section == data.start }
+    LaunchedEffect(startIndex) {
+        if (startIndex >= 0 && !startedAt) {
+            listState.scrollToItem(startIndex)
+            startedAt = true
+        }
     }
     val current by remember(sections) { derivedStateOf { sections.getOrNull(listState.firstVisibleItemIndex)?.section } }
     val top = contentPadding.calculateTopPadding()
