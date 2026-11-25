@@ -95,6 +95,9 @@ object FigureTexts {
     /** A card's title: Pace for a speed card on a sport timed by pace, else its section's name. */
     fun cardTitle(card: MetricCard): AppText = if (card.pace != null) AppText.named("chart_pace") else section(card.section)
 
+    /** What tapping a strip or an open card's title does, for a screen reader: show its chart, or hide it. */
+    fun cardToggle(open: Boolean): AppText = AppText.named(if (open) "detail_close_card" else "detail_open_card")
+
     /** The avg/max table's heading and its columns' names. */
     val avgMaxHeading: AppText = AppText.named("page_avg_max_heading")
     val avgColumn: AppText = AppText.named("detail_avg")

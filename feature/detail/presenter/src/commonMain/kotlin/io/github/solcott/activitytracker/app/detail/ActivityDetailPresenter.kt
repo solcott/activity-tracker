@@ -163,12 +163,19 @@ fun ActivityDetailPresenter(
 
     val reporting = rememberReporting(reports) { author, _ -> flights.blockReported(author, blocks) { blockError = it } }
 
+    val view = rememberPageView()
+    val lead = pageContent.cards.firstOrNull { !it.section.isTable }?.section
+
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
         when (event) {
             ActivityDetailEvent.Back -> {
                 navigator.pop()
             }
+
+            is ActivityDetailEvent.ToggleCard,
+            is ActivityDetailEvent.OpenAllData,
+            ActivityDetailEvent.CloseAllData -> view.on(event, lead, screen.uri, navigator)
 
             ActivityDetailEvent.Retry -> {
                 loadKey++
@@ -283,6 +290,8 @@ fun ActivityDetailPresenter(
             isOwnCopy = ownCopy.isOwnCopy,
             leavingCopyGroup = ownCopy.leaving,
             copyGroupError = ownCopy.error,
+            openCards = view.openCards,
+            allData = view.allData,
         )
     }
     return ActivityDetailState(content.mapContent { page }, sink)
@@ -391,12 +400,12 @@ private fun rememberManage(
  * [charts] as an activity of [sport] shows them: a ski day's count its runs, and its lift laps take the names of the [lifts] they rode.
  * Null until both have loaded.
  */
-private fun chartsFor(sport: String?, charts: ActivityCharts?, lifts: List<EffortView>): ActivityCharts? =
+internal fun chartsFor(sport: String?, charts: ActivityCharts?, lifts: List<EffortView>): ActivityCharts? =
     if (sport == null || charts == null) null
     else ChartsBuilder.forSport(charts, sport).let { it.copy(laps = namedLiftLaps(it.laps, lifts)) }
 
 /** The activity's charts, and the owner's control over who sees them. */
-private class Charts(val charts: ActivityCharts?, val streams: GetActivityStreams.Output?) {
+internal class Charts(val charts: ActivityCharts?, val streams: GetActivityStreams.Output?) {
     /** The [own] activity has heart rate or power but no zones to split it into. */
     fun missingZones(own: Boolean): Boolean = own && charts?.missingZones() == true
 }
@@ -406,7 +415,7 @@ private class Charts(val charts: ActivityCharts?, val streams: GetActivityStream
  * to. They're extra: without streams the activity shows without them, and a failure keeps whatever was shown, quietly.
  */
 @Composable
-private fun rememberCharts(activity: AtUri, loadKey: Int, units: UnitSystem, feed: FeedRepository): Charts {
+internal fun rememberCharts(activity: AtUri, loadKey: Int, units: UnitSystem, feed: FeedRepository): Charts {
     val latestUnits by rememberUpdatedState(units)
     // The lap table is in the viewer's units, so a change of units rebuilds it.
     val loaded = remember {

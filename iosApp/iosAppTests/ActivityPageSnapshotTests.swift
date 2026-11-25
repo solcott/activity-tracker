@@ -4,8 +4,8 @@ import Testing
 @testable import ActivityTracker
 
 /// The activity page in each of its sample states against their references (feed/activity-page-layout, dev/ios-snapshot-tests), on
-/// the samples' clock: the shared samples at a phone's size, the states beyond loading tall enough for every card, and the owner's
-/// ride at an iPad's width, its pane beside the cards. Snapshots run outside a session, so the map draws the line preview and loads no
+/// the samples' clock: the shared samples at a phone's size, the states beyond loading and the mosaic's shapes tall enough for the lead
+/// card and the strips, and the owner's ride and the mosaic ride at an iPad's width, the pane beside the cards. Snapshots run outside a session, so the map draws the line preview and loads no
 /// tiles (`\.liveMaps`).
 @MainActor
 @Suite(.enabled(if: Snapshots.comparesHere, Snapshots.skipped))
@@ -14,6 +14,8 @@ struct ActivityPageSnapshotTests {
     nonisolated private static let variants = [
         "ownRide", "run", "missingZones", "likesShown", "combineSuggestion", "hidden", "segments",
     ]
+    /// The mosaic in each shape it takes (feed/activity-page-layout).
+    nonisolated private static let mosaics = ["photos", "diveWithPhoto", "skiDay", "strength", "minimal"]
     /// Tall enough for most of a page with cards; taller renders blank (past the snapshot renderer's limit).
     private static let tall = CGSize(width: 393, height: 2_600)
     /// An 11-inch iPad on its side: wide enough for the pane beside the cards.
@@ -39,6 +41,19 @@ struct ActivityPageSnapshotTests {
         let state = try #require(Samples.activityDetailVariants["ownRide"])
         assertAppSnapshot(
             of: page(state).environment(\.horizontalSizeClass, .regular), size: Self.iPad, named: "iPad", precision: Snapshots.barButtons)
+    }
+
+    @Test(arguments: mosaics)
+    func mosaic(sample: String) throws {
+        let state = try #require(Samples.activityDetailMosaics[sample])
+        assertAppSnapshot(of: page(state), size: Self.tall, named: "mosaic-\(sample)", precision: Snapshots.barButtons)
+    }
+
+    @Test func mosaicOnAnIPad() throws {
+        let state = try #require(Samples.activityDetailMosaics["photos"])
+        assertAppSnapshot(
+            of: page(state).environment(\.horizontalSizeClass, .regular), size: Self.iPad, named: "mosaic-iPad",
+            precision: Snapshots.barButtons)
     }
 
     /// The cards the tall images cut off: elevation with grade titled under it, and the laps table.

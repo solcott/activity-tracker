@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /**
@@ -50,6 +51,27 @@ object CardLines {
             }
         return lines + extra
     }
+
+    /**
+     * The card's strip's sparkline (feed/activity-page-layout): its first chart's line alone, with no ticks, average, elevation behind it
+     * or marks; null when it has no chart.
+     */
+    fun spark(card: MetricCard, charts: ActivityCharts, units: UnitSystem): LineChart? =
+        of(card, charts, units).firstOrNull()?.chart?.let { chart ->
+            LineChart(
+                points = chart.points,
+                xMin = chart.xMin,
+                xMax = chart.xMax,
+                axis = chart.axis,
+                yTicks = persistentListOf(),
+                xTicks = persistentListOf(),
+                readouts = chart.readouts,
+                description = chart.description,
+                bands = chart.bands,
+                steps = chart.steps,
+                fillAbove = chart.fillAbove,
+            )
+        }
 
     private fun line(card: MetricCard, series: LineSeries, charts: ActivityCharts, elevation: LineSeries?, units: UnitSystem): CardLine? {
         val pace = card.pace.takeIf { series.kind == StreamKind.Speed }
@@ -481,21 +503,22 @@ object LapTableTexts {
         val descent = ski && laps.any { it.descent != null }
         // Cadence only when there's no power, which says more.
         val cadenced = !power && laps.any { it.avgCadence != null }
-        val cadenceUnit = StreamUnits.unitName(cadence, units)
         val metric = units == UnitSystem.Metric
-        val height = if (metric) "unit_elevation_m" else "unit_elevation_ft"
+        val symbol = if (metric) "unit_symbol_m" else "unit_symbol_ft"
+        // Each column names its unit once, so a cell is its number alone and stays on one line.
+        fun withUnit(header: String, unit: String) = AppText.named("table_header_unit", AppText.named(header), AppText.named(unit))
         val headers =
             listOfNotNull(
                 AppText.named(if (ski) "lap_run" else "lap_number"),
                 AppText.named("lap_type").takeIf { intensity },
                 AppText.named("lap_time"),
-                AppText.named("lap_distance"),
-                AppText.named("lap_speed"),
-                AppText.named("lap_heart_rate").takeIf { heartRate },
-                AppText.named("lap_power").takeIf { power },
-                AppText.named("lap_cadence").takeIf { cadenced },
-                AppText.named("lap_ascent").takeIf { ascent },
-                AppText.named("lap_descent").takeIf { descent },
+                withUnit("lap_distance", if (metric) "unit_symbol_km" else "unit_symbol_mi"),
+                withUnit("lap_speed", if (metric) "unit_symbol_kmh" else "unit_symbol_mph"),
+                withUnit("lap_heart_rate", "unit_symbol_bpm").takeIf { heartRate },
+                withUnit("lap_power", "unit_symbol_w").takeIf { power },
+                withUnit("lap_cadence", cadenceSymbol(cadence)).takeIf { cadenced },
+                withUnit("lap_ascent", symbol).takeIf { ascent },
+                withUnit("lap_descent", symbol).takeIf { descent },
             )
         val runs = laps.runningFold(0) { n, lap -> if (lap.isRest) n else n + 1 }.drop(1)
         val rows = laps.mapIndexed { i, lap ->
@@ -509,27 +532,29 @@ object LapTableTexts {
                 listOfNotNull(
                     cell(lap.intensity, intensity) { intensityName(it) },
                     AppText.written(StatText.duration((lap.movingSeconds ?: lap.elapsedSeconds).toLong())),
-                    cell(lap.distance) {
-                        AppText.named(if (metric) "unit_distance_km" else "unit_distance_mi", AppText.written(formatDecimal(it, 2)))
-                    },
-                    cell(lap.speed) {
-                        AppText.named(if (metric) "unit_speed_kmh" else "unit_speed_mph", AppText.written(formatDecimal(it, 1)))
-                    },
-                    cell(lap.avgHeartRate, heartRate) { AppText.named("unit_bpm", AppText.whole(it)) },
-                    cell(lap.avgPower, power) { AppText.named("unit_watts", AppText.whole(it)) },
-                    cell(lap.avgCadence, cadenced) { AppText.named(cadenceUnit, AppText.whole(it)) },
-                    cell(lap.ascent, ascent) { AppText.named(height, AppText.written(formatDecimal(it, 0))) },
+                    cell(lap.distance) { AppText.written(formatDecimal(it, 2)) },
+                    cell(lap.speed) { AppText.written(formatDecimal(it, 1)) },
+                    cell(lap.avgHeartRate, heartRate) { AppText.whole(it) },
+                    cell(lap.avgPower, power) { AppText.whole(it) },
+                    cell(lap.avgCadence, cadenced) { AppText.whole(it) },
+                    cell(lap.ascent, ascent) { AppText.written(formatDecimal(it, 0)) },
                     // A lift ride has no descent worth showing.
                     if (!descent) null
-                    else
-                        lap.descent?.takeUnless { lap.isRest }?.let { AppText.named(height, AppText.written(formatDecimal(it, 0))) }
-                            ?: StatText.missing,
+                    else lap.descent?.takeUnless { lap.isRest }?.let { AppText.written(formatDecimal(it, 0)) } ?: StatText.missing,
                 )
             val spokenName = if (ski) name else AppText.named("table_cell_description", headers.first(), name)
             TableRow((listOf(name) + cells).toImmutableList(), spoken(spokenName, headers.drop(1), cells))
         }
         return DetailTable(headers.toImmutableList(), rows.toImmutableList(), wideFirst = ski && laps.any { it.liftName != null })
     }
+
+    /** The unit a cadence column is read in: steps per minute on foot, strokes per minute in a swim, else rpm. */
+    private fun cadenceSymbol(cadence: StreamKind): String =
+        when (cadence) {
+            StreamKind.StepCadence -> "unit_symbol_spm"
+            StreamKind.StrokeCadence -> "unit_symbol_strokes_per_minute"
+            else -> "unit_symbol_rpm"
+        }
 
     /** A table row as a screen reader says it: its [name], then each header and value. */
     fun spoken(name: AppText, headers: List<AppText>, cells: List<AppText>): AppText =

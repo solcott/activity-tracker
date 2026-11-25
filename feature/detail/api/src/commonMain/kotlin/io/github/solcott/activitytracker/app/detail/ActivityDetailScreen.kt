@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.GroupPartner
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 
 /**
@@ -145,10 +146,28 @@ data class ActivityDetailPage(
     val leavingCopyGroup: Boolean = false,
     /** Why leaving the group on the owner's copy failed. */
     val copyGroupError: UiError? = null,
+    /**
+     * The chart cards shown open; the rest show as strips. Null until the viewer opens or closes one, when only the lead (the first chart
+     * of [ActivityPageContent.cards]) is open. Native views ask [isOpen], since a set of enums can't reach Swift.
+     */
+    val openCards: ImmutableSet<DetailSection>? = null,
+    /** On a wide window, the side pane shows All data, from this section, in place of the page's summary; null while it doesn't. */
+    val allData: DataSection? = null,
 ) {
     /** Whether the page has a Together with section: partners, or something for the owner to do about them. */
     val showsGroup: Boolean
         get() = partners.isNotEmpty() || ownGroup != null || canAddPeople || isOwnCopy
+
+    /** Whether [card] shows open rather than as a strip; a table always shows open. */
+    fun isOpen(card: MetricCard): Boolean = card.section.isTable || (openCards?.contains(card.section) ?: (card.section == lead))
+
+    /** The card that opens with the page: its first chart in the sport's order. */
+    val lead: DetailSection?
+        get() = page.cards.firstOrNull { !it.section.isTable }?.section
+
+    /** What All data shows, for the side pane while [allData] is set. */
+    val data: ActivityData
+        get() = ActivityData.of(page, chartSources, allData)
 }
 
 /**
@@ -360,4 +379,16 @@ sealed interface ActivityDetailEvent {
 
     /** The UI couldn't hand [ActivityExportState.file] to the platform: it was never offered, and [ActivityExportState.error] says so. */
     data object ExportShareFailed : ActivityDetailEvent
+
+    /** Opens [section]'s chart card in place of its strip, or closes it back to one. */
+    data class ToggleCard(val section: DetailSection) : ActivityDetailEvent
+
+    /**
+     * Opens All data at [section] (the top when null): in the side pane when the window has one ([inPane]), else as its own page
+     * ([ActivityDataScreen]).
+     */
+    data class OpenAllData(val section: DataSection?, val inPane: Boolean) : ActivityDetailEvent
+
+    /** Closes All data in the side pane, showing the page's summary again. */
+    data object CloseAllData : ActivityDetailEvent
 }

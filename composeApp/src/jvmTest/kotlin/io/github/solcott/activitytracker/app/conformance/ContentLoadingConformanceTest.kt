@@ -11,6 +11,8 @@ import com.slack.circuit.runtime.CircuitUiState
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.comments.CommentsSamples
 import io.github.solcott.activitytracker.app.comments.CommentsUi
+import io.github.solcott.activitytracker.app.detail.ActivityDataSamples
+import io.github.solcott.activitytracker.app.detail.ActivityDataUi
 import io.github.solcott.activitytracker.app.detail.ActivityDetailSamples
 import io.github.solcott.activitytracker.app.detail.ActivityDetailUi
 import io.github.solcott.activitytracker.app.detail.CombinePickerSamples
@@ -152,7 +154,8 @@ class ContentLoadingConformanceTest {
             entry({ DiveSiteRegularsSamples.all }, "Bob") { DiveSiteRegularsUi(it) },
             entry({ DiveSiteBrowseSamples.all }, "SS Thistlegorm") { DiveSiteBrowseUi(it) },
             entry({ CreateDiveSiteSamples.all }, null) { CreateDiveSiteUi(it) },
-            entry({ ActivityDetailSamples.all }, "Morning Ride") { ActivityDetailUi(it) },
+            entry({ ActivityDetailSamples.all }, "Great ride!") { ActivityDetailUi(it) },
+            entry({ ActivityDataSamples.all }, "Moving time") { ActivityDataUi(it) },
             entry({ CombinePickerSamples.all }, "Ride (watch)") { CombinePickerUi(it) },
             entry({ CommentsSamples.all }, "Legs were cooked by the top.") { CommentsUi(it) },
             entry({ RouteMapSamples.all }, null) { RouteMapUi(it) },

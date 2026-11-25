@@ -2,8 +2,10 @@ package io.github.solcott.activitytracker.app.links
 
 import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.comments.CommentsScreen
+import io.github.solcott.activitytracker.app.detail.ActivityDataScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.CombinePickerScreen
+import io.github.solcott.activitytracker.app.detail.DataSection
 import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteScreen
 import io.github.solcott.activitytracker.app.divesite.DiveSiteBrowseScreen
 import io.github.solcott.activitytracker.app.divesite.DiveSiteRegularsScreen
@@ -147,6 +149,7 @@ object AppLinkRoutes {
             is ActivityDetailScreen -> activity(screen.uri)
             is RouteMapScreen -> activity(screen.uri, MAP)
             is MediaGalleryScreen -> activity(screen.uri, MEDIA, screen.index.toString())
+            is ActivityDataScreen -> screen.section?.let { activity(screen.uri, DATA, it) } ?: activity(screen.uri, DATA)
             is EditActivityScreen -> activity(screen.uri, EDIT)
             is AddPeopleScreen -> activity(screen.activity, PEOPLE)
             is CombinePickerScreen -> activity(screen.uri, COMBINE)
@@ -239,6 +242,7 @@ object AppLinkRoutes {
             when (tail) {
                 emptyList<String>() -> null
                 listOf(MAP) -> RouteMapScreen(uri)
+                listOf(DATA) -> ActivityDataScreen(uri)
                 listOf(COMMENTS) -> CommentsScreen(uri)
                 listOf(NEW_SEGMENT) -> CreateSegmentScreen(uri)
                 listOf(NEW_DIVE_SITE) -> CreateDiveSiteScreen(uri)
@@ -246,15 +250,19 @@ object AppLinkRoutes {
                 listOf(EDIT) -> EditActivityScreen(uri).takeIf { own }
                 listOf(PEOPLE) -> AddPeopleScreen(uri).takeIf { own }
                 listOf(COMBINE) -> CombinePickerScreen(uri).takeIf { own }
-                else ->
-                    tail
-                        .takeIf { it.size == 2 && it[0] == MEDIA }
-                        ?.get(1)
-                        ?.toIntOrNull()
-                        ?.takeIf { it >= 0 }
-                        ?.let { MediaGalleryScreen(uri, it) } ?: return null
+                else -> sectionPage(uri, tail) ?: return null
             }
         return listOfNotNull(activity, page)
+    }
+
+    /** `/media/{index}` or `/data/{section}` after an activity: the gallery at a photo, or All data at a section. */
+    private fun sectionPage(uri: String, tail: List<String>): Screen? {
+        if (tail.size != 2) return null
+        return when (tail[0]) {
+            MEDIA -> tail[1].toIntOrNull()?.takeIf { it >= 0 }?.let { MediaGalleryScreen(uri, it) }
+            DATA -> DataSection.named(tail[1])?.let { ActivityDataScreen(uri, it.name) }
+            else -> null
+        }
     }
 
     private fun postChain(uri: String, tail: List<String>): List<Screen>? =
@@ -438,6 +446,7 @@ object AppLinkRoutes {
     private const val BATCH = "batch"
     private const val MAP = "map"
     private const val MEDIA = "media"
+    private const val DATA = "data"
     private const val EDIT = "edit"
     private const val PEOPLE = "people"
     private const val COMBINE = "combine"

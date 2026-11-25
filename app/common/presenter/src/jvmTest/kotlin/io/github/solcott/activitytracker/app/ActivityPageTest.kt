@@ -142,7 +142,8 @@ class ActivityPageTest {
     fun `a ride the viewer may see in full`() {
         val page = ActivityPage.build(mtb, rideCharts())
         assertEquals(
-            listOf(DetailSection.HeartRate, DetailSection.Power, DetailSection.Speed, DetailSection.Cadence, DetailSection.Elevation),
+            // Power leads a ride's cards, then heart rate (feed/activity-page-layout).
+            listOf(DetailSection.Power, DetailSection.HeartRate, DetailSection.Speed, DetailSection.Cadence, DetailSection.Elevation),
             page.cards.map { it.section },
         )
         assertTrue(page.cards.all { it.series.isNotEmpty() })
@@ -378,7 +379,12 @@ class ActivityPageTest {
         val row = page.avgMax.single { it.metric == AvgMaxMetric.Cadence }
         assertEquals(FigureValue.Stream(StreamKind.StepCadence, 184.0), row.max)
         val laps = LapTableTexts.of(assertNotNull(page.charts), UnitSystem.Metric)
-        assertEquals(AppText.named("unit_spm", AppText.written("168")), laps.rows.first().cells.last())
+        assertEquals(AppText.written("168"), laps.rows.first().cells.last())
+        // The column names its unit once, so each cell is its number alone.
+        assertEquals(
+            AppText.named("table_header_unit", AppText.named("lap_cadence"), AppText.named("unit_symbol_spm")),
+            laps.headers.last(),
+        )
     }
 
     @Test
@@ -398,7 +404,11 @@ class ActivityPageTest {
         assertEquals(StreamKind.StrokeCadence, series.kind)
         assertEquals(listOf(28.0, 38.0), series.points.map { it.value })
         val laps = LapTableTexts.of(assertNotNull(page.charts), UnitSystem.Metric)
-        assertEquals(AppText.named("unit_strokes_per_minute", AppText.written("31")), laps.rows.first().cells.last())
+        assertEquals(AppText.written("31"), laps.rows.first().cells.last())
+        assertEquals(
+            AppText.named("table_header_unit", AppText.named("lap_cadence"), AppText.named("unit_symbol_strokes_per_minute")),
+            laps.headers.last(),
+        )
     }
 
     @Test
@@ -407,6 +417,36 @@ class ActivityPageTest {
         val cadence = page.stats.first { it.kind == StatsGroupKind.Cadence }.rows
         assertEquals(FigureValue.Quantity(75, FigureUnit.Rpm), cadence.first().value)
         assertEquals(StreamKind.Cadence, page.cards.single { it.section == DetailSection.Cadence }.series.single().kind)
+    }
+
+    @Test
+    fun `a ride without power leads with heart rate`() {
+        val lines = rideCharts().lines.filter { it.kind != StreamKind.Power }.toImmutableList()
+        val page = ActivityPage.build(mtb, charts().copy(lines = lines))
+        assertEquals(DetailSection.HeartRate, page.cards.first().section)
+    }
+
+    @Test
+    fun `each sport leads with its own card`() {
+        val lines =
+            persistentListOf(
+                line(StreamKind.HeartRate, 140.0),
+                line(StreamKind.Speed, 3000.0),
+                line(StreamKind.Elevation, 200.0),
+                line(StreamKind.Depth, 1500.0),
+                line(StreamKind.Temperature, 200.0),
+            )
+        val all = charts().copy(lines = lines, sets = persistentListOf(SetRow(1, false, "bench_press", "bench_press", 8, 70_000, 40)))
+        fun lead(sport: String) = ActivityPage.build(record(sport), all).cards.first().section
+        assertEquals(DetailSection.Speed, lead(Sport.RUN))
+        assertEquals(DetailSection.Depth, lead(Sport.DIVE))
+        assertEquals(DetailSection.Sets, lead(Sport.STRENGTH))
+        // Sections a sport's order doesn't name follow in section order.
+        val dive = ActivityPage.build(record(Sport.DIVE), all).cards.map { it.section }
+        assertEquals(
+            listOf(DetailSection.Depth, DetailSection.Temperature, DetailSection.HeartRate, DetailSection.Speed, DetailSection.Elevation),
+            dive.filter { it != DetailSection.Sets },
+        )
     }
 
     private fun record(sport: String) = ActivityRecord(sport, START, 3600, START)

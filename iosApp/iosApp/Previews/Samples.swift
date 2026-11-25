@@ -151,6 +151,12 @@
         /// The activity page (ios-native-activity-page) in each state it shows, states beyond content loading apart.
         static var activityDetail: [String: ActivityDetailState] { DetailPackage.ActivityDetailSamples.shared.all }
         static var activityDetailVariants: [String: ActivityDetailState] { DetailPackage.ActivityDetailSamples.shared.variants }
+        /// The page's mosaic in each shape it takes (feed/activity-page-layout): a route with photos, a dive's photo alone, a ski day,
+        /// a strength session's sets, and an activity with neither route nor photos.
+        static var activityDetailMosaics: [String: ActivityDetailState] { DetailPackage.ActivityDetailMosaicSamples.shared.variants }
+        /// All data in each loading state, and opened from the laps' Show all.
+        static var activityData: [String: ActivityDataState] { DetailPackage.ActivityDataSamples.shared.all }
+        static var activityDataAtLaps: ActivityDataState { DetailPackage.ActivityDataSamples.shared.atLaps }
         /// The sample ride's laps and elevation cards and the charts they draw from, for a card on its own.
         static var rideLaps: MetricCard { DetailPackage.ActivityDetailSamples.shared.rideLaps }
         static var rideElevation: MetricCard { DetailPackage.ActivityDetailSamples.shared.rideElevation }

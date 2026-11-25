@@ -98,8 +98,56 @@ object ActivityPage {
     private fun cards(record: ActivityRecord, charts: ActivityCharts?, figures: Figures, marks: Map<String, String>) =
         detailSections(record, charts)
             .filter { it != DetailSection.Device }
+            .sortedBy { cardRank(SportFamily.of(record.sport), it) }
             .mapNotNull { section -> charts?.let { MetricCards.card(section, it, figures, marks[categoryOf(section)]) } }
             .toImmutableList()
+
+    /**
+     * Where [section]'s card sits on a page of [family]'s sport: its place in the family's order, and after those, in section order. The
+     * first card is the page's lead, open when it opens (feed/activity-page-layout).
+     */
+    internal fun cardRank(family: SportFamily, section: DetailSection): Int {
+        val order = CARD_ORDER.getValue(family)
+        val place = order.indexOf(section)
+        return if (place >= 0) place else order.size + section.ordinal
+    }
+
+    private val CARD_ORDER: Map<SportFamily, List<DetailSection>> =
+        mapOf(
+            SportFamily.Ride to
+                listOf(
+                    DetailSection.Power,
+                    DetailSection.HeartRate,
+                    DetailSection.Speed,
+                    DetailSection.Cadence,
+                    DetailSection.Elevation,
+                    DetailSection.CyclingDynamics,
+                    DetailSection.Gears,
+                    DetailSection.EBike,
+                ),
+            SportFamily.OnFoot to
+                listOf(
+                    DetailSection.Speed,
+                    DetailSection.HeartRate,
+                    DetailSection.Elevation,
+                    DetailSection.Cadence,
+                    DetailSection.Power,
+                    DetailSection.RunningDynamics,
+                ),
+            SportFamily.Swim to listOf(DetailSection.Speed, DetailSection.HeartRate, DetailSection.Cadence, DetailSection.Lengths),
+            SportFamily.Dive to
+                listOf(
+                    DetailSection.Depth,
+                    DetailSection.TankPressure,
+                    DetailSection.Temperature,
+                    DetailSection.Oxygen,
+                    DetailSection.HeartRate,
+                ),
+            SportFamily.Snow to listOf(DetailSection.Laps, DetailSection.Speed, DetailSection.Elevation, DetailSection.HeartRate),
+            SportFamily.NoRate to listOf(DetailSection.Sets, DetailSection.HeartRate),
+            SportFamily.Other to
+                listOf(DetailSection.HeartRate, DetailSection.Speed, DetailSection.Power, DetailSection.Elevation, DetailSection.Cadence),
+        )
 
     /** The detail category whose visibility a section's card is marked with; null for core data, never marked. */
     fun categoryOf(section: DetailSection): String? =

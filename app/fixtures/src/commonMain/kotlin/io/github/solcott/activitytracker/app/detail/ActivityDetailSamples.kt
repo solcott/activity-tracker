@@ -162,11 +162,11 @@ object ActivityDetailSamples {
             }
             .toImmutableList()
 
-    private val heartRate = line(StreamKind.HeartRate, 142.0, 18.0, max = 176.0)
+    internal val heartRate = line(StreamKind.HeartRate, 142.0, 18.0, max = 176.0)
     private val power = line(StreamKind.Power, 205.0, 60.0, max = 512.0)
-    private val elevation = line(StreamKind.Elevation, 1_620.0, 80.0, average = null, max = 1_745.0)
+    internal val elevation = line(StreamKind.Elevation, 1_620.0, 80.0, average = null, max = 1_745.0)
     private val grade = line(StreamKind.Grade, 1.5, 4.0, average = null, max = 9.4)
-    private val speed = line(StreamKind.Speed, 8_800.0, 2_200.0, max = 15_400.0)
+    internal val speed = line(StreamKind.Speed, 8_800.0, 2_200.0, max = 15_400.0)
 
     private val laps: ImmutableList<LapRow> =
         persistentListOf(
@@ -188,7 +188,7 @@ object ActivityDetailSamples {
             laps = laps,
         )
 
-    private fun figure(key: FigureKey, value: FigureValue, mark: String? = null) = Figure(key, value, mark = mark)
+    internal fun figure(key: FigureKey, value: FigureValue, mark: String? = null) = Figure(key, value, mark = mark)
 
     /** What the owner's ride page shows: its hero, training load, a card per metric with charts, zones and laps, and its stats. */
     internal val ridePage: ActivityPageContent =

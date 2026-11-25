@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.links
 
 import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.comments.CommentsScreen
+import io.github.solcott.activitytracker.app.detail.ActivityDataScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.CombinePickerScreen
 import io.github.solcott.activitytracker.app.divesite.CreateDiveSiteScreen
@@ -80,6 +81,8 @@ val linkSamples: Map<String, LinkSample> =
             LinkSample(RouteMapScreen(ACT), "/profile/$BOB/activity/3kact/map"),
             LinkSample(CommentsScreen(ACT), "/profile/$BOB/activity/3kact/comments"),
             LinkSample(MediaGalleryScreen(ACT, 2), "/profile/$BOB/activity/3kact/media/2"),
+            LinkSample(ActivityDataScreen(ACT), "/profile/$BOB/activity/3kact/data"),
+            LinkSample(ActivityDataScreen(ACT, "Laps"), "/profile/$BOB/activity/3kact/data/Laps"),
             LinkSample(EditActivityScreen(OWN_ACT), "/profile/$VIEWER/activity/3kown/edit"),
             LinkSample(AddPeopleScreen(OWN_ACT), "/profile/$VIEWER/activity/3kown/people"),
             LinkSample(CombinePickerScreen(OWN_ACT), "/profile/$VIEWER/activity/3kown/combine"),

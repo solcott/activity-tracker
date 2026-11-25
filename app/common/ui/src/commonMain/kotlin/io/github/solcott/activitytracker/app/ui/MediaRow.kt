@@ -89,7 +89,25 @@ private fun MediaTile(
     takenDown: Boolean = false,
 ) {
     val ratio = (item.aspectRatio ?: DEFAULT_RATIO).coerceIn(MIN_RATIO, MAX_RATIO)
-    val tile = modifier.width(height * ratio).fillMaxHeight().clip(TILE_SHAPE).background(MaterialTheme.colorScheme.surfaceVariant)
+    MediaPhoto(item, onClick, modifier.width(height * ratio).fillMaxHeight().clip(TILE_SHAPE), blur, revealed, onReveal, takenDown)
+}
+
+/**
+ * One photo filling [modifier]'s bounds, cropped: blurred behind its label until [revealed] (a tap then reveals it rather than opening it),
+ * or a placeholder when [takenDown]. Tapping it calls [onClick].
+ */
+@Composable
+@Suppress("LongParameterList") // The photo, and how its label and a takedown show.
+internal fun MediaPhoto(
+    item: MediaItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    blur: BlurReason? = null,
+    revealed: Boolean = false,
+    onReveal: () -> Unit = {},
+    takenDown: Boolean = false,
+) {
+    val tile = modifier.background(MaterialTheme.colorScheme.surfaceVariant)
     if (takenDown) {
         Box(tile, contentAlignment = Alignment.Center) {
             Text(stringResource(Res.string.label_taken_down_photo), style = MaterialTheme.typography.labelMedium)
@@ -103,7 +121,7 @@ private fun MediaTile(
                     AsyncImage(
                         item.url,
                         contentDescription = item.alt ?: stringResource(Res.string.details_photo),
-                        modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                     )
             }

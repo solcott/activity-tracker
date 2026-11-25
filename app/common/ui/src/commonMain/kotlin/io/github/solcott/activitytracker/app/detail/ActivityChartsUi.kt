@@ -33,12 +33,13 @@ internal fun CardCharts(
     missingZones: Boolean,
     onSetThresholds: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    maxRows: Int = Int.MAX_VALUE,
 ) {
     val units = LocalUnitSystem.current
     val lines = remember(card, charts, units) { CardLines.of(card, charts, units) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(CHART_GAP)) {
         for (line in lines) CardLineChart(line)
-        CardExtras(card, charts, missingZones, onSetThresholds)
+        CardExtras(card, charts, missingZones, onSetThresholds, maxRows)
     }
 }
 
@@ -53,7 +54,7 @@ private fun CardLineChart(line: CardLine) {
 
 /** What follows [card]'s charts: zones (or how to get them), or its table. */
 @Composable
-private fun CardExtras(card: MetricCard, charts: ActivityCharts, missingZones: Boolean, onSetThresholds: (() -> Unit)?) {
+private fun CardExtras(card: MetricCard, charts: ActivityCharts, missingZones: Boolean, onSetThresholds: (() -> Unit)?, maxRows: Int) {
     when (card.section) {
         DetailSection.HeartRate,
         DetailSection.Power -> {
@@ -61,14 +62,23 @@ private fun CardExtras(card: MetricCard, charts: ActivityCharts, missingZones: B
             if (zones != null) Zones(card.section, zones) else if (missingZones && onSetThresholds != null) MissingZones(onSetThresholds)
         }
 
-        DetailSection.Laps -> LapTable(charts.laps, ski = charts.skiRuns != null, cadence = charts.cadenceKind)
+        DetailSection.Laps,
+        DetailSection.Legs,
+        DetailSection.Lengths,
+        DetailSection.Sets -> DetailTableUi(card.section, charts, maxRows)
 
-        DetailSection.Legs -> LegTable(charts.legs)
+        else -> {}
+    }
+}
 
-        DetailSection.Lengths -> LengthTable(charts.lengths)
-
-        DetailSection.Sets -> SetTable(charts.sets)
-
+/** [section]'s table (laps, legs, lengths or sets), its first [maxRows]; nothing for a chart's section. */
+@Composable
+fun DetailTableUi(section: DetailSection, charts: ActivityCharts, maxRows: Int = Int.MAX_VALUE) {
+    when (section) {
+        DetailSection.Laps -> LapTable(charts.laps, ski = charts.skiRuns != null, cadence = charts.cadenceKind, maxRows = maxRows)
+        DetailSection.Legs -> LegTable(charts.legs, maxRows)
+        DetailSection.Lengths -> LengthTable(charts.lengths, maxRows)
+        DetailSection.Sets -> SetTable(charts.sets, maxRows)
         else -> {}
     }
 }
@@ -112,6 +122,13 @@ private fun Zones(section: DetailSection, zones: ImmutableList<ZoneTime>) {
         ChartHeader(ZoneRows.heading(section).string(), null)
         ZoneBars(bars.toImmutableList())
     }
+}
+
+/** [zones] as a strip's thin bar. */
+@Composable
+internal fun ZoneStrip(section: DetailSection, zones: ImmutableList<ZoneTime>) {
+    val fractions = remember(zones, section) { ZoneRows.of(zones, section).map { it.fraction.toFloat() }.toImmutableList() }
+    io.github.solcott.activitytracker.app.ui.chart.ZoneStrip(fractions)
 }
 
 private val CHART_GAP = 24.dp

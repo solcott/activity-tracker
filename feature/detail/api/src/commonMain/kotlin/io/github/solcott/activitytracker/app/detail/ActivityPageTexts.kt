@@ -175,6 +175,20 @@ object ActivityPageTexts {
 
     fun markDescription(mark: String?): AppText? = mark?.let(VisibilityTexts::badgeDescription)
 
+    /** The heading over the strips, the charts that aren't open. */
+    val moreCharts: AppText = AppText.named("detail_more_charts")
+
+    /**
+     * The section chips of a one-column page (feed/activity-page-layout), in page order: Overview, each card, Segments when it has efforts,
+     * and All data when it's offered.
+     */
+    fun jumps(page: ActivityDetailPage): List<PageJump> = buildList {
+        add(PageJump(PageJump.OVERVIEW, AppText.named("detail_jump_overview")))
+        page.page.cards.forEach { add(PageJump(PageJump.card(it.section), FigureTexts.cardTitle(it), it.section)) }
+        if (page.segments.isNotEmpty()) add(PageJump(PageJump.SEGMENTS, segmentsHeading))
+        if (ActivityDataTexts.offered(page.data)) add(PageJump(PageJump.ALL_DATA, ActivityDataTexts.rowTitle))
+    }
+
     val segmentsHeading: AppText = AppText.named("detail_section_segments")
     val liftsHeading: AppText = AppText.named("detail_section_lifts")
 
@@ -346,4 +360,20 @@ object ActivityPageTexts {
     val combine: AppText = AppText.named("combine_suggestion_combine")
     val notNow: AppText = AppText.named("combine_suggestion_not_now")
     val dontCombine: AppText = AppText.named("combine_suggestion_dont")
+}
+
+/**
+ * A section chip of the activity page: [key] names the list item it scrolls to, and [card] the card it opens, if any. A class so Swift can
+ * read a list of them.
+ */
+@Immutable
+class PageJump(val key: String, val label: AppText, val card: DetailSection? = null) {
+    companion object {
+        const val OVERVIEW = "overview"
+        const val SEGMENTS = "segments"
+        const val ALL_DATA = "allData"
+
+        /** The key of [section]'s card in the page's list. */
+        fun card(section: DetailSection): String = "card/${section.name}"
+    }
 }

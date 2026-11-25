@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.app.detail
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -14,29 +12,33 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 /** A pool swim's lengths ([StructureTableTexts.lengths]). */
-@Composable internal fun LengthTable(lengths: ImmutableList<LengthRow>) = StructureTable(StructureTableTexts.lengths(lengths))
+@Composable
+internal fun LengthTable(lengths: ImmutableList<LengthRow>, maxRows: Int = Int.MAX_VALUE) =
+    StructureTable(StructureTableTexts.lengths(lengths), maxRows = maxRows)
 
 /** A workout's sets ([StructureTableTexts.sets]). */
-@Composable internal fun SetTable(sets: ImmutableList<SetRow>) = StructureTable(StructureTableTexts.sets(sets, LocalUnitSystem.current))
+@Composable
+internal fun SetTable(sets: ImmutableList<SetRow>, maxRows: Int = Int.MAX_VALUE) =
+    StructureTable(StructureTableTexts.sets(sets, LocalUnitSystem.current), maxRows = maxRows)
 
 /** A multisport activity's legs ([StructureTableTexts.legs]), the sport's name given a wider first column. */
 @Composable
-internal fun LegTable(legs: ImmutableList<LegRow>) =
-    StructureTable(StructureTableTexts.legs(legs, LocalUnitSystem.current), firstWidth = ROW_NAME_WIDTH)
+internal fun LegTable(legs: ImmutableList<LegRow>, maxRows: Int = Int.MAX_VALUE) =
+    StructureTable(StructureTableTexts.legs(legs, LocalUnitSystem.current), firstWidth = ROW_NAME_WIDTH, maxRows = maxRows)
 
 /**
  * A header row, then each of [table]'s rows, each read by a screen reader as one sentence; its wide column (a name) gets twice the width.
  */
 @Composable
-private fun StructureTable(table: DetailTable, firstWidth: Dp = ROW_NUMBER_WIDTH) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun StructureTable(table: DetailTable, firstWidth: Dp = ROW_NUMBER_WIDTH, maxRows: Int = Int.MAX_VALUE) {
+    TableFrame(table.headers.size, firstWidth, table.wideColumn) {
         TableCells(
             table.headers.map { it.string() }.toImmutableList(),
             header = true,
             firstWidth = firstWidth,
             wideColumn = table.wideColumn,
         )
-        for (row in table.rows) {
+        for (row in table.rows.take(maxRows)) {
             val spoken = row.spoken.string()
             TableCells(
                 row.cells.map { it.string() }.toImmutableList(),

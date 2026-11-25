@@ -35,3 +35,10 @@ enum class DetailSection {
     /** The recording device and its sensors. */
     Device,
 }
+
+/** A table rather than a chart: it always shows, [TABLE_PREVIEW_ROWS] rows at a time on the activity page, and in full in All data. */
+val DetailSection.isTable: Boolean
+    get() = this == DetailSection.Laps || this == DetailSection.Legs || this == DetailSection.Lengths || this == DetailSection.Sets
+
+/** How many rows of a table the activity page shows before Show all (feed/activity-page-layout). */
+const val TABLE_PREVIEW_ROWS = 5

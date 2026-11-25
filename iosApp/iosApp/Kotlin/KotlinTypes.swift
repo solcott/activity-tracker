@@ -462,6 +462,7 @@ typealias MapBreak = AppPackage.MapBreak
 typealias MapBounds = AppPackage.MapBounds
 typealias MapFrame = AppPackage.MapFrame
 typealias RouteEnds = AppPackage.RouteEnds
+typealias ShownRoute = AppPackage.ShownRoute
 typealias GeoPoint = ExportedKotlinPackages.io.github.solcott.activitytracker.location.GeoPoint
 typealias PlaceTexts = SegmentPackage.PlaceTexts
 typealias PlaceNameTexts = NamesPackage.PlaceNameTexts
@@ -627,6 +628,17 @@ typealias CombinationTexts = DetailPackage.CombinationTexts
 typealias DataSources = DetailPackage.DataSources
 typealias DataSourceRow = DetailPackage.DataSourceRow
 typealias ChartSource = DetailPackage.ChartSource
+// The activity page's mosaic and All data (feed/activity-page-layout): which tiles the mosaic holds, the section chips, and All data's
+// screen, what it shows and its words.
+typealias MediaMosaic = AppPackage.media.MediaMosaic
+typealias PageJump = DetailPackage.PageJump
+typealias ActivityDataScreen = DetailPackage.ActivityDataScreen
+typealias ActivityDataState = DetailPackage.ActivityDataState
+typealias ActivityDataEvent = DetailPackage.ActivityDataEvent
+typealias ActivityData = DetailPackage.ActivityData
+typealias ActivityDataTexts = DetailPackage.ActivityDataTexts
+typealias DataSection = DetailPackage.DataSection
+typealias DataSectionOption = DetailPackage.DataSectionOption
 typealias DataKind = ExportedKotlinPackages.io.github.solcott.activitytracker.data.activity.DataKind
 typealias CombinePickerScreen = DetailPackage.CombinePickerScreen
 typealias CombinePickerState = DetailPackage.CombinePickerState

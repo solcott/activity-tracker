@@ -25,17 +25,26 @@ import kotlinx.collections.immutable.ImmutableList
 
 /**
  * The activity's headline figures: each value large with its unit smaller, under its label, which wraps rather than being cut off. Two to a
- * row in a narrow column, three where they have room.
+ * row in a narrow column, three where they have room; three or fewer in one row, larger.
  */
 @Composable
 fun HeroRow(figures: ImmutableList<Figure>, modifier: Modifier = Modifier) {
     if (figures.isEmpty()) return
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val columns = if (maxWidth < HERO_THREE_COLUMNS) 2 else 3
+        // Three figures or fewer fit one row, set larger: a short page reads as a short post (feed/activity-page-layout).
+        val few = figures.size <= FEW_FIGURES
+        // Four go two by two, so none sits alone on a row.
+        val columns =
+            when {
+                few -> figures.size
+                figures.size == FOUR || maxWidth < HERO_THREE_COLUMNS -> 2
+                else -> 3
+            }
+        val style = if (few) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineSmall
         Column(verticalArrangement = Arrangement.spacedBy(ROW_GAP)) {
             figures.chunked(columns).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(ROW_GAP)) {
-                    row.forEach { FigureBlock(it, MaterialTheme.typography.headlineSmall, Modifier.weight(1f)) }
+                    row.forEach { FigureBlock(it, style, Modifier.weight(1f)) }
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
@@ -52,6 +61,12 @@ internal fun FigureBlock(figure: Figure, style: TextStyle, modifier: Modifier = 
     }
 }
 
+/** A figure's value alone, in [style] and semibold, its unit smaller. */
+@Composable
+internal fun FigureValueText(figure: Figure, style: TextStyle, modifier: Modifier = Modifier) {
+    Text(valueText(figure.value, style), modifier, style = style, fontWeight = FontWeight.SemiBold)
+}
+
 @Composable
 private fun valueText(value: FigureValue, style: TextStyle) =
     withSmallUnits(figureText(value), SpanStyle(fontSize = style.fontSize * UNIT_SCALE, fontWeight = FontWeight.Normal))
@@ -66,7 +81,7 @@ internal fun FigureRow(figure: Figure, modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun LabelValueRow(label: String, value: String, modifier: Modifier = Modifier, mark: String? = null) {
+fun LabelValueRow(label: String, value: String, modifier: Modifier = Modifier, mark: String? = null) {
     Row(
         modifier.fillMaxWidth().padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -101,6 +116,8 @@ internal fun CardTitle(title: String, mark: String?, modifier: Modifier = Modifi
 }
 
 private val HERO_THREE_COLUMNS = 340.dp
+private const val FEW_FIGURES = 3
+private const val FOUR = 4
 internal val ROW_GAP = 12.dp
 private val VALUE_MAX_WIDTH = 220.dp
 private const val UNIT_SCALE = 0.6f

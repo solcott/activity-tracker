@@ -1627,6 +1627,10 @@
     <string name="media_previous">Previous photo</string>
     <string name="media_next">Next photo</string>
     <string name="media_zoom_hint">Tap to zoom</string>
+    <plurals name="media_more">
+        <item quantity="one">+%1$s</item>
+        <item quantity="other">+%1$s</item>
+    </plurals>
     <plurals name="detail_recording_unnamed_earlier">
         <item quantity="one">Another device, started %1$d min earlier</item>
         <item quantity="other">Another device, started %1$d min earlier</item>
@@ -1885,6 +1889,18 @@
     <string name="lap_number">Lap</string>
     <string name="lap_time">Time</string>
     <string name="lap_distance">Distance</string>
+    <string name="table_header_unit">%1$s (%2$s)</string>
+    <string name="unit_symbol_km">km</string>
+    <string name="unit_symbol_mi">mi</string>
+    <string name="unit_symbol_kmh">km/h</string>
+    <string name="unit_symbol_mph">mph</string>
+    <string name="unit_symbol_bpm">bpm</string>
+    <string name="unit_symbol_w">W</string>
+    <string name="unit_symbol_m">m</string>
+    <string name="unit_symbol_ft">ft</string>
+    <string name="unit_symbol_rpm">rpm</string>
+    <string name="unit_symbol_spm">spm</string>
+    <string name="unit_symbol_strokes_per_minute">strokes/min</string>
     <string name="lap_speed">Speed</string>
     <string name="lap_heart_rate">HR</string>
     <string name="lap_power">Power</string>
@@ -2059,6 +2075,37 @@
     <string name="gear_default_for_hint">New activities of these types start with this item. A sub-sport's default replaces its sport's for the same kind of gear.</string>
     <string name="page_training_load">Training load</string>
     <string name="page_all_stats">All stats</string>
+    <string name="data_title">All data</string>
+    <string name="data_close">Close All data</string>
+    <string name="data_section_sources">Sources</string>
+    <string name="detail_jump_overview">Overview</string>
+    <string name="detail_more_charts">More charts</string>
+    <string name="detail_open_card">Show chart</string>
+    <string name="detail_close_card">Hide chart</string>
+    <plurals name="data_figure_count">
+        <item quantity="one">%1$s figure</item>
+        <item quantity="other">%1$s figures</item>
+    </plurals>
+    <plurals name="data_show_all_laps">
+        <item quantity="one">Show all %1$s lap</item>
+        <item quantity="other">Show all %1$s laps</item>
+    </plurals>
+    <plurals name="data_show_all_runs">
+        <item quantity="one">Show all %1$s run</item>
+        <item quantity="other">Show all %1$s runs</item>
+    </plurals>
+    <plurals name="data_show_all_legs">
+        <item quantity="one">Show all %1$s leg</item>
+        <item quantity="other">Show all %1$s legs</item>
+    </plurals>
+    <plurals name="data_show_all_lengths">
+        <item quantity="one">Show all %1$s length</item>
+        <item quantity="other">Show all %1$s lengths</item>
+    </plurals>
+    <plurals name="data_show_all_sets">
+        <item quantity="one">Show all %1$s set</item>
+        <item quantity="other">Show all %1$s sets</item>
+    </plurals>
     <string name="page_avg_max_heading">Averages and maximums</string>
     <string name="page_group_timing">Timing</string>
     <string name="page_group_distance_speed">Distance &amp; speed</string>

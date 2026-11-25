@@ -7,18 +7,14 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -44,6 +41,7 @@ import io.github.solcott.activitytracker.app.interactions.CommentsPreviewBlock
 import io.github.solcott.activitytracker.app.interactions.LikersList
 import io.github.solcott.activitytracker.app.interactions.SocialCount
 import io.github.solcott.activitytracker.app.interactions.SocialCountsRow
+import io.github.solcott.activitytracker.app.media.MediaMosaic
 import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.shownName
@@ -53,7 +51,8 @@ import io.github.solcott.activitytracker.app.ui.CategoryLock
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.HiddenCard
-import io.github.solcott.activitytracker.app.ui.MediaRow
+import io.github.solcott.activitytracker.app.ui.MOSAIC_HEIGHT
+import io.github.solcott.activitytracker.app.ui.MediaMosaicUi
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.VisibilityBadge
@@ -77,6 +76,7 @@ import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import io.github.solcott.uistate.ContentState
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
@@ -86,8 +86,11 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
     AppScaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
+            // The bar names the activity and its sport once it has loaded, so it stays named as the page scrolls.
+            val shown = state.content.data?.activity
             AppTopBar(
-                title = ActivityPageTexts.title.string(),
+                title = (shown?.let(ActivityPageTexts::heading) ?: ActivityPageTexts.title).string(),
+                subtitle = shown?.let(ActivityPageTexts::typeLine)?.string(),
                 onBack = { state.eventSink(ActivityDetailEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = {
@@ -153,54 +156,84 @@ private fun LoadedContent(
 }
 
 /**
- * Under 840dp: one list. Compact windows stack the hero, map, likes and comments card, training load, cards and stats; medium ones put the
- * hero and the map side by side, add the avg/max table, and set the cards and stats two to a row.
+ * Under 840dp: one list (feed/activity-page-layout). Compact windows stack the mosaic, header, hero, likes and comments card, training
+ * load, the cards in the sport's order (the lead open, the rest as strips, tables five rows long), segments, lifts and the All data row;
+ * medium ones put the mosaic and the hero side by side and set the strips two to a row. Once the mosaic scrolls away, chips for the page's
+ * sections stick under the bar.
  */
 @Composable
 private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, contentPadding: PaddingValues, width: WindowWidth) {
     val page = state.page
     val medium = width == WindowWidth.Medium
     val listState = rememberLazyListState()
-    ReadableList(listState, Modifier.fillMaxSize(), contentPadding) { listPadding ->
-        LazyColumn(
-            Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding = listPadding + PaddingValues(vertical = CARD_PADDING),
-            verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
-        ) {
-            // Over the loaded page: a spinner while it reloads, or why the last reload failed with Retry.
-            item(key = "refresh") {
-                RefreshStatus(content, UiError.Kind.LoadActivity, onRetry = { state.eventSink(ActivityDetailEvent.Retry) })
-            }
-            item(key = "header") { Header(state) }
-            if (medium) {
-                item(key = "summary") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-                        HeroRow(page.hero, Modifier.weight(1f))
-                        PageMedia(state, Modifier.weight(1f), height = 200.dp)
-                    }
+    val rows = cardRows(state, if (medium) 2 else 1, inPane = false)
+    val offersData = ActivityDataTexts.offered(state.data)
+    // Every item's key, in the list's order, so a chip finds the item it scrolls to.
+    val keys = pageKeys(state, rows, medium, offersData)
+    val tops = remember { CardTops() }
+    Box(Modifier.fillMaxSize()) {
+        ReadableList(listState, Modifier.fillMaxSize(), contentPadding) { listPadding ->
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                state = listState,
+                contentPadding = listPadding + PaddingValues(vertical = CARD_PADDING),
+                verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+            ) {
+                // Over the loaded page, in the first item so it leaves no gap when idle: a spinner while it reloads, or why the last
+                // reload failed with Retry.
+                val refresh: @Composable () -> Unit = {
+                    RefreshStatus(content, UiError.Kind.LoadActivity, onRetry = { state.eventSink(ActivityDetailEvent.Retry) })
                 }
-                item(key = "avgMax") { AvgMaxTable(page.avgMax) }
-            } else {
-                item(key = "hero") { HeroRow(page.hero) }
-                item(key = "media") { PageMedia(state) }
-            }
-            item(key = "social") { Social(state) }
-            if (state.showsGroup) item(key = "group") { TogetherWith(state) }
-            item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
-            metricCards(state, columns = if (medium) 2 else 1)
-            segments(state)
-            lifts(state)
-            item(key = "stats") {
-                StatsList(page.stats, columns = if (medium) 2 else 1, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) })
+                if (medium) {
+                    item(key = PageJump.OVERVIEW) {
+                        Column {
+                            refresh()
+                            Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
+                                PageMedia(state, Modifier.weight(1f), height = MEDIUM_MOSAIC_HEIGHT)
+                                HeroCard(page.hero, Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    item(key = "header") { Header(state) }
+                } else {
+                    item(key = PageJump.OVERVIEW) {
+                        Column {
+                            refresh()
+                            PageMedia(state)
+                        }
+                    }
+                    item(key = "header") { Header(state) }
+                    item(key = "hero") { HeroCard(page.hero) }
+                }
+                item(key = "social") { Social(state) }
+                if (state.showsGroup) item(key = "group") { TogetherWith(state) }
+                item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
+                if (rows.isNotEmpty()) item(key = CARDS_KEY) { CardGrid(state, rows, tops) }
+                segments(state)
+                lifts(state)
+                if (offersData) item(key = PageJump.ALL_DATA) { AllDataRow(state, inPane = false) }
             }
         }
+        // A card's chip scrolls to its place in the cards' item.
+        val positionOf = { jump: PageJump ->
+            val card = jump.card
+            if (card == null) keys.indexOf(jump.key).takeIf { it >= 0 }?.let { JumpPosition(it) }
+            else tops.of(jump.key)?.let { JumpPosition(keys.indexOf(CARDS_KEY), it) }
+        }
+        StickyJumps(
+            state,
+            listState,
+            keys.indexOf(PageJump.OVERVIEW),
+            positionOf,
+            Modifier.align(Alignment.TopCenter).padding(top = contentPadding.calculateTopPadding()),
+        )
     }
 }
 
 /**
- * From 840dp: a side pane with the map, hero, likes and comments card, avg/max table, training load and stats, scrolling on its own so the
- * map stays in view, beside the cards, two to a row once their pane has room.
+ * From 840dp: a side pane with the mosaic, header, hero, likes and comments card, Together with, training load and the All data row (or All
+ * data itself, once opened there), scrolling on its own so it stays in view, beside the cards, their strips two to a row once their pane
+ * has room.
  */
 @Composable
 private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, contentPadding: PaddingValues) {
@@ -210,36 +243,55 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
     val padding = contentPadding + PaddingValues(CARD_PADDING)
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center) {
         Box(Modifier.width(SIDE_PANE_WIDTH).fillMaxHeight()) {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                state = paneState,
-                contentPadding = padding,
-                verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
-            ) {
-                // Over the loaded page: a spinner while it reloads, or why the last reload failed with Retry.
-                item(key = "refresh") {
-                    RefreshStatus(content, UiError.Kind.LoadActivity, onRetry = { state.eventSink(ActivityDetailEvent.Retry) })
+            val allData = state.allData
+            if (allData != null) {
+                // Keyed on where it opened, so a second Show all starts there afresh.
+                key(allData) {
+                    val dataState = rememberLazyListState()
+                    ActivityDataList(
+                        state.data,
+                        dataState,
+                        padding,
+                        onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) },
+                        before = { PaneDataHeader(state) },
+                    )
+                    AppVerticalScrollbar(dataState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
                 }
-                item(key = "media") { PageMedia(state) }
-                item(key = "header") { Header(state) }
-                item(key = "hero") { HeroRow(page.hero) }
-                item(key = "social") { Social(state) }
-                if (state.showsGroup) item(key = "group") { TogetherWith(state) }
-                item(key = "avgMax") { AvgMaxTable(page.avgMax) }
-                item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
-                item(key = "stats") { StatsList(page.stats, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) }) }
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = paneState,
+                    contentPadding = padding,
+                    verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+                ) {
+                    // Over the loaded page: a spinner while it reloads, or why the last reload failed with Retry.
+                    item(key = "refresh") {
+                        RefreshStatus(content, UiError.Kind.LoadActivity, onRetry = { state.eventSink(ActivityDetailEvent.Retry) })
+                    }
+                    item(key = "media") { PageMedia(state) }
+                    item(key = "header") { Header(state) }
+                    item(key = "hero") { HeroCard(page.hero) }
+                    item(key = "social") { Social(state) }
+                    if (state.showsGroup) item(key = "group") { TogetherWith(state) }
+                    item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
+                    if (ActivityDataTexts.offered(state.data)) item(key = PageJump.ALL_DATA) { AllDataRow(state, inPane = true) }
+                }
+                AppVerticalScrollbar(paneState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
             }
-            AppVerticalScrollbar(paneState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
         BoxWithConstraints(Modifier.weight(1f, fill = false).widthIn(max = CARDS_MAX_WIDTH).fillMaxHeight()) {
             val columns = if (maxWidth >= TWO_CARD_COLUMNS) 2 else 1
+            val rows = cardRows(state, columns, inPane = true)
+            val tops = remember { CardTops() }
             LazyColumn(
                 Modifier.fillMaxSize(),
                 state = cardsState,
                 contentPadding = padding,
                 verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
             ) {
-                metricCards(state, columns)
+                // Always the first item, empty until the charts load: a list keeps its first item where it is when items arrive
+                // above it, so the segments would otherwise stay at the top and push the cards above the fold.
+                item(key = CARDS_KEY) { CardGrid(state, rows, tops) }
                 segments(state)
                 lifts(state)
             }
@@ -248,35 +300,10 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
     }
 }
 
-/** The metric cards, [columns] to a row; laps and the other tables take a row of their own. */
-private fun LazyListScope.metricCards(state: ActivityDetailPage, columns: Int) {
-    val charts = state.page.charts ?: return
-    val rows = mutableListOf<List<MetricCard>>()
-    for (card in state.page.cards) {
-        val last = rows.lastOrNull()
-        when {
-            card.section in FULL_WIDTH || columns == 1 -> rows += listOf(card)
-            last != null && last.size < columns && last.none { it.section in FULL_WIDTH } -> rows[rows.lastIndex] = last + card
-            else -> rows += listOf(card)
-        }
-    }
-    val onSetThresholds = { state.eventSink(ActivityDetailEvent.OpenTrainingZones) }
-    items(rows, key = { row -> "cards/" + row.joinToString("+") { it.section.name } }) { row ->
-        Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-            row.forEach { card ->
-                val modifier = if (card.section in FULL_WIDTH) Modifier.fillMaxWidth() else Modifier.weight(1f)
-                val sources = state.chartSources.firstOrNull { it.section == card.section }?.members
-                MetricCardUi(card, charts, modifier, state.chartsMissingZones, onSetThresholds, sources)
-            }
-            if (row.none { it.section in FULL_WIDTH }) repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-        }
-    }
-}
-
-private val FULL_WIDTH = setOf(DetailSection.Laps, DetailSection.Legs, DetailSection.Lengths, DetailSection.Sets)
 private val SIDE_PANE_WIDTH = 400.dp
 private val CARDS_MAX_WIDTH = 1040.dp
 private val TWO_CARD_COLUMNS = 640.dp
+private val MEDIUM_MOSAIC_HEIGHT = 240.dp
 
 /**
  * Who, when and what: the author, the start, the title and type, the dive site and description, the other recordings, and what an action
@@ -334,14 +361,19 @@ private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     }
 }
 
-/** The map and photos, the map marked with the Map category's visibility on the owner's page when it's narrower than the activity. */
+/**
+ * The map and photos as the page's mosaic (feed/activity-page-layout), the map marked with the Map category's visibility on the owner's
+ * page when it's narrower than the activity; nothing when the activity has neither.
+ */
 @Composable
-private fun PageMedia(state: ActivityDetailPage, modifier: Modifier = Modifier, height: Dp = 240.dp) {
+private fun PageMedia(state: ActivityDetailPage, modifier: Modifier = Modifier, height: Dp = MOSAIC_HEIGHT) {
     val activity = state.activity
     val media = remember(activity) { activity.mediaItems() }
+    val mosaic = remember(media, state.route) { MediaMosaic.of(state.route != null, media.size) } ?: return
     val decision = remember(activity, state.isOwn) { ModerationDecision.of(activity.labels, activity.author.labels, state.isOwn) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        MediaRow(
+        MediaMosaicUi(
+            mosaic,
             media,
             onOpen = { state.eventSink(ActivityDetailEvent.OpenMedia(it)) },
             height = height,
@@ -367,6 +399,13 @@ private fun PageMedia(state: ActivityDetailPage, modifier: Modifier = Modifier, 
         )
         state.page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }
     }
+}
+
+/** The hero figures in a hairline card; nothing when there are none. */
+@Composable
+private fun HeroCard(figures: ImmutableList<Figure>, modifier: Modifier = Modifier) {
+    if (figures.isEmpty()) return
+    AppCard(modifier) { HeroRow(figures, Modifier.padding(CARD_PADDING)) }
 }
 
 /**
