@@ -196,7 +196,7 @@ object ActivityDataSamples {
     /** All data for the Mosaic ride: its stats, avg/max table, thirteen laps and a combined ride's sources. */
     val data: ActivityData
         get() {
-            val ride = ActivityDetailMosaicSamples.variants.getValue("photos").content.data!!
+            val ride = checkNotNull(ActivityDetailMosaicSamples.variants.getValue("photos").content.data)
             return ActivityData.of(ride.page, ActivityDetailSamples.combinedPage.chartSources)
         }
 
