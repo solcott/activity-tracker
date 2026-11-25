@@ -16,7 +16,7 @@ import UIKit
 /// SwiftUI drag over a list row takes the list's scroll). VoiceOver reads it as one element, Kotlin's description.
 ///
 /// Everything it shows is the value's; this only lays it out, so a page passes a chart and a height and nothing else.
-struct LineChartView: View {
+struct LineChartView: View, Equatable {
     let chart: LineChart
     let height: CGFloat
     let interactive: Bool
@@ -36,6 +36,12 @@ struct LineChartView: View {
         self.interactive = interactive
         self.onScrub = onScrub
         _selected = State(initialValue: selected)
+    }
+
+    /// The same chart object at the same size draws the same, so a page's update that hands it back again (a card's charts kept across
+    /// states) skips laying out every mark again. A new `onScrub` is taken only with a new chart, so one should send to the same place.
+    static func == (a: LineChartView, b: LineChartView) -> Bool {
+        a.chart === b.chart && a.height == b.height && a.interactive == b.interactive && (a.onScrub == nil) == (b.onScrub == nil)
     }
 
     var body: some View {
