@@ -12,6 +12,9 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 
 /** identity/outbound-requests: DID documents are cached, dropped on `#identity`, and a 429 pauses every `did:plc` fetch. */
@@ -42,6 +45,27 @@ class CachingIdentityResolverTest {
         resolver.resolveDid(alice)
         identities.claims[alice.value] = "alice.new.example"
         assertEquals("alice.new.example", resolver.refreshDid(alice).handle)
+        assertEquals("alice.new.example", resolver.resolveDid(alice).handle)
+        assertEquals(2, identities.requests)
+    }
+
+    @Test
+    fun anInvalidationDuringAFetchKeepsItsDocumentOutOfTheCache() = runTest {
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        identities.plcGate = {
+            entered.complete(Unit)
+            release.await()
+        }
+        val inFlight = async(Dispatchers.Default) { resolver.resolveDid(alice) }
+        entered.await()
+        // The `#identity` event lands while the fetch that read the old document is still under way.
+        resolver.invalidate(alice)
+        release.complete(Unit)
+        assertEquals("alice.example.com", inFlight.await().handle)
+
+        identities.plcGate = null
+        identities.claims[alice.value] = "alice.new.example"
         assertEquals("alice.new.example", resolver.resolveDid(alice).handle)
         assertEquals(2, identities.requests)
     }

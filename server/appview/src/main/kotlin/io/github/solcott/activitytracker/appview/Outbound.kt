@@ -51,12 +51,13 @@ class Outbound(
 /** Drops [did] from every cache of identities, after an `#identity` event names it. */
 internal suspend fun forgetIdentity(
     did: Did,
-    identity: CachingIdentityResolver,
+    outbound: Outbound,
     verifier: ServiceAuthVerifier,
     pds: ResolvingPdsLookup,
     credentials: SpaceCredentials?,
 ) {
-    identity.invalidate(did)
+    outbound.identity.invalidate(did)
+    outbound.configuredIdentity.invalidate(did)
     verifier.forget(did)
     pds.invalidate(did)
     credentials?.forget(did)

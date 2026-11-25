@@ -133,7 +133,7 @@ fun main() {
     metrics?.serve(config.metricsHost, checkNotNull(config.metricsPort), log)
     val pds = ResolvingPdsLookup(identity)
     // An `#identity` event: every cache of that account's identity forgets it, so the next use asks again (identity/outbound-requests).
-    identityChanges.onChange { did -> forgetIdentity(did, identity, verifier, pds, credentials) }
+    identityChanges.onChange { did -> forgetIdentity(did, outbound, verifier, pds, credentials) }
     val blockBackfill = BskyBlockBackfill(db, indexer, guarded, pds)
     val accounts = AccountsPage(db, indexer, blockBackfill, reindexer, syncer)
     embeddedServer(Netty, port = config.port) {

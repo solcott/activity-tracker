@@ -26,6 +26,12 @@ class FakeIdentities {
     /** The PLC directory answers 429, with `Retry-After` this many seconds when set. */
     var plcLimited: Long? = null
 
+    /** Awaited before each PLC answer when set, so a test can hold a fetch in flight. */
+    var plcGate: (suspend () -> Unit)? = null
+
+    /** The DIDs asked of the PLC directory, in order. */
+    val plcRequests = mutableListOf<String>()
+
     /** Every request sent, PLC and handle lookups alike. */
     var requests = 0
         private set
@@ -43,6 +49,8 @@ class FakeIdentities {
                         respond("", HttpStatusCode.TooManyRequests, headersOf(HttpHeaders.RetryAfter, limited.toString()))
                     url.host == "plc.test" -> {
                         val did = url.encodedPath.trimStart('/')
+                        plcRequests += did
+                        plcGate?.invoke()
                         if (did !in claims) throw IOException("PLC unreachable")
                         val aka = claims[did]?.let { """"at://$it"""" }.orEmpty()
                         respond("""{"id":"$did","alsoKnownAs":[$aka]}""", headers = json)

@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.atproto.DidDocument
 import io.ktor.client.HttpClient
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -32,10 +33,18 @@ class CachingIdentityResolver(
     /** Bounded, since any DID can be asked about: every service-auth issuer, every photo's athlete. */
     private val documents = boundedCache<Did, DidDocument>(MAX_DOCUMENTS, ttl, clock)
 
+    /**
+     * Each invalidation's turn ([invalidations] counts them) by the DID it named, so a fetch that began before one never caches the
+     * document it read: it may be the one the `#identity` event replaced. Kept as long as a fetch could still be running.
+     */
+    private val invalidated = boundedCache<Did, Long>(MAX_DOCUMENTS, ttl, clock)
+    private val invalidations = AtomicLong()
+
     override suspend fun resolveDid(did: Did): DidDocument = documents.getIfPresent(did) ?: refreshDid(did)
 
     override suspend fun refreshDid(did: Did): DidDocument {
         val fromPlc = did.method == "plc"
+        val started = invalidations.get()
         if (fromPlc) pacing.pausedUntil()?.let { throw IdentityRateLimitedException(did, it) }
         val document =
             try {
@@ -44,12 +53,15 @@ class CachingIdentityResolver(
                 if (fromPlc) pacing.pause(e.retryAt)
                 throw e
             }
-        documents.put(did, document)
+        if ((invalidated.getIfPresent(did) ?: Long.MIN_VALUE) <= started) documents.put(did, document)
         return document
     }
 
-    /** Drops [did]'s document, so the next read fetches it again. */
-    fun invalidate(did: Did) = documents.invalidate(did)
+    /** Drops [did]'s document, so the next read fetches it again, and keeps a fetch already under way from putting it back. */
+    fun invalidate(did: Did) {
+        invalidated.put(did, invalidations.incrementAndGet())
+        documents.invalidate(did)
+    }
 
     companion object {
         val DEFAULT_TTL = 10.minutes
