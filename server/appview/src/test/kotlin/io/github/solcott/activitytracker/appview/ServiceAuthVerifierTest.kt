@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.auth.AuthException
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
+import io.github.solcott.activitytracker.atproto.identity.IdentityRateLimitedException
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -191,5 +192,34 @@ class ServiceAuthVerifierTest {
         forgetful.forget(Did(alice))
         forgetful.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y")
         assertEquals(2, lookups)
+    }
+
+    @Test
+    fun aPlcRateLimitDoesNotRefuseTheAccountAfterward() = runTest {
+        var limited = true
+        val paced =
+            ServiceAuthVerifier(
+                service,
+                keys = { did -> if (limited) throw IdentityRateLimitedException(did, null) else key.multibase },
+            )
+        assertFailsWith<AuthException> { paced.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y") }
+        limited = false
+        assertEquals(Did(alice), paced.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y"))
+    }
+
+    @Test
+    fun aDidWebRateLimitStillRefusesWithoutAnotherLookup() = runTest {
+        val web = "did:web:attacker.example"
+        var lookups = 0
+        val paced =
+            ServiceAuthVerifier(
+                service,
+                keys = { did ->
+                    lookups++
+                    throw IdentityRateLimitedException(did, null)
+                },
+            )
+        repeat(3) { assertFailsWith<AuthException> { paced.verify(key.serviceJwt(web, service, "app.x.y"), "app.x.y") } }
+        assertEquals(1, lookups)
     }
 }

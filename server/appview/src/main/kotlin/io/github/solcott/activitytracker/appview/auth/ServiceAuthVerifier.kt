@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.auth
 
 import io.github.solcott.activitytracker.appview.boundedCache
+import io.github.solcott.activitytracker.atproto.identity.IdentityRateLimitedException
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.identity.isResolvableDid
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -45,17 +46,15 @@ private constructor(
         freshKeys: suspend (Did) -> String? = keys,
     ) : this(appViewAudiences(serviceDid, extraAudiences), keys, clock, freshKeys)
 
-    /** Keys from [resolver]'s documents, and for the retry its [IdentityResolver.refreshDid]. */
+    /**
+     * Keys from [resolver]'s documents, always fetched afresh ([IdentityResolver.refreshDid]): this verifier caches each key itself, so a
+     * rotated key stops verifying within [KEY_TTL] rather than [KEY_TTL] plus however old the resolver's cached document was.
+     */
     constructor(
         serviceDid: String,
         resolver: IdentityResolver,
         extraAudiences: Set<String> = emptySet(),
-    ) : this(
-        serviceDid,
-        { did -> resolver.resolveDid(did).signingKey },
-        extraAudiences = extraAudiences,
-        freshKeys = { did -> resolver.refreshDid(did).signingKey },
-    )
+    ) : this(serviceDid, { did -> resolver.refreshDid(did).signingKey }, extraAudiences = extraAudiences)
 
     /**
      * Keys by account, each reused for [KEY_TTL] after it was looked up, so a rotated key stops verifying soon after; DIDs whose key
@@ -120,7 +119,10 @@ private constructor(
         throw AuthException("Invalid signature")
     }
 
-    /** [did]'s key, from the cache unless [fresh]. A DID whose lookup failed recently is refused without another lookup. */
+    /**
+     * [did]'s key, from the cache unless [fresh]. A DID whose lookup failed recently is refused without another lookup; one refused only
+     * because the PLC directory asked to slow down (a 429) isn't, so it verifies again as soon as that pause ends.
+     */
     private suspend fun signingKey(did: Did, fresh: Boolean): SigningKey {
         if (!fresh)
             caches.keys.getIfPresent(did)?.let {
@@ -128,9 +130,12 @@ private constructor(
             }
         if (caches.failed.getIfPresent(did) != null) throw AuthException("No signing key for $did")
         if (fresh) caches.refetched.put(did, Unit)
-        val key = runSuspendCatching { (if (fresh) freshKeys else keys)(did)?.let(Multikey::decode) }.getOrNull()
+        val lookup = runSuspendCatching { (if (fresh) freshKeys else keys)(did)?.let(Multikey::decode) }
+        val key = lookup.getOrNull()
         if (key == null) {
-            caches.failed.put(did, Unit)
+            // Only the PLC directory's pause is shared and bounded (`PlcPacing`); a did:web host that answers 429 is just a failed lookup.
+            val paused = lookup.exceptionOrNull() is IdentityRateLimitedException && did.method == "plc"
+            if (!paused) caches.failed.put(did, Unit)
             throw AuthException("No signing key for $did")
         }
         caches.failed.invalidate(did)
