@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.detail
 
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -13,18 +12,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
+import io.github.solcott.activitytracker.app.ui.adaptive.edgeFades
 import io.github.solcott.activitytracker.app.ui.string
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -70,32 +63,12 @@ internal fun TableFrame(columns: Int, firstWidth: Dp, wideColumn: Int, content: 
         val first = if (wideColumn == 0) MIN_CELL_WIDTH * WIDE_SHARE else firstWidth
         val needed = first + MIN_CELL_WIDTH * shares + CELL_GAP * (columns - 1)
         val scroll = rememberScrollState()
-        val rows = if (maxWidth >= needed) Modifier.fillMaxWidth() else Modifier.edgeFades(scroll).horizontalScroll(scroll).width(needed)
+        val rows =
+            if (maxWidth >= needed) Modifier.fillMaxWidth()
+            else Modifier.edgeFades(scroll, EDGE_FADE).horizontalScroll(scroll).width(needed)
         Column(rows, verticalArrangement = Arrangement.spacedBy(6.dp)) { content() }
     }
 }
-
-/** Fades out the start or end of a sideways [scroll]'s viewport while there is more of it that way. */
-private fun Modifier.edgeFades(scroll: ScrollState): Modifier = graphicsLayer {
-    compositingStrategy = CompositingStrategy.Offscreen
-}
-    .drawWithContent {
-        drawContent()
-        val fade = EDGE_FADE.toPx()
-        // Forward is toward the end: the right, or the left in a right-to-left layout.
-        val ltr = layoutDirection == LayoutDirection.Ltr
-        val moreLeft = if (ltr) scroll.canScrollBackward else scroll.canScrollForward
-        val moreRight = if (ltr) scroll.canScrollForward else scroll.canScrollBackward
-        if (moreLeft) {
-            drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), endX = fade), blendMode = BlendMode.DstOut)
-        }
-        if (moreRight) {
-            drawRect(
-                Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = size.width - fade, endX = size.width),
-                blendMode = BlendMode.DstOut,
-            )
-        }
-    }
 
 /**
  * A row of a table: its first cell [firstWidth] wide (a number or short name), the rest sharing the width, the [wideColumn] (a name)
@@ -129,7 +102,9 @@ internal val ROW_NAME_WIDTH = 88.dp
 private val RUN_NAME_WIDTH = 56.dp
 private val MIN_CELL_WIDTH = 64.dp
 private val CELL_GAP = 8.dp
-private val EDGE_FADE = 32.dp
 
 /** How many shares of the width a table's name column gets, so a lift's or exercise's name fits one line. */
 private const val WIDE_SHARE = 3
+
+/** How far a sideways table fades at an edge with more beyond it. */
+private val EDGE_FADE = 32.dp
