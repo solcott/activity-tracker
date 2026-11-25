@@ -45,59 +45,20 @@ struct MediaMosaicView<MapTile: View>: View {
         .frame(height: height)
     }
 
-    @ViewBuilder private func tile(_ photo: MediaPhoto, index: Int, size: CGSize, last: Bool) -> some View {
+    private func tile(_ photo: MediaPhoto, index: Int, size: CGSize, last: Bool) -> some View {
         let more = last ? mosaic.moreText : nil
-        if content.takenDown {
-            Text(.labelTakenDownPhoto)
-                .font(.caption)
-                .multilineTextAlignment(.center)
-                .padding(8)
-                .frame(width: size.width, height: size.height)
-                .background(Color(.secondarySystemFill))
-                .clipShape(MediaMosaicLayout.tile)
-        } else if let label = content.blurLabel(), !revealed {
-            // Covered, the photo is neither seen nor reachable: a tap reveals rather than opens it.
-            Button(action: reveal) {
+        return MediaPhotoTile(
+            photo: photo, content: content, size: size, corner: MediaMosaicLayout.corner, revealed: revealed, reveal: reveal,
+            open: { open(Int32(index)) }, accessibilityValue: more.map { Text($0) }
+        ) {
+            if let more {
+                // A neutral scrim, so the count reads on any photo; the tile still opens the gallery under it.
                 ZStack {
-                    image(photo, size: size).blur(radius: 24).accessibilityHidden(true)
-                    Color(.secondarySystemBackground).opacity(0.85)
-                    VStack(spacing: 4) {
-                        Text(label).font(.footnote.weight(.semibold)).multilineTextAlignment(.center).minimumScaleFactor(0.7)
-                        Text(.labelShow).font(.footnote).foregroundStyle(.tint)
-                    }
-                    .padding(8)
+                    Color.black.opacity(0.45)
+                    Text(more).font(.title2.weight(.semibold)).foregroundStyle(.white)
                 }
-                .frame(width: size.width, height: size.height)
-                .clipShape(MediaMosaicLayout.tile)
             }
-            .buttonStyle(.borderless)
-        } else {
-            Button {
-                open(Int32(index))
-            } label: {
-                image(photo, size: size)
-                    .overlay {
-                        if let more {
-                            // A neutral scrim, so the count reads on any photo; the tile still opens the gallery under it.
-                            ZStack {
-                                Color.black.opacity(0.45)
-                                Text(more).font(.title2.weight(.semibold)).foregroundStyle(.white)
-                            }
-                        }
-                    }
-                    .clipShape(MediaMosaicLayout.tile)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(photo.alt.map { Text(verbatim: $0) } ?? Text(.detailsPhoto))
-            .accessibilityValue(more.map { Text($0) } ?? Text(verbatim: ""))
-            .accessibilityAddTraits(.isImage)
         }
-    }
-
-    private func image(_ photo: MediaPhoto, size: CGSize) -> some View {
-        RemoteImage(photo.url, maxSize: size) { Color(.secondarySystemFill) }
-            .frame(width: size.width, height: size.height)
-            .clipped()
     }
 }
 
@@ -105,5 +66,6 @@ struct MediaMosaicView<MapTile: View>: View {
 enum MediaMosaicLayout {
     static let height: CGFloat = 300
     static let gap: CGFloat = 8
-    static let tile = RoundedRectangle(cornerRadius: 16, style: .continuous)
+    static let corner: CGFloat = 16
+    static let tile = RoundedRectangle(cornerRadius: corner, style: .continuous)
 }

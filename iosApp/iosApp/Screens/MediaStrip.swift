@@ -59,35 +59,10 @@ struct MediaStrip: View {
         return height * min(max(ratio, 0.6), 1.8)
     }
 
-    @ViewBuilder private func photo(_ photo: MediaPhoto, index: Int32) -> some View {
-        let frame = Self.width(of: photo)
-        if content.takenDown {
-            Text(.labelTakenDownPhoto)
-                .font(.caption)
-                .multilineTextAlignment(.center)
-                .padding(8)
-                .frame(width: frame, height: Self.height)
-                .background(Color(.secondarySystemFill))
-                .clipShape(tile)
-        } else if let label = content.blurLabel(), !revealed {
-            // Covered, the photo is neither seen nor reachable: a tap reveals rather than opens it.
-            CoveredPhoto(reason: Text(label), show: Text(.labelShow), style: .tile, reveal: reveal) {
-                RemoteImage(photo.url, maxSize: CGSize(width: frame, height: Self.height)) { Color(.secondarySystemFill) }
-                    .frame(width: frame, height: Self.height)
-            }
-            .frame(width: frame, height: Self.height)
-            .clipShape(tile)
-        } else {
-            Button {
-                open(index)
-            } label: {
-                RemoteImage(photo.url, maxSize: CGSize(width: frame, height: Self.height)) { Color(.secondarySystemFill) }
-                    .frame(width: frame, height: Self.height)
-                    .clipShape(tile)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(photo.alt.map { Text(verbatim: $0) } ?? Text(.detailsPhoto))
-            .accessibilityAddTraits(.isImage)
-        }
+    private func photo(_ photo: MediaPhoto, index: Int32) -> some View {
+        MediaPhotoTile(
+            photo: photo, content: content, size: CGSize(width: Self.width(of: photo), height: Self.height), corner: Self.corner,
+            revealed: revealed, reveal: reveal, open: { open(index) }
+        )
     }
 }
