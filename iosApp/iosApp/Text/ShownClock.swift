@@ -31,7 +31,7 @@ struct ShownClock: @unchecked Sendable {
     }
 
     /// The time zone, as Kotlin reads one.
-    var kotlinZone: KotlinTimeZone { KotlinTimeZone.Companion.shared.of(zoneId: zone.identifier) }
+    var kotlinZone: KotlinTimeZone { KotlinZones.of(zone.identifier) }
 
     /// `text` in the catalog's words, with a time of day formatted in this clock's zone.
     func string(_ text: any AppText) -> String {
@@ -41,6 +41,22 @@ struct ShownClock: @unchecked Sendable {
     /// `text` as a `Text`, read on this clock.
     func text(_ text: any AppText) -> Text {
         Text(verbatim: string(text))
+    }
+}
+
+/// Kotlin's time zones by identifier, each made once: making one reads its rules from the time zone database, and a page asks for the zone
+/// for each figure it words, on every update (a card opening). A zone's rules never change while the app runs, so one is shared.
+private enum KotlinZones {
+    nonisolated(unsafe) private static var zones: [String: KotlinTimeZone] = [:]
+    private static let lock = NSLock()
+
+    static func of(_ id: String) -> KotlinTimeZone {
+        lock.withLock {
+            if let zone = zones[id] { return zone }
+            let zone = KotlinTimeZone.Companion.shared.of(zoneId: id)
+            zones[id] = zone
+            return zone
+        }
     }
 }
 
