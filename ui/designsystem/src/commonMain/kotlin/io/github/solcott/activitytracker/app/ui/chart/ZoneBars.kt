@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.data.chart.ZoneTone
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -84,49 +85,37 @@ fun ZoneStrip(fractions: ImmutableList<Float>, modifier: Modifier = Modifier) {
  * Training zones' fixed palette (DESIGN.md "Training zones"): Material's 400 tones on a light surface and its 300 tones on a dark one, as
  * the grade bands step, so each zone stays distinct from the surface in both themes. The iOS app's catalog colours are the same.
  */
-private class ZonePalette(private val recovery: Color, blue: Color, green: Color, yellow: Color, orange: Color, red: Color, purple: Color) {
-    private val hot = listOf(blue, green, yellow, orange, red, purple)
-    private val four = listOf(blue, green, orange, red)
-    private val three = listOf(green, orange, red)
-
-    /**
-     * The lowest zone is grey; the rest run blue, green, yellow, orange, red and purple, dropping the middle colours when there are fewer.
-     */
-    fun color(index: Int, count: Int): Color {
-        if (index == 0) return recovery
-        val colors =
-            when (count - 1) {
-                in hot.size..Int.MAX_VALUE -> hot
-                hot.size - 1 -> hot.dropLast(1)
-                hot.size - 2 -> four
-                else -> three
-            }
-        return colors[(index - 1).coerceAtMost(colors.lastIndex)]
-    }
+private class ZonePalette(private val colors: Map<ZoneTone, Color>) {
+    /** Zone [index] (0 the lowest) of [count], in the tone `ZoneTone` gives it. */
+    fun color(index: Int, count: Int): Color = colors.getValue(ZoneTone.of(index, count))
 
     companion object {
         private const val DARK_SURFACE = 0.5f
 
         private val ON_LIGHT =
             ZonePalette(
-                recovery = Color(0xFF9E9E9E),
-                blue = Color(0xFF42A5F5),
-                green = Color(0xFF66BB6A),
-                yellow = Color(0xFFFFCA28),
-                orange = Color(0xFFFFA726),
-                red = Color(0xFFEF5350),
-                purple = Color(0xFFAB47BC),
+                mapOf(
+                    ZoneTone.Recovery to Color(0xFF9E9E9E),
+                    ZoneTone.Blue to Color(0xFF42A5F5),
+                    ZoneTone.Green to Color(0xFF66BB6A),
+                    ZoneTone.Yellow to Color(0xFFFFCA28),
+                    ZoneTone.Orange to Color(0xFFFFA726),
+                    ZoneTone.Red to Color(0xFFEF5350),
+                    ZoneTone.Purple to Color(0xFFAB47BC),
+                ),
             )
 
         private val ON_DARK =
             ZonePalette(
-                recovery = Color(0xFFBDBDBD),
-                blue = Color(0xFF64B5F6),
-                green = Color(0xFF81C784),
-                yellow = Color(0xFFFFD54F),
-                orange = Color(0xFFFFB74D),
-                red = Color(0xFFE57373),
-                purple = Color(0xFFBA68C8),
+                mapOf(
+                    ZoneTone.Recovery to Color(0xFFBDBDBD),
+                    ZoneTone.Blue to Color(0xFF64B5F6),
+                    ZoneTone.Green to Color(0xFF81C784),
+                    ZoneTone.Yellow to Color(0xFFFFD54F),
+                    ZoneTone.Orange to Color(0xFFFFB74D),
+                    ZoneTone.Red to Color(0xFFE57373),
+                    ZoneTone.Purple to Color(0xFFBA68C8),
+                ),
             )
 
         @Composable

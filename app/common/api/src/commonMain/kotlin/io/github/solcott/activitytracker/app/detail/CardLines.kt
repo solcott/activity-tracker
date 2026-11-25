@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.app.text.ZoneNameText
 import io.github.solcott.activitytracker.data.chart.ChartAxis
+import io.github.solcott.activitytracker.data.chart.ZoneTone
 import io.github.solcott.activitytracker.data.chart.nearestIndexBy
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
@@ -413,7 +414,15 @@ private val TIME_STEPS = listOf(60, 120, 300, 600, 900, 1800, 3600, 7200, 10800,
  * share of the time in all of them as a [fraction] and a [percent] ("58%", "<1%" for a sliver). [spoken] is the row as one sentence.
  */
 @Immutable
-class ZoneRow(val label: AppText, val name: AppText, val range: AppText, val time: AppText, val fraction: Double) {
+class ZoneRow(
+    val label: AppText,
+    val name: AppText,
+    val range: AppText,
+    val time: AppText,
+    val fraction: Double,
+    /** The colour it's drawn in, by its place among its zones. */
+    val tone: ZoneTone = ZoneTone.Recovery,
+) {
     val title: AppText = AppText.named("chart_zone_title", label, name)
     val percent: AppText = ZoneRows.percent(fraction)
     val spoken: AppText = AppText.named("chart_zone_spoken", title, range, time, percent)
@@ -432,7 +441,7 @@ object ZoneRows {
     fun of(zones: List<ZoneTime>, section: DetailSection): List<ZoneRow> {
         val total = zones.sumOf { it.seconds }.coerceAtLeast(1)
         val unit = if (section == DetailSection.Power) "unit_watts" else "unit_bpm"
-        return zones.map { zone ->
+        return zones.mapIndexed { index, zone ->
             val high = zone.high
             ZoneRow(
                 label = AppText.named("chart_zone_label", AppText.written(zone.label)),
@@ -448,6 +457,7 @@ object ZoneRows {
                     ),
                 time = AppText.written(StatText.duration(zone.seconds.toLong())),
                 fraction = zone.seconds.toDouble() / total,
+                tone = ZoneTone.of(index, zones.size),
             )
         }
     }
