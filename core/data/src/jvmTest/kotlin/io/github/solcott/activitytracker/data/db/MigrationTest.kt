@@ -140,10 +140,32 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun version11OutboxSpacesMoveToTheNewUriForm() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        val old = "at://did:plc:alice/space/app.activitytracker.space.athlete/followers"
+        val current = "at:space/did:plc:alice/app.activitytracker.space.athlete/mutuals"
+        createVersion(file, 11, spaces = listOf("3kold" to old, "3knew" to current, "3krepo" to null))
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        val spaces = db.outbox().pending("did:plc:alice").associate { it.rkey to it.space }
+        assertEquals(
+            mapOf(
+                "3kold" to "at:space/did:plc:alice/app.activitytracker.space.athlete/followers",
+                "3knew" to current,
+                "3krepo" to null,
+            ),
+            spaces,
+        )
+        db.close()
+    }
+
     private fun createVersion1(file: File) = createVersion(file, 1)
 
-    /** The [version] schema, from the committed schema export, with one queued write. */
-    private fun createVersion(file: File, version: Int) {
+    /**
+     * The [version] schema, from the committed schema export, with one queued write per rkey of [spaces], to its space (null: the repo).
+     */
+    private fun createVersion(file: File, version: Int, spaces: List<Pair<String, String?>> = listOf("3kold" to null)) {
         val schema = File("schemas/io.github.solcott.activitytracker.data.db.AppDatabase/$version.json").readText()
         val database = Json.parseToJsonElement(schema).jsonObject.getValue("database").jsonObject
         val connection = BundledSQLiteDriver().open(file.path)
@@ -155,10 +177,15 @@ class MigrationTest {
             }
         }
         database.getValue("setupQueries").jsonArray.forEach { connection.execSQL(it.jsonPrimitive.content) }
-        connection.execSQL(
-            "INSERT INTO outbox (did, operation, collection, rkey, recordJson, attempts, createdAt) " +
-                "VALUES ('did:plc:alice', 'put', 'app.activitytracker.feed.activity', '3kold', '{}', 0, 0)",
-        )
+        spaces.forEach { (rkey, space) ->
+            // Version 1 has no space column.
+            val column = if (version == 1) "" else ", space"
+            val value = if (version == 1) "" else ", " + (space?.let { "'$it'" } ?: "NULL")
+            connection.execSQL(
+                "INSERT INTO outbox (did, operation, collection, rkey, recordJson, attempts, createdAt$column) " +
+                    "VALUES ('did:plc:alice', 'put', 'app.activitytracker.feed.activity', '$rkey', '{}', 0, 0$value)",
+            )
+        }
         connection.execSQL("PRAGMA user_version = $version")
         connection.close()
     }

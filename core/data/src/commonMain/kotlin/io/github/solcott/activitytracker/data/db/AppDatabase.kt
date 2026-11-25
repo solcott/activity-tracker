@@ -36,6 +36,7 @@ fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.
         MIGRATION_8_9,
         MIGRATION_9_10,
         MIGRATION_10_11,
+        MIGRATION_11_12,
     )
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
@@ -167,6 +168,18 @@ private val MIGRATION_10_11 =
         )
     }
 
+/**
+ * 11 → 12: queued writes' spaces move to the 2026-11-24 Spaces alpha's URI form, `at://{did}/space/{rest}` to `at:space/{did}/{rest}`. Only
+ * values still in the old form change (a DID holds no `/`), so a second run changes nothing.
+ */
+private val MIGRATION_11_12 =
+    Migration(11, 12) {
+        it.runSql(
+            "UPDATE outbox SET space = 'at:space/' || substr(space, 6, instr(substr(space, 6), '/') - 1) || " +
+                "substr(space, 5 + instr(substr(space, 6), '/') + 6) WHERE space LIKE 'at://%/space/%'",
+        )
+    }
+
 @Database(
     entities =
         [
@@ -187,7 +200,7 @@ private val MIGRATION_10_11 =
             DataExportListEntity::class,
             DataExportItemEntity::class,
         ],
-    version = 11,
+    version = 12,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
