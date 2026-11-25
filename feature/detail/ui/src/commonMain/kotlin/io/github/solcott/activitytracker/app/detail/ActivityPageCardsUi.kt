@@ -19,9 +19,13 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
@@ -43,7 +47,9 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The section chips, shown under the bar once the mosaic has scrolled out of view. A chip scrolls to its item, opening the strip it names;
@@ -61,6 +67,8 @@ internal fun StickyJumps(
     val shown by remember(overview) { derivedStateOf { listState.firstVisibleItemIndex > overview } }
     if (!shown || jumps.size < 2) return
     val scope = rememberCoroutineScope()
+    val latest by rememberUpdatedState(state)
+    val latestPositionOf by rememberUpdatedState(positionOf)
     val top = JumpPosition(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset + 1)
     val selected = jumps.indexOfLast { (_, at) -> at <= top }
     ReadableList(rememberLazyListState(), modifier.fillMaxWidth()) { padding ->
@@ -69,11 +77,22 @@ internal fun StickyJumps(
             selected = selected,
             onSelect = { i ->
                 val (jump, at) = jumps[i]
-                val card = jump.card
-                if (card != null && state.page.cards.firstOrNull { it.section == card }?.let(state::isOpen) == false) {
-                    state.eventSink(ActivityDetailEvent.ToggleCard(card))
+                val card = jump.card?.let { section -> state.page.cards.firstOrNull { it.section == section } }
+                val opening = card != null && !state.isOpen(card)
+                if (opening) state.eventSink(ActivityDetailEvent.ToggleCard(checkNotNull(card).section))
+                scope.launch {
+                    // Opening a strip moves it to a row of its own and the cards after it down, so its place is read again once the open
+                    // card has been laid out.
+                    val target =
+                        if (!opening) at
+                        else
+                            withTimeoutOrNull(OPEN_WAIT_MS) {
+                                snapshotFlow { latest.isOpen(checkNotNull(card)) }.first { it }
+                                withFrameNanos {}
+                                latestPositionOf(jump)
+                            } ?: at
+                    listState.animateScrollToItem(target.index, target.offset)
                 }
-                scope.launch { listState.animateScrollToItem(at.index, at.offset) }
             },
             modifier = Modifier.background(MaterialTheme.colorScheme.background).padding(padding).padding(vertical = 8.dp),
         )
@@ -124,7 +143,7 @@ internal class CardRow(
 internal fun cardRows(state: ActivityDetailPage, columns: Int, inPane: Boolean): ImmutableList<CardRow> {
     if (state.page.charts == null) return persistentListOf()
     val rows = mutableListOf<CardRow>()
-    var pending = mutableListOf<MetricCard>()
+    val pending = mutableListOf<MetricCard>()
     var sawOpen = false
     var headed = false
     fun flush() {
@@ -132,7 +151,7 @@ internal fun cardRows(state: ActivityDetailPage, columns: Int, inPane: Boolean):
         val heading = sawOpen && !headed
         headed = headed || heading
         rows += CardRow(PageJump.card(pending.first().section), pending.toImmutableList(), strips = true, heading = heading, inPane)
-        pending = mutableListOf()
+        pending.clear()
     }
     for (card in state.page.cards) {
         if (state.isOpen(card)) {
@@ -151,7 +170,8 @@ internal fun cardRows(state: ActivityDetailPage, columns: Int, inPane: Boolean):
 /** Where each card's row starts in a [CardGrid], by its jump key ([PageJump.card]), in pixels from the grid's top, for the chips. */
 @Stable
 internal class CardTops {
-    private val tops = mutableMapOf<String, Int>()
+    /** Snapshot state, so the chips follow a card that moves without the list scrolling. */
+    private val tops = mutableStateMapOf<String, Int>()
 
     fun of(key: String): Int? = tops[key]
 
@@ -312,3 +332,6 @@ internal fun pageKeys(state: ActivityDetailPage, rows: List<CardRow>, medium: Bo
     if (state.lifts.isNotEmpty()) add("lifts")
     if (offersData) add(PageJump.ALL_DATA)
 }
+
+/** How long a chip waits for the strip it opened to be laid out open before it scrolls to where the strip was. */
+private const val OPEN_WAIT_MS = 500L
