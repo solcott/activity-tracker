@@ -65,7 +65,12 @@ class HandleSweep(
         } while (due.size == BATCH || named.isNotEmpty())
     }
 
+    /**
+     * Checks [did] if the AppView knows it. Jetstream sends `#identity` events for every account on the network, so most DIDs [changed]
+     * holds have no `actors` row: those are passed over at once, without waiting out a PLC pause or [pace].
+     */
     private suspend fun check(did: String) {
+        if (!indexer.knows(Did(did))) return
         plcPausedUntil()?.let { until -> delay(until - clock.now()) }
         indexer.recheckHandle(Did(did))
         delay(pace)

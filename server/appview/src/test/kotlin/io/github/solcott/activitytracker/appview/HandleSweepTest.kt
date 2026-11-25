@@ -153,4 +153,16 @@ class HandleSweepTest {
         )
         assertEquals("handle.invalid" to pauseEnd.toEpochMilliseconds(), stored(alice))
     }
+
+    @Test
+    fun identityEventsForUnknownAccountsCostTheSweepNoTime() = runTest {
+        val paced = HandleSweep(db, indexer, clock, pace = 1.seconds, plcPausedUntil = { clock.now + 30.seconds })
+        repeat(50) { i ->
+            val did = "did:plc:stranger$i"
+            indexer.handle(JetstreamEvent.Identity(did, "2026-10-26T12:00:00.000000Z", identity = JetstreamEvent.Identity.Body(did, null)))
+        }
+        paced.runDue()
+        assertEquals(0L, testScheduler.currentTime)
+        assertEquals(emptyList(), identities.plcRequests)
+    }
 }
