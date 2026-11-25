@@ -149,7 +149,9 @@ object AppLinkRoutes {
             is ActivityDetailScreen -> activity(screen.uri)
             is RouteMapScreen -> activity(screen.uri, MAP)
             is MediaGalleryScreen -> activity(screen.uri, MEDIA, screen.index.toString())
-            is ActivityDataScreen -> screen.section?.let { activity(screen.uri, DATA, it) } ?: activity(screen.uri, DATA)
+            // A section no link reads back (a stale name) is left out, so the link still opens All data.
+            is ActivityDataScreen ->
+                DataSection.named(screen.section)?.let { activity(screen.uri, DATA, it.name) } ?: activity(screen.uri, DATA)
             is EditActivityScreen -> activity(screen.uri, EDIT)
             is AddPeopleScreen -> activity(screen.activity, PEOPLE)
             is CombinePickerScreen -> activity(screen.uri, COMBINE)
