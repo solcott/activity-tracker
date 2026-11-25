@@ -28,6 +28,7 @@ import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.RoutingContext
 import io.ktor.server.routing.get
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -86,12 +87,27 @@ class ResolvingPdsLookup(private val resolver: IdentityResolver, clock: Clock = 
     /** Bounded, since any DID can be asked for: each of an avatar's or photo's athletes. */
     private val cache = boundedCache<Did, String>(MAX_ENTRIES, TTL, clock)
 
-    override suspend fun pdsFor(did: Did): String? =
-        cache.getIfPresent(did)
-            ?: runSuspendCatching { resolver.resolveDid(did).pdsEndpoint }.getOrNull()?.trimEnd('/')?.also { cache.put(did, it) }
+    /** Each invalidation's turn by the DID it named, as in `CachingIdentityResolver`, so a lookup under way never stores a stale PDS. */
+    private val invalidated = boundedCache<Did, Long>(MAX_ENTRIES, TTL, clock)
+    private val invalidations = AtomicLong()
 
-    /** Forgets [did]'s PDS, after an `#identity` event says its document changed (it may have moved). */
-    fun invalidate(did: Did) = cache.invalidate(did)
+    override suspend fun pdsFor(did: Did): String? = cache.getIfPresent(did) ?: lookUp(did)
+
+    private suspend fun lookUp(did: Did): String? {
+        val started = invalidations.get()
+        val pds = runSuspendCatching { resolver.resolveDid(did).pdsEndpoint }.getOrNull()?.trimEnd('/')
+        if (pds != null && (invalidated.getIfPresent(did) ?: Long.MIN_VALUE) <= started) cache.put(did, pds)
+        return pds
+    }
+
+    /**
+     * Forgets [did]'s PDS, after an `#identity` event says its document changed (it may have moved), and keeps a lookup under way from
+     * putting it back.
+     */
+    fun invalidate(did: Did) {
+        invalidated.put(did, invalidations.incrementAndGet())
+        cache.invalidate(did)
+    }
 
     private companion object {
         val TTL = 1.hours
