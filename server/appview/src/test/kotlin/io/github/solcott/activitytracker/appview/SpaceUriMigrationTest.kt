@@ -66,4 +66,82 @@ class SpaceUriMigrationTest {
             }
         }
     }
+
+    @Test
+    fun everyOriginTableIsRewritten() {
+        migrateTo78()
+        val old = "at://did:plc:alice/space/${Nsid.SPACE_ATHLETE}/followers"
+        val followers = SpaceUri.of(Did("did:plc:alice"), Nsid.SPACE_ATHLETE, "followers")
+        ORIGIN_TABLES.forEach { insertWithOrigin(it, old) }
+
+        DatabaseFactory.migrate(source)
+
+        val origins = ORIGIN_TABLES.associateWith { table -> query("SELECT origin FROM $table") }
+        assertEquals(ORIGIN_TABLES.associateWith { listOf(followers.value) }, origins)
+    }
+
+    /** One row of [table] holding [origin], with every other required column given a placeholder of its type. */
+    private fun insertWithOrigin(table: String, origin: String) {
+        val required =
+            source.connection.use { connection ->
+                connection
+                    .prepareStatement(
+                        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ? AND is_nullable = 'NO' " +
+                            "AND column_default IS NULL AND column_name <> 'ORIGIN'"
+                    )
+                    .use { statement ->
+                        statement.setString(1, table.uppercase())
+                        statement.executeQuery().use { rows ->
+                            buildList { while (rows.next()) add(rows.getString(1) to rows.getString(2)) }
+                        }
+                    }
+            }
+        val columns = required.map { it.first } + "ORIGIN"
+        val values = required.map { (_, type) -> placeholder(type) } + "'$origin'"
+        execute("INSERT INTO $table (${columns.joinToString()}) VALUES (${values.joinToString()})")
+    }
+
+    private fun placeholder(type: String): String =
+        when (type) {
+            "BIGINT",
+            "INTEGER",
+            "SMALLINT",
+            "TINYINT",
+            "DOUBLE PRECISION",
+            "REAL",
+            "NUMERIC" -> "0"
+            "BOOLEAN" -> "FALSE"
+            "BINARY VARYING",
+            "BINARY LARGE OBJECT" -> "X'00'"
+            else -> "'x'"
+        }
+
+    private fun query(sql: String): List<String> =
+        source.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery(sql).use { rows -> buildList { while (rows.next()) add(rows.getString(1)) } }
+            }
+        }
+
+    private companion object {
+        /** Every table V79 rewrites the `origin` of. */
+        val ORIGIN_TABLES =
+            listOf(
+                "activities",
+                "posts",
+                "likes",
+                "reposts",
+                "comments",
+                "comment_hides",
+                "blocks",
+                "mutes",
+                "activity_streams",
+                "activity_details",
+                "activity_zones",
+                "gear_items",
+                "activity_gear",
+                "activity_stream_fetch_failures",
+                "record_shadows",
+            )
+    }
 }
