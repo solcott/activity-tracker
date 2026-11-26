@@ -45,7 +45,7 @@ struct ImportBatchSections: View {
             }
         }
         NewDevicesSections(fields: state.newDevices, enabled: enabled)
-        ActivityVisibilitySections(fields: state.visibility, heading: Text(texts.batchVisibilityHeading), enabled: enabled)
+        ActivityPrivacySection(fields: state.visibility, label: AppStrings.string(texts.batchVisibilityHeading), enabled: enabled)
         Section {
             if let failure = texts.saveFailure(state: state, batch: batch) {
                 Text(failure).font(.subheadline).foregroundStyle(.red)

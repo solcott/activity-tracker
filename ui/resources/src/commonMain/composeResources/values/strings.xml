@@ -1732,9 +1732,10 @@
     <string name="manual_duration_label">Duration (minutes)</string>
     <string name="action_save">Save</string>
     <string name="action_saving">Saving…</string>
+    <string name="activity_privacy_heading">Privacy</string>
     <string name="activity_visibility_heading">Who can see this activity</string>
     <string name="import_batch_visibility_heading">Who can see these activities</string>
-    <string name="activity_visibility_help">Its details are never shown to more people than the activity. If someone reports it, the app's moderators can see it while they review the report.</string>
+    <string name="activity_visibility_help">Details are never shown to more people than the activity. Moderators can see a reported activity while they review it.</string>
     <string name="activity_visibility_unsupported">Your server doesn't support private activities yet, so they're Public.</string>
     <string name="activity_visibility_sign_in_again">Sign in again to choose who sees your activities. Until then they're Public.</string>
     <string name="activity_visibility_narrowing_title">Make this activity less visible?</string>
@@ -1747,7 +1748,11 @@
     <string name="settings_defaults_activity">Who can see new activities</string>
     <string name="settings_defaults_help">Where you record, enter or import an activity, you can change these for that activity.</string>
     <string name="detail_visibility_heading">Who can see each detail</string>
-    <string name="detail_visibility_help">Each applies everywhere that detail appears: its stats, charts, laps and legs. Distance, time and elevation always show with the activity.</string>
+    <string name="detail_visibility_help">Each choice covers that detail's stats, charts, laps and legs. Distance, time and elevation always show with the activity.</string>
+    <string name="detail_visibility_summary_tier">%1$s: %2$s</string>
+    <string name="detail_visibility_summary_all">every detail</string>
+    <string name="detail_visibility_summary_rest">everything else</string>
+    <string name="detail_visibility_row">Details</string>
     <string name="detail_category_startTime">Start time</string>
     <string name="detail_category_startTime_help">Others see only the date.</string>
     <string name="detail_category_heartRate">Heart rate</string>

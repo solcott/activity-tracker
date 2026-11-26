@@ -54,7 +54,7 @@ struct AcceptInviteView: View {
             AppTextField(label: .fieldTitle, model: title, state: state.title, layout: .row)
                 .disabled(state.busy)
         }
-        ActivityVisibilitySections(fields: state.visibility, heading: Text(.activityVisibilityHeading), enabled: !state.busy)
+        ActivityPrivacySection(fields: state.visibility, enabled: !state.busy)
         if let error = state.error {
             Section {
                 ErrorMessage(error, layout: .row)

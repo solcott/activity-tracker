@@ -201,7 +201,7 @@ private fun BatchSettings(state: ImportActivityState, batch: ImportBatch, enable
             GearConflicts(it.conflicts)
         }
         NewDevicesForm(state.newDevices, enabled = enabled)
-        ActivityVisibilityForm(state.visibility, enabled = enabled, heading = Res.string.import_batch_visibility_heading)
+        ActivityVisibilityForm(state.visibility, enabled = enabled, label = Res.string.import_batch_visibility_heading)
         ImportActivityTexts.originalsSize(batch, LocalUiPlatform.current.isMobile)?.let {
             Text(it.string(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

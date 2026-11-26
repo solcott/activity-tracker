@@ -48,6 +48,8 @@ import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.text.StartText
 import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.app.text.ZoneNameText
+import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
+import io.github.solcott.activitytracker.app.visibility.DetailsSummary
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -140,6 +142,15 @@ class SharedTextNamesTest {
                 DetailCategory.all.map(LabelText::detailCategory) +
                 DetailCategory.all.mapNotNull(VisibilityTexts::categoryHelp) +
                 VisibilityTexts.categoryName(VisibilityFields(runningForm = false), DetailCategory.CADENCE) +
+                listOf(
+                        persistentListOf(CategoryVisibility(DetailCategory.MAP, Visibility.PUBLIC)),
+                        persistentListOf(
+                            CategoryVisibility(DetailCategory.MAP, Visibility.PUBLIC),
+                            CategoryVisibility(DetailCategory.POWER, Visibility.SELF),
+                        ),
+                    )
+                    .flatMap { DetailsSummary.of(VisibilityFields(categories = it)) }
+                    .flatMap { listOf(it.tier, it.text) } +
                 listOfNotNull(VisibilityTexts.followersNote(Visibility.FOLLOWERS, approvesFollowers = false)) +
                 listOf(false, true).map { VisibilityTexts.lockedNote(VisibilityFields(canChoose = false, spacesUnsupported = it)) } +
                 NameScope.entries.map(MapBrowseTexts::scope) +

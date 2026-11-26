@@ -43,7 +43,7 @@ struct RecordView: View {
             }
             ActivityDescriptionSection(state: state.about, enabled: enabled)
             Section { GearFieldRow(field: state.gear, enabled: enabled) }
-            ActivityVisibilitySections(fields: state.visibility, heading: Text(.activityVisibilityHeading), enabled: enabled)
+            ActivityPrivacySection(fields: state.visibility, enabled: enabled)
         }
         .pageBar(edge: .bottom) { controls }
         .pageTitle(Text(texts.title), back: { send(RecordEvent.Back.shared) })

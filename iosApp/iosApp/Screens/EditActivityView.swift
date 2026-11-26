@@ -77,20 +77,20 @@ private struct EditActivityForm: View {
                 Section { GearFieldRow(field: gear, enabled: enabled) }
             }
             if let visibility = state.visibility {
-                ActivityVisibilitySections(fields: visibility, heading: Text(.activityVisibilityHeading), enabled: enabled)
-            }
-            if let excluded = state.leaderboardExclusion {
-                Section {
-                    Toggle(
-                        isOn: Binding(
-                            get: { excluded },
-                            set: { state.eventSink(EditActivityEvent.LeaderboardExclusionChanged(excluded: $0)) })
-                    ) {
-                        Text(.editLeaderboardExclusion)
+                ActivityPrivacySection(fields: visibility, enabled: enabled) {
+                    if let excluded = state.leaderboardExclusion {
+                        Toggle(
+                            isOn: Binding(
+                                get: { excluded },
+                                set: { state.eventSink(EditActivityEvent.LeaderboardExclusionChanged(excluded: $0)) })
+                        ) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(.editLeaderboardExclusion)
+                                Text(.editLeaderboardExclusionHelp).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(!enabled)
                     }
-                    .disabled(!enabled)
-                } footer: {
-                    Text(.editLeaderboardExclusionHelp)
                 }
             }
             if state.saving {

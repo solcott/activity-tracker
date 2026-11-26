@@ -294,7 +294,7 @@ struct ImportFormSections: View {
         }
         NewDevicesSections(fields: state.newDevices, enabled: enabled)
         if !state.addsRecording {
-            ActivityVisibilitySections(fields: state.visibility, heading: Text(.activityVisibilityHeading), enabled: enabled)
+            ActivityPrivacySection(fields: state.visibility, enabled: enabled)
         }
         if state.saving {
             Section { AppProgress().frame(maxWidth: .infinity) }

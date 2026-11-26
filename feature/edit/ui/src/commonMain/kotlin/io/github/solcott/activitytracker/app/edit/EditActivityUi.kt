@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
@@ -66,10 +67,18 @@ private fun LeaderboardExclusion(
                 .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(stringResource(Res.string.edit_leaderboard_exclusion), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                stringResource(Res.string.edit_leaderboard_exclusion),
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+            )
             AppSwitch(excluded, onCheckedChange = null, enabled = enabled)
         }
-        Text(stringResource(Res.string.edit_leaderboard_exclusion_help), style = MaterialTheme.typography.bodySmall)
+        Text(
+            stringResource(Res.string.edit_leaderboard_exclusion_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -102,9 +111,12 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                     ActivityVisibilityForm(
                         visibility,
                         enabled = !state.saving,
+                        more =
+                            state.leaderboardExclusion?.let { excluded ->
+                                { LeaderboardExclusion(excluded, enabled = !state.saving, state.eventSink) }
+                            },
                     )
                 }
-                state.leaderboardExclusion?.let { excluded -> LeaderboardExclusion(excluded, enabled = !state.saving, state.eventSink) }
                 state.error?.let { ErrorText(it) }
                 AppButton(onClick = { state.eventSink(EditActivityEvent.Save) }, enabled = state.canSave) {
                     Text(LabelText.save(state.saving).string())

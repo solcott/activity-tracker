@@ -31,13 +31,14 @@ fun VisibilityPicker(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     options: ImmutableList<String> = ALL,
+    label: String = stringResource(Res.string.visibility_label),
 ) {
     val labels = options.map { it to visibilityLabel(it) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         MenuField(
             shown = labels.firstOrNull { it.first == selected }?.second.orEmpty(),
-            label = stringResource(Res.string.visibility_label),
-            items = labels.map { (value, label) -> AppMenuItem(label, checked = value == selected) { onSelect(value) } }.toImmutableList(),
+            label = label,
+            items = labels.map { (value, name) -> AppMenuItem(name, checked = value == selected) { onSelect(value) } }.toImmutableList(),
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
         )

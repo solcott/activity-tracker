@@ -749,6 +749,17 @@
         }
       }
     },
+    "activity_privacy_heading" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy"
+          }
+        }
+      }
+    },
     "activity_visibility_badge_description" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -810,7 +821,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Its details are never shown to more people than the activity. If someone reports it, the app's moderators can see it while they review the report."
+            "value" : "Details are never shown to more people than the activity. Moderators can see a reported activity while they review it."
           }
         }
       }
@@ -4110,7 +4121,51 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each applies everywhere that detail appears: its stats, charts, laps and legs. Distance, time and elevation always show with the activity."
+            "value" : "Each choice covers that detail's stats, charts, laps and legs. Distance, time and elevation always show with the activity."
+          }
+        }
+      }
+    },
+    "detail_visibility_row" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details"
+          }
+        }
+      }
+    },
+    "detail_visibility_summary_all" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "every detail"
+          }
+        }
+      }
+    },
+    "detail_visibility_summary_rest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "everything else"
+          }
+        }
+      }
+    },
+    "detail_visibility_summary_tier" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@"
           }
         }
       }
