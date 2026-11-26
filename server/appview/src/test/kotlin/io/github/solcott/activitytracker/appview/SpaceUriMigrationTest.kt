@@ -87,7 +87,7 @@ class SpaceUriMigrationTest {
                 connection
                     .prepareStatement(
                         "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ? AND is_nullable = 'NO' " +
-                            "AND column_default IS NULL AND column_name <> 'ORIGIN'"
+                            "AND column_default IS NULL AND column_name <> 'ORIGIN'",
                     )
                     .use { statement ->
                         statement.setString(1, table.uppercase())
