@@ -104,7 +104,8 @@ class BrowserHistorySync(private val links: LinkRequests) : BackStackSync {
     private fun floor(): Int? = runCatching { window.sessionStorage.getItem(FLOOR)?.toIntOrNull() }.getOrNull()
 
     private fun keepFloor(place: Int) {
-        runCatching { window.sessionStorage.setItem(FLOOR, place.toString()) }
+        // Storage can be unavailable (private browsing, quota): then no floor is kept.
+        runCatching { window.sessionStorage.setItem(FLOOR, place.toString()) }.onFailure {}
     }
 
     /** The place of the entry the page was loaded on: kept by a reload, else the first. */

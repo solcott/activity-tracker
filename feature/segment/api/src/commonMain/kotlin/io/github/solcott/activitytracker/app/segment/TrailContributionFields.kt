@@ -510,8 +510,6 @@ object TrailContributionTexts {
         return if (year != null && number != null && number in 1..MONTHS) DateText.monthYear(year, number) else AppText.written(month)
     }
 
-    private fun <T> List<T>.toImmutableList(): ImmutableList<T> = kotlinx.collections.immutable.persistentListOf<T>().addAll(this)
-
     private val SOURCES = persistentSetOf(TrailSource.OSM, TrailSource.USFS, TrailSource.NPS, TrailSource.BLM, TrailSource.IMPORTED)
     private const val FULL = 100
     private const val MONTHS = 12
