@@ -73,8 +73,9 @@ class AccountUiTest {
         // A paragraph each, a blank line between them (`text_paragraph_pair`).
         onNodeWithText("\n\nAn import is still saving", substring = true).assertExists()
         onNodeWithText("Sign out anyway").performClick()
-        // The dialog dismisses itself before its action runs, so the confirmation carries the choice.
-        assertEquals(listOf(AccountEvent.Dismiss, AccountEvent.Confirm(signInAgain = false)), events.takeLast(2))
+        // The action alone answers, carrying the choice; no dismiss comes with it.
+        assertEquals(AccountEvent.Confirm(signInAgain = false), events.last())
+        assertEquals(false, AccountEvent.Dismiss in events)
     }
 
     @Test

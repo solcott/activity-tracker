@@ -313,7 +313,13 @@ private fun BlockMuteMenu(
         AppAlertDialog(
             title = ProfileTexts.blockConfirmTitle(AppText.written(name)).string(),
             message = ProfileTexts.blockConfirmMessage.string(),
-            actions = persistentListOf(AppDialogAction(block, destructive = true) { eventSink(ProfileEvent.ToggleBlock) }),
+            actions =
+                persistentListOf(
+                    AppDialogAction(block, destructive = true) {
+                        confirming = false
+                        eventSink(ProfileEvent.ToggleBlock)
+                    },
+                ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { confirming = false },
         )

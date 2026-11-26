@@ -18,8 +18,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * Asks the athlete to confirm, shown while composed: Material's alert dialog. Any number of [actions], then [cancelLabel]; picking one runs
- * it, and every way out dismisses.
+ * Asks the athlete to confirm, shown while composed: Material's alert dialog. Any number of [actions], then [cancelLabel]. Picking an
+ * action runs it alone, so it must close the dialog itself (its event clears what shows it); Cancel, a tap outside and Back call
+ * [onDismiss]. Never both: a dismiss that clears what the action acts on would leave the action nothing to do.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,11 +42,11 @@ fun AppAlertDialog(
                 if (actions.size == 1) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                         AppTextButton(onClick = onDismiss) { Text(cancelLabel) }
-                        ActionButton(actions.single(), onDismiss)
+                        ActionButton(actions.single())
                     }
                 } else {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-                        actions.forEach { ActionButton(it, onDismiss) }
+                        actions.forEach { ActionButton(it) }
                         AppTextButton(onClick = onDismiss) { Text(cancelLabel) }
                     }
                 }
@@ -55,13 +56,8 @@ fun AppAlertDialog(
 }
 
 @Composable
-private fun ActionButton(action: AppDialogAction, onDismiss: () -> Unit) {
-    AppTextButton(
-        onClick = {
-            onDismiss()
-            action.onClick()
-        },
-    ) {
+private fun ActionButton(action: AppDialogAction) {
+    AppTextButton(onClick = action.onClick) {
         Text(action.label, color = if (action.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
     }
 }

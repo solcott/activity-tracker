@@ -34,9 +34,15 @@ internal fun CombineSuggestionPrompt(suggestion: CombineSuggestionState, eventSi
     AppAlertDialog(
         title = ActivityPageTexts.combineCue(suggestion.cue).string(),
         message = suggestionMessage(suggestion),
-        actions = persistentListOf(AppDialogAction(ActivityPageTexts.combine.string()) { eventSink(CombineSuggested) }),
+        // Combine puts the prompt off first too: the suggestion then waits on the page as a banner, busy, until the combined page opens.
+        actions =
+            persistentListOf(
+                AppDialogAction(ActivityPageTexts.combine.string()) {
+                    eventSink(NotNowSuggestion)
+                    eventSink(CombineSuggested)
+                },
+            ),
         cancelLabel = ActivityPageTexts.notNow.string(),
-        // Picking Combine dismisses first too: the suggestion then waits on the page as a banner, busy, until the combined page opens.
         onDismiss = { eventSink(NotNowSuggestion) },
     )
 }

@@ -366,6 +366,25 @@ class FeedPresenterTest {
     }
 
     @Test
+    fun deletingTheirOwnQuoteAsksThenTakesItOffTheTimeline() = runTest {
+        filterTest {
+            val state = awaitUntil { !it.content.isLoading }
+            state.eventSink(FeedEvent.Post(PostEvent.Quote(bobsFollowersPost)))
+            val sheet = awaitUntil { it.quote.quoting != null }.quote
+            sheet.text.setTextAndPlaceCursorAtEnd("Yes")
+            sheet.eventSink(QuoteEvent.Post)
+            val quoted = awaitUntil { it.quote.quoting == null && it.content.data.any { item -> item is TimelineItem.Post } }
+            val mine = quoted.content.data.filterIsInstance<TimelineItem.Post>().single().post
+            quoted.eventSink(FeedEvent.Post(PostEvent.Delete(mine)))
+            val asking = awaitUntil { it.quote.confirmDelete != null }
+            asking.quote.eventSink(QuoteEvent.ConfirmDelete(true))
+            val gone = awaitUntil { s -> s.content.data.none { it is TimelineItem.Post } || s.error != null }
+            assertEquals(null, gone.error)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun withoutTheScopeAQuoteOfAFollowersPostIsRefusedWithWhy() = runTest {
         // Signed in before the declaration listed posts: only Public could be written, and that's wider than the post.
         filterTest(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}") {

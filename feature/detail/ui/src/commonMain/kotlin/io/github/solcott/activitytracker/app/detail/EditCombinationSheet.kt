@@ -67,7 +67,13 @@ internal fun EditCombinationSheet(
         AppAlertDialog(
             title = remove,
             message = CombinationTexts.removeMessage.string(),
-            actions = persistentListOf(AppDialogAction(remove, destructive = true) { eventSink(CombinationTexts.removeEvent(member)) }),
+            actions =
+                persistentListOf(
+                    AppDialogAction(remove, destructive = true) {
+                        removing = null
+                        eventSink(CombinationTexts.removeEvent(member))
+                    },
+                ),
             cancelLabel = CombinationTexts.cancel.string(),
             onDismiss = { removing = null },
         )

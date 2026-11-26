@@ -66,7 +66,13 @@ fun CommentMenu(
         AppAlertDialog(
             title = confirmation.title.string(),
             message = confirmation.message.string(),
-            actions = persistentListOf(AppDialogAction(confirmation.confirm.string(), destructive = true) { eventSink(event) }),
+            actions =
+                persistentListOf(
+                    AppDialogAction(confirmation.confirm.string(), destructive = true) {
+                        confirming = null
+                        eventSink(event)
+                    },
+                ),
             cancelLabel = CommentsTexts.cancel.string(),
             onDismiss = { confirming = null },
         )

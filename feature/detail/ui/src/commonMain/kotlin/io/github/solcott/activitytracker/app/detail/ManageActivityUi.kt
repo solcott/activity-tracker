@@ -66,7 +66,10 @@ internal fun ManageMenu(page: ActivityDetailPage, modifier: Modifier = Modifier)
             message = ActivityPageTexts.splitMessage.string(),
             actions =
                 persistentListOf(
-                    AppDialogAction(ActivityPageTexts.split.string(), destructive = true) { eventSink(ActivityDetailEvent.Split) },
+                    AppDialogAction(ActivityPageTexts.split.string(), destructive = true) {
+                        splitting = false
+                        eventSink(ActivityDetailEvent.Split)
+                    },
                 ),
             cancelLabel = ActivityPageTexts.cancel.string(),
             onDismiss = { splitting = false },
@@ -105,7 +108,12 @@ private fun ConfirmDelete(manage: ActivityManage, eventSink: (ActivityDetailEven
         message = ActivityPageTexts.deleteMessage(manage).string(),
         actions =
             choices
-                .mapIndexed { i, choice -> AppDialogAction(labels[i], destructive = true) { eventSink(choice.event()) } }
+                .mapIndexed { i, choice ->
+                    AppDialogAction(labels[i], destructive = true) {
+                        onDismiss()
+                        eventSink(choice.event())
+                    }
+                }
                 .toImmutableList(),
         cancelLabel = ActivityPageTexts.cancel.string(),
         onDismiss = onDismiss,
