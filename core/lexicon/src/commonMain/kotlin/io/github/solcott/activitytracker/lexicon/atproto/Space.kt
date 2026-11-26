@@ -68,6 +68,7 @@ value class SpaceRecordUri(val value: String) {
     init {
         requireSpaceParts(value, PARTS)
         require(parts[SpaceUri.PARTS].startsWith("did:")) { "A space record's repo must be a DID: $value" }
+        require('.' in parts[SpaceUri.PARTS + 1]) { "A space record's collection must be an NSID: $value" }
     }
 
     private val parts: List<String>
@@ -88,7 +89,7 @@ value class SpaceRecordUri(val value: String) {
 
     override fun toString(): String = value
 
-    private companion object {
+    internal companion object {
         /** The space's three parts, then repo, collection and key. */
         const val PARTS = 6
     }

@@ -84,6 +84,7 @@ class SpaceSerializationTest {
                 "at://did:plc:alice/space/app.activitytracker.space.athlete/mutuals/did:plc:bob/${Nsid.FEED_ACTIVITY}/3k",
                 "${space.value}/bob.test/${Nsid.FEED_ACTIVITY}/3k",
                 "${space.value}/did:plc:bob/${Nsid.FEED_ACTIVITY}",
+                "${space.value}/did:plc:bob/activity/3k",
                 "${space.value}/did:plc:bob/${Nsid.FEED_ACTIVITY}/3k/extra",
             )
             .forEach { assertFailsWith<IllegalArgumentException>(it) { SpaceRecordUri(it) } }
