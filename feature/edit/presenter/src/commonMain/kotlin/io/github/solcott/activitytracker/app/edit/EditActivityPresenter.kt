@@ -78,10 +78,9 @@ fun EditActivityPresenter(
     val gear = gearChoices.produce(loaded.data?.view?.record?.activityType ?: ActivityType(Sport.OTHER))
     val visibility =
         rememberEditVisibility(
-            defaults.canChoose,
+            defaults,
             { approvesFollowers },
             listsGear = { gear.selected.isNotEmpty() },
-            spacesUnsupported = defaults.spacesUnsupported,
         )
     val exclusion = rememberLeaderboardExclusion(AtUri(screen.uri), segmentPrefs, segmentTracks)
 

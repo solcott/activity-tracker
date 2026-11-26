@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.toImmutableList
 
@@ -33,11 +34,18 @@ internal constructor(
     internal var choice by mutableStateOf(VisibilityChoice.PUBLIC)
     internal var chosen by mutableStateOf(false)
 
+    /** The athlete's defaults once loaded, which "Use my defaults" applies; null before. */
+    internal var defaults by mutableStateOf<VisibilityChoice?>(null)
+
     /** What the form shows. */
     val fields: VisibilityFields
         get() =
-            fieldsOf(choice, canChoose, ::onEvent, approvesFollowers(), DetailCategory.all.filter { it in offered() })
-                .copy(runningForm = runningForm(), spacesUnsupported = spacesUnsupported)
+            DetailCategory.all
+                .filter { it in offered() }
+                .let { shown ->
+                    fieldsOf(choice, canChoose, ::onEvent, approvesFollowers(), shown)
+                        .copy(runningForm = runningForm(), spacesUnsupported = spacesUnsupported, defaults = defaults.defaultsFor(shown))
+                }
 
     /** What to publish with. */
     val current: VisibilityChoice
@@ -47,11 +55,7 @@ internal constructor(
         if (!canChoose) return
         if (event is VisibilityEvent.CategoryChanged && event.category !in offered()) return
         chosen = true
-        choice =
-            when (event) {
-                is VisibilityEvent.ActivityChanged -> choice.withActivity(event.visibility)
-                is VisibilityEvent.CategoryChanged -> choice.withCategory(event.category, event.visibility)
-            }
+        choice = choice.after(event, offered(), defaults)
     }
 }
 
@@ -73,6 +77,7 @@ fun rememberNewActivityVisibility(
     }
     LaunchedEffect(state) {
         val loaded = defaults.load()
+        state.defaults = loaded
         if (!state.chosen) state.choice = loaded
     }
     return state
@@ -98,3 +103,19 @@ fun fieldsOf(
         eventSink = eventSink,
     )
 }
+
+/** Each of [offered] at its tier in these defaults, for "Use my defaults" ([VisibilityFields.defaults]); null without defaults. */
+fun VisibilityChoice?.defaultsFor(offered: List<String>): ImmutableList<CategoryVisibility>? =
+    this?.tiers?.let { tiers -> offered.map { CategoryVisibility(it, tiers.getValue(it)) }.toImmutableList() }
+
+/**
+ * This choice after [event] on a form offering [offered]: the activity or one category changed, or every offered category matched to the
+ * activity or set to its tier in [defaults] (left as it is when there are none).
+ */
+fun VisibilityChoice.after(event: VisibilityEvent, offered: Collection<String>, defaults: VisibilityChoice?): VisibilityChoice =
+    when (event) {
+        is VisibilityEvent.ActivityChanged -> withActivity(event.visibility)
+        is VisibilityEvent.CategoryChanged -> withCategory(event.category, event.visibility)
+        VisibilityEvent.MatchActivity -> matchingActivity(offered)
+        VisibilityEvent.UseDefaults -> defaults?.let { withDefaultsFor(offered, it) } ?: this
+    }

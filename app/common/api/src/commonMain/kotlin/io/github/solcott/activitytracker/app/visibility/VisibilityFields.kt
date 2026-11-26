@@ -26,6 +26,11 @@ data class VisibilityFields(
     val approvesFollowers: Boolean = false,
     /** Whether the cadence category holds running form too, as for the defaults; false for an activity with only cadence itself. */
     val runningForm: Boolean = true,
+    /**
+     * Each offered category at the athlete's default for it (a `Visibility` value, not yet capped at [activity]), which "Use my defaults"
+     * ([VisibilityEvent.UseDefaults]) applies; null where there are none to apply, as on the defaults themselves.
+     */
+    val defaults: ImmutableList<CategoryVisibility>? = null,
     val eventSink: (VisibilityEvent) -> Unit = {},
 ) {
     /** What the activity may be shown to: every visibility, widest first. */
@@ -35,6 +40,23 @@ data class VisibilityFields(
     /** What a category may be shown to: the activity's visibility or narrower, widest first. */
     val categoryOptions: ImmutableList<String>
         get() = Visibility.atMost(activity).toImmutableList()
+
+    /**
+     * Whether "Match the activity" ([VisibilityEvent.MatchActivity]) would change anything: some category is narrower than the activity.
+     */
+    val offersMatchActivity: Boolean
+        get() = canChoose && categories.any { Visibility.known(it.visibility) != Visibility.known(activity) }
+
+    /** Whether "Use my defaults" ([VisibilityEvent.UseDefaults]) would change anything: some category isn't at its default, capped. */
+    val offersDefaults: Boolean
+        get() {
+            val defaults = defaults ?: return false
+            val byCategory = defaults.associate { it.category to it.visibility }
+            return canChoose &&
+                categories.any { category ->
+                    byCategory[category.category]?.let { Visibility.capped(Visibility.known(it), activity) != category.visibility } == true
+                }
+        }
 }
 
 private val ALL_VISIBILITIES: ImmutableList<String> = Visibility.all.toImmutableList()
@@ -48,4 +70,12 @@ sealed interface VisibilityEvent {
 
     /** One of [VisibilityFields.categories], within [VisibilityFields.categoryOptions]. */
     data class CategoryChanged(val category: String, val visibility: String) : VisibilityEvent
+
+    /** Every one of [VisibilityFields.categories] at the activity's visibility. */
+    data object MatchActivity : VisibilityEvent
+
+    /**
+     * Every one of [VisibilityFields.categories] at its default ([VisibilityFields.defaults]), capped at the activity; the activity stays.
+     */
+    data object UseDefaults : VisibilityEvent
 }

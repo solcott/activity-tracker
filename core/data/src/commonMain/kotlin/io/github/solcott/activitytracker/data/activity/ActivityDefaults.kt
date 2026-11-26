@@ -44,6 +44,14 @@ data class VisibilityChoice(val activity: String = Visibility.PUBLIC, val detail
                 DetailCategory.all.associateWith { chosen(it) } + (category to Visibility.capped(Visibility.known(visibility), activity)),
         )
 
+    /** This choice with each of [categories] at the activity's tier. */
+    fun matchingActivity(categories: Collection<String>): VisibilityChoice =
+        categories.fold(this) { choice, category -> choice.withCategory(category, activity) }
+
+    /** This choice with each of [categories] at its tier in [defaults], capped at this activity; the activity's own tier stays. */
+    fun withDefaultsFor(categories: Collection<String>, defaults: VisibilityChoice): VisibilityChoice =
+        categories.fold(this) { choice, category -> choice.withCategory(category, defaults.tiers.getValue(category)) }
+
     /** What was chosen for [category], uncapped, or its tier at the activity when unset. */
     private fun chosen(category: String): String =
         details[category]?.let(Visibility::known) ?: DetailCategory.defaultWhenUnset(category, Visibility.known(activity))

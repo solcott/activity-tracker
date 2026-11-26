@@ -60,6 +60,18 @@ struct ActivityPrivacySection<More: View>: View {
             rows.activityPicker(Text(verbatim: label), name: label).disabled(!(enabled && fields.canChoose))
             if !rows.categories.isEmpty {
                 DisclosureGroup(isExpanded: $detailsExpanded) {
+                    if fields.offersMatchActivity || fields.offersDefaults {
+                        // AppTextButton is borderless, so each takes only its own taps in the shared row.
+                        HStack(spacing: 16) {
+                            if fields.offersMatchActivity {
+                                AppTextButton(.detailVisibilityMatchActivity) { fields.eventSink(VisibilityEvent.MatchActivity.shared) }
+                            }
+                            if fields.offersDefaults {
+                                AppTextButton(.detailVisibilityUseDefaults) { fields.eventSink(VisibilityEvent.UseDefaults.shared) }
+                            }
+                        }
+                        .disabled(!enabled)
+                    }
                     rows.categoryPickers.disabled(!enabled)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {

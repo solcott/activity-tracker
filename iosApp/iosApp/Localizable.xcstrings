@@ -4126,6 +4126,17 @@
         }
       }
     },
+    "detail_visibility_match_activity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Match the activity"
+          }
+        }
+      }
+    },
     "detail_visibility_row" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4166,6 +4177,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "detail_visibility_use_defaults" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use my defaults"
           }
         }
       }

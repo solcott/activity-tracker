@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.edit
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,7 +9,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.app.visibility.after
+import io.github.solcott.activitytracker.app.visibility.defaultsFor
 import io.github.solcott.activitytracker.app.visibility.fieldsOf
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -33,6 +38,9 @@ internal constructor(
     private var offered by mutableStateOf(emptyList<String>())
     private var runningForm by mutableStateOf(false)
 
+    /** The athlete's defaults once loaded, which "Use my defaults" applies to the categories; null before. */
+    internal var defaults by mutableStateOf<VisibilityChoice?>(null)
+
     /**
      * [view] as loaded, with its [streams] (null when it has none or they can't load): each category with data at the tier it's served at
      * now, read from where it appears ([DetailCategory.currentTiers]).
@@ -54,7 +62,7 @@ internal constructor(
     val fields: VisibilityFields?
         get() = choice?.let {
             fieldsOf(it, canChoose, ::onEvent, approvesFollowers(), offeredNow)
-                .copy(runningForm = runningForm, spacesUnsupported = spacesUnsupported)
+                .copy(runningForm = runningForm, spacesUnsupported = spacesUnsupported, defaults = defaults.defaultsFor(offeredNow))
         }
 
     /** The choice as the athlete has it now; null until loaded. */
@@ -111,18 +119,19 @@ internal constructor(
 
     fun onEvent(event: VisibilityEvent) {
         if (!canChoose) return
-        when (event) {
-            is VisibilityEvent.ActivityChanged -> choice = choice?.withActivity(event.visibility)
-            is VisibilityEvent.CategoryChanged ->
-                if (event.category in offeredNow) choice = choice?.withCategory(event.category, event.visibility)
-        }
+        if (event is VisibilityEvent.CategoryChanged && event.category !in offeredNow) return
+        choice = choice?.after(event, offeredNow, defaults)
     }
 }
 
+/** An [EditVisibility] for the session [defaults] describe, which loads them for "Use my defaults". */
 @Composable
 internal fun rememberEditVisibility(
-    canChoose: Boolean,
+    defaults: ActivityDefaults,
     approvesFollowers: () -> Boolean,
     listsGear: () -> Boolean = { false },
-    spacesUnsupported: Boolean = false,
-): EditVisibility = remember { EditVisibility(canChoose, approvesFollowers, listsGear, spacesUnsupported) }
+): EditVisibility {
+    val state = remember { EditVisibility(defaults.canChoose, approvesFollowers, listsGear, defaults.spacesUnsupported) }
+    LaunchedEffect(state) { state.defaults = runSuspendCatching { defaults.load() }.getOrNull() }
+    return state
+}

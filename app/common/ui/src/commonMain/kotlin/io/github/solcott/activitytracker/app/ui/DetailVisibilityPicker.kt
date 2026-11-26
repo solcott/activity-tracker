@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
@@ -42,7 +43,9 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityTexts
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_help
+import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_match_activity
 import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_row
+import io.github.solcott.activitytracker.composeApp.resources.detail_visibility_use_defaults
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.stringResource
 
@@ -64,7 +67,7 @@ fun DetailVisibilityPicker(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (collapsible) {
             DetailsSummaryRow(fields, expanded, onToggle = { expanded = !expanded })
-            AnimatedVisibility(expanded) { CategoryPickers(fields, enabled, Modifier.padding(top = 4.dp)) }
+            AnimatedVisibility(expanded) { CategoryPickers(fields, enabled, Modifier.padding(top = 4.dp), resets = true) }
         } else {
             Text(stringResource(Res.string.detail_visibility_heading), style = MaterialTheme.typography.labelLarge)
             CategoryPickers(fields, enabled)
@@ -74,8 +77,9 @@ fun DetailVisibilityPicker(
 
 /** The help, then a picker per category. */
 @Composable
-private fun CategoryPickers(fields: VisibilityFields, enabled: Boolean, modifier: Modifier = Modifier) {
+private fun CategoryPickers(fields: VisibilityFields, enabled: Boolean, modifier: Modifier = Modifier, resets: Boolean = false) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (resets) Resets(fields, enabled)
         Text(
             stringResource(Res.string.detail_visibility_help),
             style = MaterialTheme.typography.bodySmall,
@@ -95,6 +99,24 @@ private fun CategoryPickers(fields: VisibilityFields, enabled: Boolean, modifier
                     enabled = enabled && fields.canChoose,
                     options = fields.categoryOptions,
                 )
+            }
+        }
+    }
+}
+
+/** "Match the activity" and "Use my defaults", each only while it would change something. */
+@Composable
+private fun Resets(fields: VisibilityFields, enabled: Boolean) {
+    if (!fields.offersMatchActivity && !fields.offersDefaults) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (fields.offersMatchActivity) {
+            AppTextButton(onClick = { fields.eventSink(VisibilityEvent.MatchActivity) }, enabled = enabled) {
+                Text(stringResource(Res.string.detail_visibility_match_activity))
+            }
+        }
+        if (fields.offersDefaults) {
+            AppTextButton(onClick = { fields.eventSink(VisibilityEvent.UseDefaults) }, enabled = enabled) {
+                Text(stringResource(Res.string.detail_visibility_use_defaults))
             }
         }
     }

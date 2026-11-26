@@ -1753,6 +1753,8 @@
     <string name="detail_visibility_summary_all">every detail</string>
     <string name="detail_visibility_summary_rest">everything else</string>
     <string name="detail_visibility_row">Details</string>
+    <string name="detail_visibility_match_activity">Match the activity</string>
+    <string name="detail_visibility_use_defaults">Use my defaults</string>
     <string name="detail_category_startTime">Start time</string>
     <string name="detail_category_startTime_help">Others see only the date.</string>
     <string name="detail_category_heartRate">Heart rate</string>
