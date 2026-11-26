@@ -29,12 +29,24 @@ data class VisibilityChoice(val activity: String = Visibility.PUBLIC, val detail
     /** This choice with every category narrowed to the activity if it's wider. */
     fun capped(): VisibilityChoice = copy(activity = Visibility.known(activity), details = tiers)
 
-    /** This choice with the activity at [visibility]: wider categories are narrowed with it, and a widening leaves them as they are. */
-    fun withActivity(visibility: String): VisibilityChoice = copy(activity = Visibility.known(visibility), details = tiers).capped()
+    /**
+     * This choice with the activity at [visibility]. Each category keeps what was chosen for it, which [tiers] caps at the activity: a
+     * narrowing narrows wider categories with it, and widening again gives them back, never past their own choice. A category left unset
+     * keeps the activity's tier as it was, so a widening never widens it on its own.
+     */
+    fun withActivity(visibility: String): VisibilityChoice =
+        copy(activity = Visibility.known(visibility), details = DetailCategory.all.associateWith { chosen(it) })
 
-    /** This choice with [category] at [visibility], capped at the activity. */
+    /** This choice with [category] at [visibility], capped at the activity; the other categories keep what was chosen for them. */
     fun withCategory(category: String, visibility: String): VisibilityChoice =
-        copy(details = tiers + (category to Visibility.capped(Visibility.known(visibility), activity)))
+        copy(
+            details =
+                DetailCategory.all.associateWith { chosen(it) } + (category to Visibility.capped(Visibility.known(visibility), activity)),
+        )
+
+    /** What was chosen for [category], uncapped, or its tier at the activity when unset. */
+    private fun chosen(category: String): String =
+        details[category]?.let(Visibility::known) ?: DetailCategory.defaultWhenUnset(category, Visibility.known(activity))
 
     /** Whether some category is narrower than the activity, so publishing needs details records in the tier spaces. */
     val splits: Boolean

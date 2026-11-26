@@ -70,7 +70,7 @@ class ActivityDefaultsTest {
     }
 
     @Test
-    fun narrowingTheActivityDragsWiderCategoriesAndWideningLeavesThem() {
+    fun narrowingTheActivityDragsWiderCategoriesAndWideningLeavesUnsetOnes() {
         val choice =
             VisibilityChoice(
                 Visibility.PUBLIC,
@@ -83,5 +83,27 @@ class ActivityDefaultsTest {
         val widened = VisibilityChoice(Visibility.FOLLOWERS).withActivity(Visibility.PUBLIC)
         assertEquals(Visibility.FOLLOWERS, widened.tiers[DetailCategory.HEART_RATE])
         assertEquals(Visibility.PUBLIC, widened.activity)
+    }
+
+    @Test
+    fun wideningAgainGivesEachCategoryBackItsOwnChoice() {
+        val choice = VisibilityChoice(Visibility.PUBLIC).withCategory(DetailCategory.POWER, Visibility.FOLLOWERS)
+        val roundTrip = choice.withActivity(Visibility.MUTUALS).withActivity(Visibility.PUBLIC)
+        assertEquals(choice, roundTrip)
+        assertEquals(Visibility.PUBLIC, roundTrip.tiers[DetailCategory.CALORIES])
+        assertEquals(Visibility.FOLLOWERS, roundTrip.tiers[DetailCategory.POWER])
+
+        // Part of the way back: each category is capped at the activity, never wider than its own choice.
+        val partWay = choice.withActivity(Visibility.SELF).withActivity(Visibility.FOLLOWERS)
+        assertEquals(Visibility.FOLLOWERS, partWay.tiers[DetailCategory.CALORIES])
+        assertEquals(Visibility.FOLLOWERS, partWay.tiers[DetailCategory.POWER])
+    }
+
+    @Test
+    fun choosingACategoryWhileNarrowedKeepsTheOthersChoices() {
+        val narrowed = VisibilityChoice(Visibility.PUBLIC).withActivity(Visibility.MUTUALS)
+        val widened = narrowed.withCategory(DetailCategory.HEART_RATE, Visibility.SELF).withActivity(Visibility.PUBLIC)
+        assertEquals(Visibility.SELF, widened.tiers[DetailCategory.HEART_RATE])
+        assertEquals(Visibility.PUBLIC, widened.tiers[DetailCategory.MAP])
     }
 }

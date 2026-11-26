@@ -49,7 +49,8 @@ internal constructor(private val defaults: ActivityDefaults, private val flights
         shown = choice
         onError(null)
         flights.launch(KEY) {
-            runSuspendCatching { shown = defaults.save(choice) }
+            // Saved capped, but shown as chosen, so narrowing the activity and widening it again gives the categories back.
+            runSuspendCatching { defaults.save(choice) }
                 .onFailure { e ->
                     shown = before
                     onError(uiErrorOf(UiError.Kind.SaveSettings, e))

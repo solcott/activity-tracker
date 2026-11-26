@@ -65,7 +65,8 @@ internal fun newBatchSave(
         val item = scan.items[index]
         val file = scan.files[item.file]
         val override = selection.overrides[index]
-        val visibility = item.narrowedTo(choices.visibility.activity)?.let(choices.visibility::withActivity) ?: choices.visibility
+        val visibility =
+            (item.narrowedTo(choices.visibility.activity)?.let(choices.visibility::withActivity) ?: choices.visibility).capped()
         val planned =
             PlannedActivity(
                 title = item.title(override) ?: defaultTitles[index]?.ifBlank { null },
