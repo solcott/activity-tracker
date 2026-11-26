@@ -21,6 +21,9 @@ class CommentLikesPresenterTest : CommentsTestBase() {
             .filter { it.collection == Nsid.FEED_LIKE }
             .map { Triple(it.operation, it.space?.substringAfterLast('/'), it.recordJson) }
 
+    /** [queuedLikes] once one is queued: other writes (a non-public activity's space setup) can land in the outbox before it. */
+    private suspend fun Repos.awaitQueuedLikes() = db.outbox().count(alice.value).first { queuedLikes().isNotEmpty() }.let { queuedLikes() }
+
     @Test
     fun likingSomeoneElsesCommentShowsAtOnceAndGoesToTheRepo() = runTest {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"))
@@ -31,8 +34,7 @@ class CommentLikesPresenterTest : CommentsTestBase() {
             loaded.eventSink(CommentEvent.Like(bobs.uri))
             val liked = awaitUntil { it.page()?.comments?.roots?.single()?.viewer?.like != null }.page()!!
             assertEquals(1, liked.comments.roots.single().likeCount)
-            r.db.outbox().count(alice.value).first { it >= 1 }
-            val (op, space, record) = r.queuedLikes().single()
+            val (op, space, record) = r.awaitQueuedLikes().single()
             assertEquals(OutboxProcessor.OP_PUT, op)
             assertNull(space, "a public comment's like is in the repo")
             assertTrue(record!!.contains(bobs.uri.value), "the like names the comment")
@@ -52,8 +54,7 @@ class CommentLikesPresenterTest : CommentsTestBase() {
         commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             loaded.eventSink(CommentEvent.Like(loaded.comments.roots.single().uri))
-            r.db.outbox().count(alice.value).first { it >= 1 }
-            assertEquals(AthleteSpace.INTERACTIONS, r.queuedLikes().single().second)
+            assertEquals(AthleteSpace.INTERACTIONS, r.awaitQueuedLikes().single().second)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -65,8 +66,7 @@ class CommentLikesPresenterTest : CommentsTestBase() {
         commentsOf(r) {
             val loaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             loaded.eventSink(CommentEvent.Like(loaded.comments.roots.single().uri))
-            r.db.outbox().count(alice.value).first { it >= 1 }
-            assertEquals(AthleteSpace.INTERACTIONS, r.queuedLikes().single().second, "written for followers on a public activity")
+            assertEquals(AthleteSpace.INTERACTIONS, r.awaitQueuedLikes().single().second, "written for followers on a public activity")
             cancelAndIgnoreRemainingEvents()
         }
     }
