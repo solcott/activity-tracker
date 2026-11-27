@@ -43,7 +43,6 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.location.pointE7
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.Case
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
@@ -55,7 +54,6 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
@@ -112,14 +110,12 @@ class DiveSiteViews(
             val rows =
                 DiveSites.selectAll()
                     .where {
-                        DiveSitePlace.servedTo(viewer) and
-                            unhidden(viewer, DiveSites.authorDid, DiveSites.uri) and
+                        DiveSitePlace.shownInSearch(viewer) and
                             pointInBox(
                                 DiveSites.latE7,
                                 DiveSites.lngE7,
                                 SearchBox(params.minLat, params.minLng, params.maxLat, params.maxLng),
                             ) and
-                            DiveSitePlace.listedTo(viewer) and
                             keysetAfter(DiveSites.indexedAt, DiveSites.uri, params.cursor)
                     }
                     .orderBy(DiveSites.indexedAt to SortOrder.ASC, DiveSites.uri to SortOrder.ASC)
@@ -145,12 +141,7 @@ class DiveSiteViews(
         return db.tx {
             val name = DiveSites.currentName.lowerCase()
             val match = NameMatch(q)
-            val rank =
-                Case()
-                    .When(name eq q, intLiteral(NAME_WHOLE))
-                    .When(name like match.prefix, intLiteral(NAME_PREFIX))
-                    .When(name like match.wordPrefix, intLiteral(NAME_WORD))
-                    .Else(intLiteral(NAME_ANYWHERE))
+            val rank = nameRank(name, q, match)
             val inBox = box?.let { pointInBox(DiveSites.latE7, DiveSites.lngE7, it) } ?: Op.TRUE
             // Within a match, nearest the centre first, or by name without one.
             val within: Expression<*> =
@@ -158,13 +149,7 @@ class DiveSiteViews(
                     ?: name
             val rows =
                 DiveSites.selectAll()
-                    .where {
-                        DiveSitePlace.servedTo(viewer) and
-                            unhidden(viewer, DiveSites.authorDid, DiveSites.uri) and
-                            DiveSitePlace.listedTo(viewer) and
-                            (name like match.anywhere) and
-                            inBox
-                    }
+                    .where { DiveSitePlace.shownInSearch(viewer) and (name like match.anywhere) and inBox }
                     .orderBy(rank to SortOrder.ASC, within to SortOrder.ASC, DiveSites.uri to SortOrder.ASC)
                     .limit(limit)
                     .offset(offset.toLong())

@@ -113,7 +113,6 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.intLiteral
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.like
@@ -239,9 +238,7 @@ class SegmentViews(
                 ((Segments.groupUri eq group) or (Segments.groupUri.isNull() and (Segments.uri eq group))) and
                     (Segments.uri neq uri) and
                     (Segments.kind neq SegmentKind.LIFT) and
-                    SegmentPlace.servedTo(viewer) and
-                    unhidden(viewer, Segments.authorDid, Segments.uri) and
-                    SegmentPlace.listedTo(viewer)
+                    SegmentPlace.shownInSearch(viewer)
             }
             .orderBy(Segments.firstIndexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
             .limit(MAX_ROUTE_MEMBERS)
@@ -276,11 +273,7 @@ class SegmentViews(
             var batches = 0
             // Served, listed and in the box's cells: what a page may hold, before each line is checked against the box.
             val inArea =
-                SegmentPlace.servedTo(viewer) and
-                    unhidden(viewer, Segments.authorDid, Segments.uri) and
-                    (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
-                    SegmentPlace.listedTo(viewer) and
-                    segmentsNear(box)
+                SegmentPlace.shownInSearch(viewer) and (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and segmentsNear(box)
             fun crossesBox(row: ResultRow) = crosses(row[Segments.line], minLat, minLng, maxLat, maxLng)
             // Cells and the stored box only narrow it down: each candidate's line is checked against the box, a batch at a time.
             while (found.size < limit && !exhausted && batches < searchBatches) {
@@ -739,9 +732,7 @@ class SegmentViews(
     /** Run segments that name search lists to [viewer]: served, unhidden, listed, of [sport] when given, and with a point in [box]. */
     private fun nameListed(viewer: Did?, sport: String?, box: SearchBox?): Op<Boolean> {
         val inBox = box?.let(::segmentsNear) ?: Op.TRUE
-        return SegmentPlace.servedTo(viewer) and
-            unhidden(viewer, Segments.authorDid, Segments.uri) and
-            SegmentPlace.listedTo(viewer) and
+        return SegmentPlace.shownInSearch(viewer) and
             (Segments.kind neq SegmentKind.LIFT) and
             (sport?.let { Segments.sport eq it } ?: Op.TRUE) and
             inBox
@@ -1314,11 +1305,6 @@ private const val SECTION_CHUNK = 1_000
 /** A search box, 1e-7 degrees. */
 internal data class SearchBox(val minLat: Int, val minLng: Int, val maxLat: Int, val maxLng: Int)
 
-/** How well a name matches a name search: the whole name, its start, a word's start, anywhere. Lower is better. */
-internal const val NAME_WHOLE = 0
-internal const val NAME_PREFIX = 1
-internal const val NAME_WORD = 2
-internal const val NAME_ANYWHERE = 3
 private const val BOX_SIDES = 4
 
 /** A name search's box, checked like an area search's: all four sides or none, else `InvalidRequest`. */
@@ -1381,14 +1367,6 @@ internal class BoxDistance(
         const val PER_MILLE = 1000
     }
 }
-
-/** How well a lower-cased [name] matches [q] in SQL, as [rankOf] ranks it in Kotlin ([NAME_WHOLE] best). */
-private fun nameRank(name: ExpressionWithColumnType<String>, q: String, match: NameMatch): Expression<Int> =
-    Case()
-        .When(name eq q, intLiteral(NAME_WHOLE))
-        .When(name like match.prefix, intLiteral(NAME_PREFIX))
-        .When(name like match.wordPrefix, intLiteral(NAME_WORD))
-        .Else(intLiteral(NAME_ANYWHERE))
 
 /**
  * This query ordered as a capped name search reads its matches, as [NAME_HIT_ORDER] ranks them: best match, then nearest [near] by the box,

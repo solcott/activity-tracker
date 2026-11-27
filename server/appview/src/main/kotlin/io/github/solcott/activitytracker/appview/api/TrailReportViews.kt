@@ -2,7 +2,6 @@
 
 package io.github.solcott.activitytracker.appview.api
 
-import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.TrailReportBlobs
 import io.github.solcott.activitytracker.appview.db.TrailReportTags
 import io.github.solcott.activitytracker.appview.db.TrailReports
@@ -154,16 +153,6 @@ private fun JdbcTransaction.withReports(segments: Collection<String>, viewer: Di
             .withDistinct()
             .map { it[TrailReports.segmentUri] }
     }
-
-/** Of [authors], those [viewer] mutes, in one query. */
-private fun JdbcTransaction.mutedAmong(viewer: Did?, authors: Collection<String>): Set<String> {
-    if (viewer == null || authors.isEmpty()) return emptySet()
-    return authors.distinct().chunked(LOOKUP_CHUNK).flatMapTo(mutableSetOf()) { chunk ->
-        Mutes.select(Mutes.subjectDid)
-            .where { (Mutes.authorDid eq viewer.value) and (Mutes.subjectDid inList chunk) }
-            .map { it[Mutes.subjectDid] }
-    }
-}
 
 /** Each report's known tags, in [TrailCondition.all]'s order. */
 internal fun JdbcTransaction.tagsOf(reports: Collection<String>): Map<String, List<String>> =

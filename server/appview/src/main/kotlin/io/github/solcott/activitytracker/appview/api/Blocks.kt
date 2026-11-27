@@ -10,6 +10,7 @@ import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.stringParam
@@ -59,3 +60,16 @@ internal fun JdbcTransaction.ownBlock(viewer: String, subject: String): String? 
 /** [viewer]'s mute of [subject]. */
 internal fun JdbcTransaction.ownMute(viewer: String, subject: String): String? =
     Mutes.select(Mutes.uri).where { (Mutes.authorDid eq viewer) and (Mutes.subjectDid eq subject) }.firstOrNull()?.get(Mutes.uri)
+
+/** Of [authors], those [viewer] mutes, in one query per [MUTE_LOOKUP_CHUNK] of them. */
+internal fun JdbcTransaction.mutedAmong(viewer: Did?, authors: Collection<String>): Set<String> {
+    if (viewer == null || authors.isEmpty()) return emptySet()
+    return authors.distinct().chunked(MUTE_LOOKUP_CHUNK).flatMapTo(mutableSetOf()) { chunk ->
+        Mutes.select(Mutes.subjectDid)
+            .where { (Mutes.authorDid eq viewer.value) and (Mutes.subjectDid inList chunk) }
+            .map { it[Mutes.subjectDid] }
+    }
+}
+
+/** How many authors one `IN` list of [mutedAmong] carries. */
+private const val MUTE_LOOKUP_CHUNK = 500

@@ -113,6 +113,12 @@ internal fun Place.listedTo(viewer: Did?): Op<Boolean> {
     return active or ((status eq SegmentStatus.PROPOSED) and ((author eq viewer.value) or used(viewer.value)))
 }
 
+/**
+ * Places a search or list shows [viewer]: served to them ([servedTo]), not hidden from them by a label ([unhidden]) and listed to them
+ * ([listedTo]). Every place search, name search and segment group list goes through it.
+ */
+internal fun Place.shownInSearch(viewer: Did?): Op<Boolean> = servedTo(viewer) and unhidden(viewer, author, uri) and listedTo(viewer)
+
 /** The status of the place at [place] when it's served to [viewer] ([servedTo]); [Place.notFound] when it isn't. */
 internal fun JdbcTransaction.requireServedPlace(target: Place, viewer: Did?, place: String): String =
     target.table.select(target.status).where { (target.uri eq place) and target.servedTo(viewer) }.firstOrNull()?.get(target.status)
