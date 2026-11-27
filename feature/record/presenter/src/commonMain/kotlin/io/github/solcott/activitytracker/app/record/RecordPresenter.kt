@@ -69,7 +69,7 @@ fun RecordPresenter(
     var trimOffered by remember { mutableStateOf<TrimSuggestion?>(null) }
     var trimmable by remember { mutableStateOf(false) }
     val trimSpan by remember { drafts.span(RECORDING_DRAFT) }.collectAsState(null)
-    LaunchedEffect(recording.status, recording.recovered) {
+    LaunchedEffect(recording.status, recording.recovered, type.selected) {
         if (recording.status == RecordingState.Status.Paused) {
             val draft = recorder.snapshot()?.let { ActivityDraft.fromRecording(it, type.selected, title = null, description = null) }
             trimmable = draft != null && drafts.offer(RECORDING_DRAFT, draft)

@@ -178,7 +178,7 @@ fun ImportActivityPresenter(
     // A single file's activity is offered for trimming before it's saved (feed/activity-trim). Offering it again (a new zone or type, or
     // coming back from the trim) keeps the chosen span; a new file starts it whole (clear).
     val trimDraft =
-        rememberRetained(placed) { mutableStateOf(placed?.activity?.let { ActivityDraft.fromImport(it, type, title = null) }) }.value
+        rememberRetained(placed, type) { mutableStateOf(placed?.activity?.let { ActivityDraft.fromImport(it, type, title = null) }) }.value
     var trimmable by rememberRetained { mutableStateOf(false) }
     SideEffect(trimDraft) { trimmable = trimDraft != null && drafts.offer(IMPORT_DRAFT, trimDraft) }
     val trimSpan by remember { drafts.span(IMPORT_DRAFT) }.collectAsState(null)
