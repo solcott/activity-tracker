@@ -18,7 +18,7 @@ struct TrailReportsView: View {
                 ErrorMessage(error, layout: .row).listStatusRow()
             }
         } row: { row in
-            TrailReportRowView(row: row, send: send) { blocking = row }
+            TrailReportRowView(row: row, offersReport: state.reporting.available, send: send) { blocking = row }
         } empty: {
             EmptyMessage(.trailConditionsNone)
         }
@@ -66,6 +66,8 @@ struct TrailReportsView: View {
 /// One report: its author's picture and name, its age and the menu on one line, then its tags, note and photos; an older one muted.
 private struct TrailReportRowView: View {
     let row: TrailReportRow
+    /// Whether Report is offered: a labeler is set up (`Reporting.available`).
+    let offersReport: Bool
     let send: (any TrailReportsEvent) -> Void
     let block: () -> Void
 
@@ -108,10 +110,12 @@ private struct TrailReportRowView: View {
                     Text(.trailReportDelete)
                 }
             } else {
-                Button {
-                    send(TrailReportsEvent.Report(uri: row.uri))
-                } label: {
-                    Text(.actionReport)
+                if offersReport {
+                    Button {
+                        send(TrailReportsEvent.Report(uri: row.uri))
+                    } label: {
+                        Text(.actionReport)
+                    }
                 }
                 Button(role: .destructive, action: block) {
                     Text(.actionBlock)
@@ -189,10 +193,12 @@ struct TrailPhotosView: View {
                         Text(.trailPhotoRemove)
                     }
                 } else {
-                    Button {
-                        send(TrailPhotosEvent.Report.shared)
-                    } label: {
-                        Text(.actionReport)
+                    if state.reporting.available {
+                        Button {
+                            send(TrailPhotosEvent.Report.shared)
+                        } label: {
+                            Text(.actionReport)
+                        }
                     }
                     Button(role: .destructive) {
                         confirmingBlock = true

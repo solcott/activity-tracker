@@ -141,10 +141,13 @@ private fun Caption(page: TrailPhotoPage, state: TrailPhotosState) {
     }
 }
 
-/** The "…" menu: Remove from trail on the viewer's own photo, Report (when a labeler is set up) and Block on anyone else's. */
+/**
+ * The "…" menu: Remove from trail on the viewer's own photo, Report (when a labeler is set up) and Block, asked first, on anyone else's.
+ */
 @Composable
 private fun PhotoMenu(page: TrailPhotoPage, state: TrailPhotosState) {
     var open by remember { mutableStateOf(false) }
+    var confirmingBlock by remember { mutableStateOf(false) }
     val send = state.eventSink
     val remove = stringResource(Res.string.trail_photo_remove)
     val report = ReportTexts.menuEntry.string()
@@ -156,7 +159,7 @@ private fun PhotoMenu(page: TrailPhotoPage, state: TrailPhotosState) {
                     add(AppMenuItem(remove, AppIcon.Delete, destructive = true) { send(TrailPhotosEvent.Remove) })
                 } else {
                     if (state.reporting.available) add(AppMenuItem(report) { send(TrailPhotosEvent.Report) })
-                    add(AppMenuItem(block, destructive = true) { send(TrailPhotosEvent.Block) })
+                    add(AppMenuItem(block, destructive = true) { confirmingBlock = true })
                 }
             }
                 .toImmutableList()
@@ -164,6 +167,16 @@ private fun PhotoMenu(page: TrailPhotoPage, state: TrailPhotosState) {
     Box {
         AppIconButton(AppIcon.More, stringResource(Res.string.detail_more), onClick = { open = true }, tint = Color.White)
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)
+    }
+    if (confirmingBlock) {
+        TrailBlockConfirm(
+            page.author,
+            onBlock = {
+                confirmingBlock = false
+                send(TrailPhotosEvent.Block)
+            },
+            onDismiss = { confirmingBlock = false },
+        )
     }
 }
 

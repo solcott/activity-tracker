@@ -123,6 +123,7 @@ private fun ReportPhotos(photos: ImmutableList<PhotoThumb>, onOpen: (Int) -> Uni
 @Composable
 private fun RowMenu(row: TrailReportRow, state: TrailReportsState) {
     var open by remember { mutableStateOf(false) }
+    var confirmingBlock by remember { mutableStateOf(false) }
     val send = state.eventSink
     val delete = stringResource(Res.string.trail_report_delete)
     val report = ReportTexts.menuEntry.string()
@@ -134,7 +135,7 @@ private fun RowMenu(row: TrailReportRow, state: TrailReportsState) {
                     add(AppMenuItem(delete, AppIcon.Delete, destructive = true) { send(TrailReportsEvent.Delete(row.uri)) })
                 } else {
                     if (state.reporting.available) add(AppMenuItem(report) { send(TrailReportsEvent.Report(row.uri)) })
-                    add(AppMenuItem(block, destructive = true) { send(TrailReportsEvent.Block(row.uri)) })
+                    add(AppMenuItem(block, destructive = true) { confirmingBlock = true })
                 }
             }
                 .toImmutableList()
@@ -142,6 +143,16 @@ private fun RowMenu(row: TrailReportRow, state: TrailReportsState) {
     Box {
         AppIconButton(AppIcon.More, stringResource(Res.string.detail_more), onClick = { open = true })
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)
+    }
+    if (confirmingBlock) {
+        TrailBlockConfirm(
+            row.author,
+            onBlock = {
+                confirmingBlock = false
+                send(TrailReportsEvent.Block(row.uri))
+            },
+            onDismiss = { confirmingBlock = false },
+        )
     }
 }
 
