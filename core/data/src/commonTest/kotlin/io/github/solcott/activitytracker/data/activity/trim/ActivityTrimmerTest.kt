@@ -135,4 +135,12 @@ class ActivityTrimmerTest {
         assertEquals(1500 - STANDING_START, lap.moving)
         assertEquals(400.0 * (1500 - STANDING_START) / 2000, lap.calories!!.toDouble(), 1.0)
     }
+
+    @Test
+    fun aShortChannelIsCutWithTheRest() {
+        val short = input.streams!!.let { it.copy(cadence = List(it.time.size - 5) { 80 }) }
+        val span = KeptSpan(STANDING_START, END)
+        val streams = ActivityTrimmer.streams(short, span)
+        assertEquals(streams.time.size, streams.cadence?.size)
+    }
 }

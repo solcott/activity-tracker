@@ -22,7 +22,7 @@ object ActivityTrimmer {
     /** [data] over [span] only, its times re-based to the span's start. */
     fun streams(data: ActivityStreamData, span: KeptSpan): ActivityStreamData {
         val keep = data.time.indices.filter { data.time[it] in span.from..span.to }
-        fun <T> List<T>.kept() = keep.map { this[it] }
+        fun <T> List<T?>.kept(): List<T?> = keep.map { getOrNull(it) }
         fun moved(t: Int) = t - span.from
         fun within(start: Int, elapsed: Int) = start >= span.from && start + elapsed <= span.to
         val base =
