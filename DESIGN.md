@@ -111,6 +111,15 @@ components:
     textColor: "{colors.ink}"
     rounded: "{rounded.md}"
     height: "32px"
+  highlight:
+    rounded: "{rounded.md}"
+    padding: "8px 12px"
+    height: "40px"
+  highlight-selected:
+    backgroundColor: "{colors.dusk-slate-container}"
+    rounded: "{rounded.md}"
+    padding: "8px 12px"
+    height: "40px"
   text-field:
     backgroundColor: "{colors.paper-grey}"
     textColor: "{colors.ink}"
@@ -218,7 +227,8 @@ Shapes are rounded and soft, with tighter corners where there's a pointer.
 - **Desktop and web:** a pointer scale of 4, 6, 8, 12 and 16px.
 - **Cards:** 16px everywhere in Compose.
 - **iOS:** grouped cards use 12px continuous corners.
-- **Buttons:** fully rounded on Android, desktop and web, and the system's bordered shape on iOS.
+- **Buttons:** fully rounded on Android, desktop and web, and the system's bordered shape on iOS. So are the segmented control and the navigation indicators.
+- **Interactive highlights:** every other background that answers hover, press or selection (rows, menu items, chips, a title menu, inline links) is one rounded rectangle, the medium shape: 12px on Android, 8px on desktop and web.
 - **Fields:** Material's outlined field, with a 4px corner.
 - **Map lines:** round caps and joins; a 3px line. Activity routes and a selected run have no casing; trail runs sit on a 4px casing so every rating colour, Easiest's white included, reads on any basemap.
 
@@ -237,6 +247,15 @@ Native but sturdy. Each platform's own control, tinted with the brand. Every Com
 ### Chips
 - **Style** (`AppFilterChip`): Material's filter chip, with an 8px corner and an outline at rest.
 - **State:** selected fills with Dusk Slate Container and shows a check. Used for feed, segment and trail filters. On iOS, menu chips (`AppMenuChip`) open a picker.
+
+### Interactive highlight
+Every background that changes on hover, press or selection, other than buttons, the segmented control and navigation indicators (which stay pills), is drawn one way (`Modifier.highlight` and `highlightInset`, `AppHighlight` in `ui/adaptive`).
+- **Shape:** the medium shape: 12px on Android, 8px with a pointer. The press and hover layer is clipped to it.
+- **Inset:** 12px between the highlight's sides and its content, 8px above and below, and at least the touch target tall (48px touch, 40px pointer). A link inside running text (an author's name, a dive site) keeps its line with 4px above and below instead.
+- **Placement:** a row in a padded column or card keeps its text aligned with the heading above it, and its highlight bleeds 12px past the column on each side. A row spanning a list's full width floats its highlight 4px inside the list's edges, so its text sits 16px in, at the screen gutter.
+- **Fills:** selected is Dusk Slate Container, as a selected chip. A row whose line on a map is under the pointer takes Surface Container High. The athlete's own place on a board keeps its faint violet tint, a "you" marker rather than a selection.
+- **Chips** take the shape but keep Material's 8px label inset, since they're 32px compact controls. **Menus** inset each item's highlight 4px from the menu's sides, inside the large shape. **Cards** that open something keep their 16px card shape and clip their press layer to it.
+- **iOS:** the system list's rows and capsule chips. A selected row in any list has one fill, the system's selected-cell grey (`Color.selectedRow`).
 
 ### Cards / Containers
 - **Corner Style:** 16px (Compose) and 12px continuous (iOS).
