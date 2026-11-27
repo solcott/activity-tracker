@@ -87,6 +87,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
@@ -710,9 +711,11 @@ class Indexer(
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deleteDiveSitesBy(did, segmentJobs, clock.now().toEpochMilliseconds(), segmentImporter)
         deletePathsBy(did)
-        RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
+        // A DID may hold LIKE's wildcards (a did:web's percent-encoded port), so the prefix is matched literally.
+        val records = LikePattern.ofLiteral("at://${did.value}/") + "%"
+        RecordShadows.deleteWhere { uri like records }
         // Failed jobs about the account's records (dev/worker-telemetry).
-        SegmentJobFailures.deleteWhere { subjectUri like "at://${did.value}/%" }
+        SegmentJobFailures.deleteWhere { subjectUri like records }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 
