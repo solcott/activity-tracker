@@ -5,33 +5,57 @@ import SwiftUI
 /// Its label is drawn in the colour that reads on the fill (`OnAccentColor`, the theme's on-primary), since the system's white label
 /// doesn't on the dark theme's light violet.
 struct AppButton: View {
-    private let title: Text
-    private let small: Bool
-    private let wide: Bool
-    private let action: () -> Void
+    private let button: AppStyledButton
 
     /// `small` is the size for a list row's trailing end (Approve), and the default the size of a screen's own buttons.
     init(_ title: LocalizedStringResource, small: Bool = false, action: @escaping () -> Void) {
-        self.init(text: Text(title), small: small, wide: false, action: action)
+        button = AppStyledButton(title: Text(title), filled: true, small: small, wide: false, action: action)
     }
 
     /// A button whose label Kotlin chose (a profile's Follow). `wide` fills the width it's given, as a bar of controls shares it
     /// (Record's).
     init(_ title: any AppText, small: Bool = false, wide: Bool = false, action: @escaping () -> Void) {
-        self.init(text: Text(title), small: small, wide: wide, action: action)
+        button = AppStyledButton(title: Text(title), filled: true, small: small, wide: wide, action: action)
     }
 
-    private init(text: Text, small: Bool, wide: Bool, action: @escaping () -> Void) {
-        title = text
-        self.small = small
-        self.wide = wide
-        self.action = action
+    var body: some View { button }
+}
+
+/// An action beside the main one, or a screen's only action when it isn't the point of the screen: tinted, not filled.
+struct AppSecondaryButton: View {
+    private let button: AppStyledButton
+
+    /// `small` is the size for a list row's trailing end (Unblock), and the default the size of a screen's own buttons.
+    init(_ title: LocalizedStringResource, small: Bool = false, action: @escaping () -> Void) {
+        button = AppStyledButton(title: Text(title), filled: false, small: small, wide: false, action: action)
     }
+
+    /// A button whose label Kotlin chose. `wide` fills the width it's given, as `AppButton`'s does.
+    init(_ title: any AppText, small: Bool = false, wide: Bool = false, action: @escaping () -> Void) {
+        button = AppStyledButton(title: Text(title), filled: false, small: small, wide: wide, action: action)
+    }
+
+    var body: some View { button }
+}
+
+/// What `AppButton` and `AppSecondaryButton` share: the app's colour filled, or tinted, at a screen's or a row's size.
+private struct AppStyledButton: View {
+    let title: Text
+    let filled: Bool
+    let small: Bool
+    let wide: Bool
+    let action: () -> Void
 
     var body: some View {
-        Button(action: action) { AppButtonLabel(title: title).wideLabel(wide) }
-            .buttonStyle(.borderedProminent)
-            .controlSize(small ? .small : .large)
+        if filled {
+            Button(action: action) { AppButtonLabel(title: title).wideLabel(wide) }
+                .buttonStyle(.borderedProminent)
+                .controlSize(small ? .small : .large)
+        } else {
+            Button(action: action) { title.wideLabel(wide) }
+                .buttonStyle(.bordered)
+                .controlSize(small ? .small : .large)
+        }
     }
 }
 
@@ -46,37 +70,6 @@ private struct AppButtonLabel: View {
         } else {
             title
         }
-    }
-}
-
-/// An action beside the main one, or a screen's only action when it isn't the point of the screen: tinted, not filled.
-struct AppSecondaryButton: View {
-    private let title: Text
-    private let small: Bool
-    private let wide: Bool
-    private let action: () -> Void
-
-    /// `small` is the size for a list row's trailing end (Unblock), and the default the size of a screen's own buttons.
-    init(_ title: LocalizedStringResource, small: Bool = false, action: @escaping () -> Void) {
-        self.init(text: Text(title), small: small, wide: false, action: action)
-    }
-
-    /// A button whose label Kotlin chose. `wide` fills the width it's given, as `AppButton`'s does.
-    init(_ title: any AppText, small: Bool = false, wide: Bool = false, action: @escaping () -> Void) {
-        self.init(text: Text(title), small: small, wide: wide, action: action)
-    }
-
-    private init(text: Text, small: Bool, wide: Bool, action: @escaping () -> Void) {
-        title = text
-        self.small = small
-        self.wide = wide
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) { title.wideLabel(wide) }
-            .buttonStyle(.bordered)
-            .controlSize(small ? .small : .large)
     }
 }
 
