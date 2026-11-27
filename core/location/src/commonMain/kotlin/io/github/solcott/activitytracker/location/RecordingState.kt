@@ -99,7 +99,7 @@ data class RecordingState(
         val nextBase = if (altitude != null && (base == null || abs(altitude - base) > ELEVATION_HYSTERESIS_M)) altitude else base
         return copy(
             distanceMeters = distanceMeters + step,
-            movingMillis = movingMillis + if (speed > MOVING_SPEED_MPS) millis else 0,
+            movingMillis = movingMillis + if (speed > MovingTime.SPEED_MPS) millis else 0,
             elevationGainMeters = elevationGainMeters + climb,
             maxSpeedMps = maxOf(maxSpeedMps, speed),
             last = sample,
@@ -110,7 +110,6 @@ data class RecordingState(
 
     companion object {
         const val MAX_ACCURACY_M = 50.0
-        private const val MOVING_SPEED_MPS = 0.5
         private const val ELEVATION_HYSTERESIS_M = 3.0
         private const val MILLIS_PER_SECOND = 1000L
 

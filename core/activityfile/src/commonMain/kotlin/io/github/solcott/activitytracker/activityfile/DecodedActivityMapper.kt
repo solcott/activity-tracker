@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.activitytracker.location.MovingTime
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -44,7 +45,7 @@ object DecodedActivityMapper {
             type = activityType,
             startedAt = Instant.fromEpochMilliseconds(startedAtMillis),
             elapsed = elapsed,
-            movingSeconds = (sessions.total { it.totalTimerSeconds } ?: samples.movingSeconds())?.roundToLong(),
+            movingSeconds = (sessions.total { it.totalTimerSeconds } ?: MovingTime.seconds(samples))?.roundToLong(),
             distanceMeters = distanceMeters(sessions, records, samples, isDive = fit.dive != null),
             elevationGainMeters = sessions.total { it.totalAscentMeters } ?: records.mapNotNull { it.altitudeMeters }.climb(),
             maxSpeedMps = sessions.mapNotNull { it.maxSpeedMps }.maxOrNull() ?: records.mapNotNull { it.speedMps }.maxOrNull(),
@@ -480,19 +481,6 @@ private fun ActivityType.forGasesBreathed(dive: DecodedDive?): ActivityType {
 
 /** Same as the recorder's: altitude only counts as climb once it moves more than this, so sensor noise doesn't add up. */
 private const val ELEVATION_HYSTERESIS_M = 3.0
-
-/** Same as the recorder's: slower than this between two samples counts as stopped. */
-private const val MOVING_SPEED_MPS = 0.5
-
-/** Time spent moving, for files with no summary (GPX). Null below two samples. */
-private fun List<LocationSample>.movingSeconds(): Double? = takeIf {
-    size >= 2
-}
-    ?.zipWithNext { a, b ->
-        val seconds = (b.time - a.time).inWholeMilliseconds / MILLIS_PER_SECOND
-        if (seconds > 0 && TrackMath.distanceMeters(a, b) / seconds >= MOVING_SPEED_MPS) seconds else 0.0
-    }
-    ?.sum()
 
 private const val MILLIS_PER_SECOND = 1000.0
 
