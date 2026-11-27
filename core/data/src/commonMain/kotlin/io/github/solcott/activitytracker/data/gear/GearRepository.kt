@@ -177,12 +177,12 @@ class GearRepository(
     }
 
     /**
-     * A page of the activities counted in [uri]'s usage for this viewer, newest first, with the athlete's own edits and deletes this
+     * A page of the activities counted in [uri]'s usage for this viewer, newest first, with the athlete's own edits, deletes and likes this
      * session laid over them as the feed does.
      */
     suspend fun activitiesPage(uri: AtUri, cursor: String?): Outcome<Page<ActivityView, Unit>> = outcomeOf {
         val page = clients.appView.query(GetGearActivities.method, GetGearActivities.Params(uri, cursor = cursor))
-        Page(feed.deletes.filter(page.activities).map(feed.rewrites::applyTo), Unit, page.cursor)
+        Page(feed.deletes.filter(page.activities).map(feed::withLocalChanges), Unit, page.cursor)
     }
 
     /** [items] as a stream: loading, then the items or why they couldn't be read. */

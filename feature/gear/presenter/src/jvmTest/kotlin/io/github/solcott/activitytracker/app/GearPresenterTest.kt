@@ -85,7 +85,18 @@ class GearPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
         presenterTestOf(
-            { GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.gearDefaults, repos.activities, clock) },
+            {
+                GearPresenter(
+                    GearScreen(uri),
+                    navigator,
+                    repos.gear,
+                    repos.gearCollections,
+                    repos.gearDefaults,
+                    repos.activities,
+                    clock,
+                    repos.feed,
+                )
+            },
         ) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
@@ -107,7 +118,18 @@ class GearPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
         presenterTestOf(
-            { GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.gearDefaults, repos.activities, clock) },
+            {
+                GearPresenter(
+                    GearScreen(uri),
+                    navigator,
+                    repos.gear,
+                    repos.gearCollections,
+                    repos.gearDefaults,
+                    repos.activities,
+                    clock,
+                    repos.feed,
+                )
+            },
         ) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
@@ -133,6 +155,7 @@ class GearPresenterTest {
                     repos.gearDefaults,
                     repos.activities,
                     clock,
+                    repos.feed,
                 )
             },
         ) {
@@ -169,6 +192,7 @@ class GearPresenterTest {
                     repos.gearDefaults,
                     repos.activities,
                     clock,
+                    repos.feed,
                 )
             },
         ) {
@@ -200,6 +224,7 @@ class GearPresenterTest {
                     repos.gearDefaults,
                     repos.activities,
                     clock,
+                    repos.feed,
                 )
             },
         ) {
@@ -256,6 +281,7 @@ class GearPresenterTest {
             repos.gearDefaults,
             repos.activities,
             clock,
+            repos.feed,
         )
 
     @Test

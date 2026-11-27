@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.gear.GearCollection
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
@@ -71,6 +72,7 @@ fun GearPresenter(
     defaults: GearDefaults,
     activities: ActivityRepository,
     clock: Clock,
+    feed: FeedRepository,
 ): GearState {
     val uri = AtUri(screen.uri)
     val isOwner = uri.authority == gear.did.value
@@ -121,7 +123,15 @@ fun GearPresenter(
         }
     }
 
-    val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
+    // The pages aren't cached, so a like is laid over the listed activity once it's queued.
+    val activityEvents =
+        rememberActivityListEventSink(
+            navigator,
+            activities,
+            onLike = { liked -> counted.update { list -> list.map { if (it.uri == liked.uri) feed.withLocalChanges(it) else it } } },
+        ) {
+            error = it
+        }
     val failure = (content.status as? LoadStatus.Failed)?.error
 
     return GearState(

@@ -13,19 +13,22 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
 
 /**
  * Handles [ActivityListEvent]s for a host presenter: opens navigate, and like toggles once per activity at a time. A like the session can't
- * give goes to [onError] ([interactionErrorOf]).
+ * give goes to [onError] ([interactionErrorOf]). A list that isn't cached (a paged one) lays a queued like over its item in [onLike].
  */
 @Composable
 fun rememberActivityListEventSink(
     navigator: Navigator,
     activities: ActivityRepository,
+    onLike: (ActivityView) -> Unit = {},
     onError: (UiError) -> Unit,
 ): (ActivityListEvent) -> Unit {
     val flights = rememberSingleFlight()
     val currentOnError by rememberUpdatedState(onError)
+    val currentOnLike by rememberUpdatedState(onLike)
     return remember(navigator, activities, flights) {
         { event ->
             when (event) {
@@ -44,6 +47,7 @@ fun rememberActivityListEventSink(
                 is ActivityListEvent.ToggleLike -> {
                     flights.launch(event.activity.uri) {
                         runSuspendCatching { activities.toggleLike(event.activity) }
+                            .onSuccess { currentOnLike(event.activity) }
                             .onFailure { interactionErrorOf(it)?.let(currentOnError) }
                     }
                 }

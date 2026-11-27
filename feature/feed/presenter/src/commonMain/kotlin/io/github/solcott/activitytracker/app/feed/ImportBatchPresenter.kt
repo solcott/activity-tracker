@@ -8,14 +8,10 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
-import io.github.solcott.activitytracker.app.activitylist.interactionErrorOf
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberShownName
-import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.shownName
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -38,8 +34,15 @@ fun ImportBatchPresenter(
             flow { emit(feed.importBatchPage(screen.actor, screen.batch, cursor)) }
         }
     var error by rememberRetained { mutableStateOf<UiError?>(null) }
-    val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
-    val flights = rememberSingleFlight()
+    // The pages aren't cached, so a like is laid over the listed activity once it's queued.
+    val activityEvents =
+        rememberActivityListEventSink(
+            navigator,
+            activities,
+            onLike = { liked -> page.update { list -> list.map { if (it.uri == liked.uri) feed.withLocalChanges(it) else it } } },
+        ) {
+            error = it
+        }
     val name = rememberShownName(screen.name, screen.actor) { profiles.profile(screen.actor).shownName }
     return ImportBatchState(name, page.state, profiles.did.value, rememberRevealed(), error) { event ->
         when (event) {
@@ -56,19 +59,7 @@ fun ImportBatchPresenter(
             }
 
             is ImportBatchEvent.Activity -> {
-                val like = event.event as? ActivityListEvent.ToggleLike
-                if (like == null) {
-                    activityEvents(event.event)
-                } else {
-                    // The pages aren't cached, so the like is laid over the listed activity here once it's queued.
-                    flights.launch(like.activity.uri) {
-                        runSuspendCatching { activities.toggleLike(like.activity) }
-                            .onSuccess {
-                                page.update { list -> list.map { if (it.uri == like.activity.uri) feed.withLocalChanges(it) else it } }
-                            }
-                            .onFailure { interactionErrorOf(it)?.let { e -> error = e } }
-                    }
-                }
+                activityEvents(event.event)
             }
         }
     }
