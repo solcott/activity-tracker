@@ -10,6 +10,9 @@ import io.github.solcott.activitytracker.app.record.RecordEvent
 import io.github.solcott.activitytracker.app.record.RecordPresenter
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.record.RecordState
+import io.github.solcott.activitytracker.app.trim.TrimScreen
+import io.github.solcott.activitytracker.data.activity.trim.KeptSpan
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
@@ -65,6 +68,7 @@ class RecordPresenterTest {
                     repos.defaults,
                     Clock.System,
                     repos.profiles,
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -95,6 +99,7 @@ class RecordPresenterTest {
                     repos.defaults,
                     Clock.System,
                     repos.profiles,
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -127,6 +132,7 @@ class RecordPresenterTest {
                     repos.defaults,
                     Clock.System,
                     repos.profiles,
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -163,6 +169,7 @@ class RecordPresenterTest {
             repos.defaults,
             Clock.System,
             repos.profiles,
+            TrimDrafts(),
         )
     }
 
@@ -233,6 +240,73 @@ class RecordPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertTrue(fixture.putRecords.isEmpty(), "Finish while too long published nothing")
+    }
+
+    /** A clock the test moves: the recording's elapsed time comes from it. */
+    private class StepClock(var now: Instant) : Clock {
+        override fun now(): Instant = now
+    }
+
+    @Test
+    fun aPausedRecordingIsOfferedForTrimmingAndPublishesTrimmed() = runTest {
+        val repos = fixture.repos()
+        val drafts = TrimDrafts()
+        // Ninety seconds of riding: a suggestion keeps at least a minute.
+        val ride =
+            (0..90).map {
+                LocationSample(
+                    0.0,
+                    it * 0.0001,
+                    null,
+                    speed = null,
+                    accuracy = 5.0,
+                    time = Instant.parse("2026-10-24T07:00:00Z") + it.seconds,
+                )
+            }
+        val clock = StepClock(ride.first().time)
+        val recorder =
+            ActivityRecorder(
+                FakeLocationTracker(ride),
+                clock,
+                InMemoryRecordingJournal(),
+                dispatcher = StandardTestDispatcher(testScheduler),
+            )
+        val navigator = FakeNavigator(RecordScreen)
+        presenterTestOf(
+            {
+                RecordPresenter(
+                    navigator,
+                    recorder,
+                    tracker,
+                    repos.activities,
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.defaults,
+                    clock,
+                    repos.profiles,
+                    drafts,
+                )
+            },
+        ) {
+            awaitItem().eventSink(RecordEvent.Start)
+            // The ride, then minutes standing before the athlete pauses at ten minutes.
+            val riding = awaitUntil { it.distanceMeters >= 990.0 && it.status == RecordingState.Status.Recording }
+            clock.now = ride.first().time + 600.seconds
+            riding.eventSink(RecordEvent.Pause)
+            val offered = awaitUntil { it.trim != null }
+            assertFalse(offered.trim!!.applied)
+            assertTrue(offered.trim!!.suggestion?.end != null, "the standing at the end is suggested")
+
+            offered.eventSink(RecordEvent.Trim)
+            assertEquals(TrimScreen(draftId = "recording"), navigator.awaitNextScreen())
+            // What the trim screen's Done does.
+            drafts.apply("recording", KeptSpan(0, 300))
+            awaitUntil { it.trim?.applied == true }.eventSink(RecordEvent.Finish)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val record = fixture.putRecords.first { it["elapsedTime"] != null }
+        assertEquals(300, record.getValue("elapsedTime").jsonPrimitive.content.toInt())
     }
 
     /** Records [route], finishes with [description] typed, and returns the activity record put. */

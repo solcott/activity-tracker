@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.PlanDrafting
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.data.db.ImportSaveItemEntity
 import io.github.solcott.activitytracker.data.importsave.ImportCounts
 import io.github.solcott.activitytracker.data.importsave.ImportSaveRunner
@@ -100,6 +101,7 @@ class ImportSaveFlowTest {
                 repos.saveStore,
                 repos.saves,
                 runner,
+                TrimDrafts(),
             )
         }
 

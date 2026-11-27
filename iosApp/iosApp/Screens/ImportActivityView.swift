@@ -170,6 +170,7 @@ struct ImportPreviewSections: View {
     let state: ImportActivityState
     let preview: ImportPreview
     let wide: Bool
+    @Environment(\.stats) private var stats
 
     var body: some View {
         let texts = ImportActivityTexts.shared
@@ -200,7 +201,15 @@ struct ImportPreviewSections: View {
                 }
             }
         }
-        ImportPageSections(preview: preview, page: state.page, wide: wide)
+        if let trim = state.trim {
+            Section {
+                AppListRow(Text(.trimOffer), summary: trim.summary(units: stats.units).map { Text($0) }, icon: .trim) {
+                    state.eventSink(ImportActivityEvent.Trim.shared)
+                }
+                .disabled(!enabled)
+            }
+        }
+        ImportPageSections(preview: preview, page: state.page, wide: wide, kept: state.trimKept)
     }
 }
 
@@ -210,6 +219,8 @@ struct ImportPageSections: View {
     let preview: ImportPreview
     let page: ActivityPageContent?
     let wide: Bool
+    /// The kept part of a trim chosen before saving, which the map draws over the cut (feed/activity-trim).
+    var kept: String?
 
     @Environment(\.clock) private var clock
     @Environment(\.stats) private var stats
@@ -230,9 +241,9 @@ struct ImportPageSections: View {
             if !hero.isEmpty {
                 Section { HeroFigures(figures: hero).padding(.vertical, 4) }
             }
-            if let map = texts.routeMap(preview: preview) {
+            if let map = texts.routeMap(preview: preview, kept: kept) {
                 Section {
-                    RouteMapView(map: map).listRowInsets(EdgeInsets())
+                    RouteMapView(map: map, cut: kept != nil).listRowInsets(EdgeInsets())
                     if let lock = texts.mapLock(page: page) {
                         HStack(spacing: 4) {
                             Image(.lock)

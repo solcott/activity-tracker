@@ -93,6 +93,11 @@ class ActivityRecorder(
         RecordingResult(state.value, now, samples.toList())
     }
 
+    /** What's recorded so far, without pausing or saving anything, or null while idle: for a trim offered before finishing. */
+    suspend fun snapshot(): RecordingResult? = mutex.withLock {
+        if (state.value.status == RecordingState.Status.Idle) null else RecordingResult(state.value, clock.now(), samples.toList())
+    }
+
     /** Forgets the recording once its activity is queued for publishing. */
     suspend fun finished() = forget()
 

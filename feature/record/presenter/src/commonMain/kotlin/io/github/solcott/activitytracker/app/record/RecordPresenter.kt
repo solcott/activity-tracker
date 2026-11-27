@@ -13,12 +13,15 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.trim.TrimScreen
 import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
+import io.github.solcott.activitytracker.data.activity.trim.TrimSuggestion
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -33,6 +36,7 @@ import kotlinx.coroutines.delay
 
 @CircuitInject(RecordScreen::class, SessionScope::class)
 @Composable
+@Suppress("CyclomaticComplexMethod") // One branch per control of the recording.
 fun RecordPresenter(
     navigator: Navigator,
     recorder: ActivityRecorder,
@@ -43,6 +47,7 @@ fun RecordPresenter(
     defaults: ActivityDefaults,
     clock: Clock,
     profiles: ProfileRepository,
+    drafts: TrimDrafts,
 ): RecordState {
     val did = profiles.did
     val recording by recorder.state.collectAsState()
@@ -58,6 +63,22 @@ fun RecordPresenter(
     val gear = gearChoices.produce(type.selected)
     // Offered before there's any data: what a GPS recording holds, and Gear once there's some.
     val visibility = rememberNewActivityVisibility(defaults, gear.offering(ActivityDraft.RECORDED_CATEGORIES))
+
+    // A paused recording is offered for trimming (feed/activity-trim) with what it suggests; recording again drops any trim, which
+    // was chosen over a shorter recording.
+    var trimOffered by remember { mutableStateOf<TrimSuggestion?>(null) }
+    var trimmable by remember { mutableStateOf(false) }
+    val trimSpan by remember { drafts.span(RECORDING_DRAFT) }.collectAsState(null)
+    LaunchedEffect(recording.status, recording.recovered) {
+        if (recording.status == RecordingState.Status.Paused) {
+            val draft = recorder.snapshot()?.let { ActivityDraft.fromRecording(it, type.selected, title = null, description = null) }
+            trimmable = draft != null && drafts.offer(RECORDING_DRAFT, draft)
+            trimOffered = drafts.draft(RECORDING_DRAFT)?.suggestion
+        } else {
+            trimmable = false
+            drafts.drop(RECORDING_DRAFT)
+        }
+    }
 
     LaunchedEffect(recording.status) {
         while (recording.status == RecordingState.Status.Recording) {
@@ -85,6 +106,7 @@ fun RecordPresenter(
         visibility = visibility.fields,
         gear = gear.field,
         textsFit = textsFit,
+        trim = TrimOffer(trimOffered, applied = trimSpan != null).takeIf { trimmable },
     ) { event ->
         when (event) {
             is RecordEvent.PermissionResult -> {
@@ -106,6 +128,7 @@ fun RecordPresenter(
 
             RecordEvent.Discard -> {
                 flights.launch(RecordEvent.Discard) {
+                    drafts.drop(RECORDING_DRAFT)
                     recorder.discard()
                     navigator.pop()
                 }
@@ -120,15 +143,20 @@ fun RecordPresenter(
                     runSuspendCatching {
                         val saved =
                             activities.publish(
-                                ActivityDraft.fromRecording(
-                                        result,
-                                        type.selected,
-                                        title.text.toString().ifBlank { null },
-                                        description.text.toString().trim().ifEmpty { null },
+                                drafts
+                                    .trimmed(
+                                        RECORDING_DRAFT,
+                                        ActivityDraft.fromRecording(
+                                            result,
+                                            type.selected,
+                                            title.text.toString().ifBlank { null },
+                                            description.text.toString().trim().ifEmpty { null },
+                                        ),
                                     )
                                     .copy(gear = gear.selected)
                                     .withVisibility(visibility.current),
                             )
+                        drafts.drop(RECORDING_DRAFT)
                         recorder.finished()
                         // The saved activity opens, asking whether to combine it with another of the athlete's.
                         navigator.pop()
@@ -141,6 +169,13 @@ fun RecordPresenter(
             RecordEvent.Back -> {
                 navigator.pop()
             }
+
+            RecordEvent.Trim -> {
+                if (trimmable) navigator.goTo(TrimScreen(draftId = RECORDING_DRAFT))
+            }
         }
     }
 }
+
+/** The id the paused recording is offered for trimming under (`TrimDrafts`). */
+internal const val RECORDING_DRAFT = "recording"

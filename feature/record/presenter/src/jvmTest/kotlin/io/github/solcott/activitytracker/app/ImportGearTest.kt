@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -87,6 +88,7 @@ class ImportGearTest {
                         repos.manager,
                         ActivityFileReader { ride },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {

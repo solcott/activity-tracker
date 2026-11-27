@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.app.record.ImportStart
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.data.activity.UploadSource
 import io.github.solcott.activitytracker.data.activity.UploadState
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -120,6 +121,7 @@ class ImportBatchPresenterTest {
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
                 ),
+                TrimDrafts(),
             )
         }
 

@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityState
 import io.github.solcott.activitytracker.app.record.NewDeviceDecision
 import io.github.solcott.activitytracker.app.record.NewDeviceEvent
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -121,6 +122,7 @@ class ImportSensorGearTest {
                 repos.saveStore,
                 repos.saves,
                 BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { ride }),
+                TrimDrafts(),
             )
         }
 
@@ -514,6 +516,7 @@ class ImportSensorGearTest {
                         repos.manager,
                         ActivityFileReader { edgeRide(start, profile = null) },
                     ),
+                    TrimDrafts(),
                 )
             }
     }

@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.dataresult.DataError
@@ -61,6 +62,7 @@ class ImportFileFormatTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -103,6 +105,7 @@ class ImportFileFormatTest {
                         repos.manager,
                         ActivityFileReader { error("not called") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -146,6 +149,7 @@ class ImportFileFormatTest {
                         repos.manager,
                         ActivityFileReader(decoder),
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {

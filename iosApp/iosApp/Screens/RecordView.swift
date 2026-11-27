@@ -43,6 +43,14 @@ struct RecordView: View {
             }
             ActivityDescriptionSection(state: state.about, enabled: enabled)
             Section { GearFieldRow(field: state.gear, enabled: enabled) }
+            if let trim = state.trim {
+                Section {
+                    AppListRow(Text(.trimOffer), summary: trim.summary(units: stats.units).map { Text($0) }, icon: .trim) {
+                        send(RecordEvent.Trim.shared)
+                    }
+                    .disabled(!enabled)
+                }
+            }
             ActivityPrivacySection(fields: state.visibility, enabled: enabled)
         }
         .pageBar(edge: .bottom) { controls }

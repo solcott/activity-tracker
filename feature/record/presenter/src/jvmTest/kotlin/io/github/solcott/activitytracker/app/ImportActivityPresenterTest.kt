@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.PartOfDay
 import io.github.solcott.activitytracker.app.record.TimeZoneOption
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
@@ -540,6 +541,7 @@ class ImportActivityPresenterTest {
                         repos.manager,
                         ActivityFileReader(decoder),
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -573,5 +575,6 @@ class ImportActivityPresenterTest {
             repos.saveStore,
             repos.saves,
             BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, reader),
+            TrimDrafts(),
         )
 }

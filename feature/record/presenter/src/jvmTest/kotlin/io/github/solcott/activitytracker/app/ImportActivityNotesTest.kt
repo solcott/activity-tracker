@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -100,6 +101,7 @@ class ImportActivityNotesTest {
                         repos.manager,
                         ActivityFileReader { run.copy(notes = "Turtle at the wall") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -146,6 +148,7 @@ class ImportActivityNotesTest {
                         repos.manager,
                         ActivityFileReader { run.copy(notes = "Turtle at the wall") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {

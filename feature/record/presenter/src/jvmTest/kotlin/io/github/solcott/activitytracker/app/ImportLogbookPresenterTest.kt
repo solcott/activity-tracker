@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.app.record.PartOfDay
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.CombineCue
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -132,6 +133,7 @@ class ImportLogbookPresenterTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -192,6 +194,7 @@ class ImportLogbookPresenterTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -236,6 +239,7 @@ class ImportLogbookPresenterTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -288,6 +292,7 @@ class ImportLogbookPresenterTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -340,6 +345,7 @@ class ImportLogbookPresenterTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -390,6 +396,7 @@ class ImportLogbookPresenterTest {
                     repos.manager,
                     ActivityFileReader { error("not FIT") },
                 ),
+                TrimDrafts(),
             )
         }
 
@@ -635,6 +642,7 @@ class ImportLogbookPresenterTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -685,6 +693,7 @@ class ImportLogbookPresenterTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -729,6 +738,7 @@ class ImportLogbookPresenterTest {
                         repos.manager,
                         ActivityFileReader { error("not FIT") },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {

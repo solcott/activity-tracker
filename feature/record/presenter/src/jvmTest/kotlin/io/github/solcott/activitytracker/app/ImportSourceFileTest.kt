@@ -8,6 +8,9 @@ import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.app.trim.TrimScreen
+import io.github.solcott.activitytracker.data.activity.trim.KeptSpan
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.random.Random
@@ -86,6 +89,7 @@ class ImportSourceFileTest {
                         repos.manager,
                         ActivityFileReader { run },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {
@@ -109,6 +113,58 @@ class ImportSourceFileTest {
             fixture.putRecords.none { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_SOURCE },
             "never in the repo",
         )
+    }
+
+    @Test
+    fun aTrimChosenBeforeSavingPublishesTrimmedAndKeepsTheWholeFile() = runTest {
+        val repos = fixture.repos()
+        val drafts = TrimDrafts()
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(
+            {
+                ImportActivityPresenter(
+                    ImportActivityScreen(),
+                    navigator,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { run },
+                    repos.typeChoices,
+                    repos.gearChoices,
+                    repos.newDeviceChoices,
+                    repos.profiles,
+                    repos.feed,
+                    repos.defaults,
+                    repos.units,
+                    repos.suggestions,
+                    repos.saveStore,
+                    repos.saves,
+                    BatchSaveRunner(
+                        repos.saveStore,
+                        repos.saves,
+                        repos.clients,
+                        repos.activities,
+                        repos.manager,
+                        ActivityFileReader { run },
+                    ),
+                    drafts,
+                )
+            },
+        ) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
+            val offered = awaitUntil { it.trim != null }
+            assertFalse(offered.trim!!.applied)
+            offered.eventSink(ImportActivityEvent.Trim)
+            assertEquals(TrimScreen(draftId = "import"), navigator.awaitNextScreen())
+            // What the trim screen's Done does: keep the first 15 minutes.
+            drafts.apply("import", KeptSpan(0, 900))
+            awaitUntil { it.trim?.applied == true }.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val record = fixture.putRecords.first { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY }
+        assertEquals(900, record.getValue("elapsedTime").jsonPrimitive.long.toInt())
+        val (_, source) = fixture.spacePuts.single { (_, put) -> put.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_SOURCE }
+        assertEquals(bytes.size.toLong(), source.getValue("size").jsonPrimitive.long, "the original file stays as imported")
     }
 
     @Test
@@ -143,6 +199,7 @@ class ImportSourceFileTest {
                         repos.manager,
                         ActivityFileReader { run },
                     ),
+                    TrimDrafts(),
                 )
             },
         ) {

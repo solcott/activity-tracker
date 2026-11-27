@@ -113,6 +113,10 @@ data class ImportActivityState(
      * so a new state follows typing over or back under a limit (a native Save redraws only on one).
      */
     val textsFit: Boolean = ActivityTextLimits.fits(title.text.toString(), details?.description?.text?.toString().orEmpty()),
+    /** The trim offered for a single file's activity (feed/activity-trim); null for a batch or one that can't be trimmed. */
+    val trim: TrimOffer? = null,
+    /** The kept part of the preview's route once a trim is applied (an encoded polyline), which its map draws over the cut. */
+    val trimKept: String? = null,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState {
     /** Files have been read: the screen offers Choose other files, and errors are saving's. */
@@ -418,6 +422,9 @@ data class ImportClock(
 @Immutable data class TimeZoneOption(val id: String, val offset: String)
 
 sealed interface ImportActivityEvent {
+    /** Opens the trim screen on the single file's activity ([ImportActivityState.trim]). */
+    data object Trim : ImportActivityEvent
+
     /** The athlete picked one file, read whole ([bytes]); [name] is shown in the preview. The format comes from the content. */
     data class FilePicked(val name: String, val bytes: ByteString) : ImportActivityEvent
 

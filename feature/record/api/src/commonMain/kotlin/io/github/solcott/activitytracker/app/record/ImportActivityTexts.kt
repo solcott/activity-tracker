@@ -125,6 +125,10 @@ object ImportActivityTexts {
     /** The route the preview draws, with its breaks; null for an indoor activity. */
     fun routeMap(preview: ImportPreview): RouteMap? = preview.polyline?.let { RouteMap.of(it, preview.polylineGaps) }
 
+    /** [routeMap] with the [kept] part of a trim chosen before saving drawn over the cut (feed/activity-trim); [routeMap] without one. */
+    fun routeMap(preview: ImportPreview, kept: String?): RouteMap? =
+        preview.polyline?.let { RouteMap.of(it, preview.polylineGaps, highlight = kept) }
+
     /** The map's lock when the Map category is narrower than the activity ("Map · Only me"), and what a screen reader says for it. */
     fun mapLock(page: ActivityPageContent): AppText? = page.mapMark?.let { VisibilityTexts.lock(DetailCategory.MAP, it) }
 

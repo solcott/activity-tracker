@@ -71,6 +71,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                 state.visibility,
                 enabled = !state.saving,
             )
+            state.trim?.let { TrimOfferRow(it, onClick = { state.eventSink(RecordEvent.Trim) }, enabled = !state.saving) }
             if (state.recovered) Text(RecordTexts.recovered.string())
             if (state.saveFailed) Text(RecordTexts.saveFailed.string(), color = MaterialTheme.colorScheme.error)
             state.error?.let { ErrorText(it) }

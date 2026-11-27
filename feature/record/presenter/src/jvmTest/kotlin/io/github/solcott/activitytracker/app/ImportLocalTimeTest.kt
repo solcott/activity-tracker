@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.PartOfDay
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.seconds
@@ -82,6 +83,7 @@ class ImportLocalTimeTest {
                 repos.saveStore,
                 repos.saves,
                 BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, reader),
+                TrimDrafts(),
             )
         }
 

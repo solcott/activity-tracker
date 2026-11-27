@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.record
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.activityfile.ActivityFileException
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
@@ -29,6 +31,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.edit.ActivityTextLimits
 import io.github.solcott.activitytracker.app.edit.rememberDetailsForm
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.trim.TrimScreen
 import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -37,7 +40,12 @@ import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
+import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.data.activity.matchSpan
+import io.github.solcott.activitytracker.data.activity.trim.ActivityTrimmer
+import io.github.solcott.activitytracker.data.activity.trim.KeptSpan
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
+import io.github.solcott.activitytracker.data.activity.trim.trimmed
 import io.github.solcott.activitytracker.data.db.ImportSaveEntity
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -56,6 +64,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.activitytracker.textfield.clearText
 import io.github.solcott.activitytracker.textfield.rememberTextFieldState
 import io.github.solcott.activitytracker.textfield.setTextAndPlaceCursorAtEnd
@@ -91,47 +100,48 @@ fun ImportActivityPresenter(
     saveStore: ImportSaveStore,
     saves: ImportSaves,
     saveRunner: ImportSaveRunner,
+    drafts: TrimDrafts,
 ): ImportActivityState {
-    // The parsed file isn't saveable; after process death the athlete picks it again. A single activity, or for adding a recording, a
-    // logbook's several.
-    var file by remember { mutableStateOf<ImportFile?>(null) }
+    // Retained, so the import is as it was when a screen opened over it (the trim) closes. The parsed file isn't saveable; after
+    // process death the athlete picks it again. A single activity, or for adding a recording, a logbook's several.
+    var file by rememberRetained { mutableStateOf<ImportFile?>(null) }
     // The file as it's kept with every activity saved from it; null when it's too large to keep (originalTooLarge).
-    var source by remember { mutableStateOf<SourceFile?>(null) }
-    var originalTooLarge by remember { mutableStateOf(false) }
+    var source by rememberRetained { mutableStateOf<SourceFile?>(null) }
+    var originalTooLarge by rememberRetained { mutableStateOf(false) }
     // Several activities: the picked files, read again as needed, and what's kept of each activity.
-    var batchFiles by remember { mutableStateOf<BatchReader?>(null) }
-    var scanned by remember { mutableStateOf<ScannedBatch?>(null) }
-    var readProgress by remember { mutableStateOf<ReadProgress?>(null) }
-    var readJob by remember { mutableStateOf<Job?>(null) }
+    var batchFiles by rememberRetained { mutableStateOf<BatchReader?>(null) }
+    var scanned by rememberRetained { mutableStateOf<ScannedBatch?>(null) }
+    var readProgress by rememberRetained { mutableStateOf<ReadProgress?>(null) }
+    var readJob by rememberRetained { mutableStateOf<Job?>(null) }
     // Where each of a batch's zone-less files was, by file; this device's zone until the athlete says.
-    var fileZones by remember { mutableStateOf(mapOf<Int, String>()) }
-    var filter by remember { mutableStateOf(BatchFilter.All) }
-    var opened by remember { mutableStateOf<Int?>(null) }
-    var openedActivity by remember { mutableStateOf<ImportedActivity?>(null) }
-    var openedError by remember { mutableStateOf<UiError?>(null) }
+    var fileZones by rememberRetained { mutableStateOf(mapOf<Int, String>()) }
+    var filter by rememberRetained { mutableStateOf(BatchFilter.All) }
+    var opened by rememberRetained { mutableStateOf<Int?>(null) }
+    var openedActivity by rememberRetained { mutableStateOf<ImportedActivity?>(null) }
+    var openedError by rememberRetained { mutableStateOf<UiError?>(null) }
     // The picked files a batch was read from, which its save keeps.
-    var pickedSources by remember { mutableStateOf<List<ImportSource>>(emptyList()) }
+    var pickedSources by rememberRetained { mutableStateOf<List<ImportSource>>(emptyList()) }
     // The batch save this screen started, followed by id: it's persisted and runs app-wide, outliving the screen (feed/batch-import).
     var savingBatch by rememberSaveable { mutableStateOf<String?>(null) }
-    var savingDevices by remember { mutableStateOf<NewDevicesSaved?>(null) }
-    var batchSaved by remember { mutableStateOf<BatchSaved?>(null) }
+    var savingDevices by rememberRetained { mutableStateOf<NewDevicesSaved?>(null) }
+    var batchSaved by rememberRetained { mutableStateOf<BatchSaved?>(null) }
     // Which of the activities import, what to do with duplicates, and the athlete's changes to a batch's activities.
-    var selection by remember { mutableStateOf(BatchSelection()) }
+    var selection by rememberRetained { mutableStateOf(BatchSelection()) }
     val typeChoice = typeChoices.produce(ActivityType(Sport.OTHER))
     val type = typeChoice.selected
     val openedType = typeChoices.produce(ActivityType(Sport.OTHER))
     val openedTitle = rememberTextFieldState()
     // The import is saved: what's left to say before leaving, and how it leaves.
-    var afterImport by remember { mutableStateOf<AfterImport?>(null) }
-    var leave by remember { mutableStateOf<(suspend () -> Unit)?>(null) }
+    var afterImport by rememberRetained { mutableStateOf<AfterImport?>(null) }
+    var leave by rememberRetained { mutableStateOf<(suspend () -> Unit)?>(null) }
     val title = rememberTextFieldState()
     val details = rememberDetailsForm()
     // The title the last file filled in, so a file without one clears it but not what the athlete typed.
-    var fileTitle by remember { mutableStateOf<String?>(null) }
+    var fileTitle by rememberRetained { mutableStateOf<String?>(null) }
     // Where a zone-less file's clock was; null for this device's zone.
     var zoneId by rememberSaveable { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<UiError?>(null) }
-    var savedSuggestions by remember { mutableStateOf<ImmutableList<SavedSuggestion>?>(null) }
+    var error by rememberRetained { mutableStateOf<UiError?>(null) }
+    var savedSuggestions by rememberRetained { mutableStateOf<ImmutableList<SavedSuggestion>?>(null) }
     val flights = rememberSingleFlight()
     val saveCounts by saveStore.counts.collectAsState(null)
     val savesRunning by saves.running.collectAsState()
@@ -165,6 +175,14 @@ fun ImportActivityPresenter(
     val tooFar = adding.tooFar(placed?.activity)
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
     val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
+    // A single file's activity is offered for trimming before it's saved (feed/activity-trim). Offering it again (a new zone or type, or
+    // coming back from the trim) keeps the chosen span; a new file starts it whole (clear).
+    val trimDraft =
+        rememberRetained(placed) { mutableStateOf(placed?.activity?.let { ActivityDraft.fromImport(it, type, title = null) }) }.value
+    var trimmable by rememberRetained { mutableStateOf(false) }
+    SideEffect(trimDraft) { trimmable = trimDraft != null && drafts.offer(IMPORT_DRAFT, trimDraft) }
+    val trimSpan by remember { drafts.span(IMPORT_DRAFT) }.collectAsState(null)
+    val trimKept = remember(trimDraft, trimSpan) { trimDraft?.let { d -> trimSpan?.let { keptLine(d, it) } } }
     val athlete = rememberOwnProfile(profiles)
     val batchSelected =
         remember(scanned, selection, matches) {
@@ -198,11 +216,23 @@ fun ImportActivityPresenter(
             ?.takeIf { it.title == null }
             ?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(it.localZone(zone)).hour), type) }
     val unitSystem by units.units.collectAsState()
-    // What the activity's page will show its owner, rebuilt for the type and visibility chosen: the hero follows the sport.
+    // What the activity's page will show its owner, rebuilt for the type and visibility chosen (the hero follows the sport) and cut to
+    // the trim chosen, so its start, stats and charts are what saving publishes.
     val page by
-        produceState<ActivityPageContent?>(null, placed, type, training, thresholdChanges, visibility.current, adding, unitSystem) {
+        produceState<ActivityPageContent?>(
+            null,
+            placed,
+            type,
+            training,
+            thresholdChanges,
+            visibility.current,
+            adding,
+            unitSystem,
+            trimSpan,
+        ) {
             value = placed?.let { (_, activity) ->
-                val draft = importDraft(activity, type, title = null, training, thresholdChanges, source = null)
+                val whole = importDraft(activity, type, title = null, training, thresholdChanges, source = null)
+                val draft = trimSpan?.let { whole.trimmed(it) } ?: whole
                 ActivityPage.fromDraft(adding.placed(draft.withVisibility(visibility.current)), unitSystem)
             }
         }
@@ -296,6 +326,7 @@ fun ImportActivityPresenter(
     }
 
     fun clear() {
+        drafts.drop(IMPORT_DRAFT)
         file = null
         source = null
         originalTooLarge = false
@@ -401,6 +432,8 @@ fun ImportActivityPresenter(
     return ImportActivityState(
         reading = flights.isRunning(ImportActivityEvent.FilePicked::class),
         preview = preview,
+        trim = TrimOffer(drafts.draft(IMPORT_DRAFT)?.suggestion, applied = trimSpan != null).takeIf { trimmable && preview != null },
+        trimKept = trimKept,
         type = typeChoice.field,
         title = title,
         defaultTitle = defaultTitle,
@@ -548,6 +581,8 @@ fun ImportActivityPresenter(
             is ImportActivityEvent.StoppedImportDismissed ->
                 flights.launch(event) { runSuspendCatching { saveStore.dismiss(event.batchId) } }
 
+            ImportActivityEvent.Trim -> if (trimmable) navigator.goTo(TrimScreen(draftId = IMPORT_DRAFT))
+
             is ImportActivityEvent.Save -> {
                 if (!textsFit) return@ImportActivityState
                 val match = matches.firstOrNull()
@@ -564,11 +599,16 @@ fun ImportActivityPresenter(
                     runSuspendCatching {
                         val text = title.text.toString().ifBlank { event.defaultTitle?.ifBlank { null } }
                         val draft =
-                            importDraft(activity, type, text, training, thresholdChanges, adding.sourceOf(source))
+                            drafts
+                                .trimmed(
+                                    IMPORT_DRAFT,
+                                    importDraft(activity, type, text, training, thresholdChanges, adding.sourceOf(source)),
+                                )
                                 .withDetails(details, isDive = type.sport == Sport.DIVE)
                                 .copy(gear = linked.gear)
                                 .withVisibility(visibility.current)
                         val saved = saveSingle(activities, manager, draft, adding.into(combineTarget(match, selection.action(0, match))))
+                        drafts.drop(IMPORT_DRAFT)
                         updateThresholds(profiles, activity, type.sport, previewed = thresholdChanges)
                         val after = newDevices.afterSave(linked, setOf(saved.uri))
                         if (after == null) navigator.openSaved(saved, adding)
@@ -597,7 +637,7 @@ private fun pendingThresholds(training: TrainingDetails?, activity: ImportedActi
  */
 @Composable
 private fun rememberOwnProfile(profiles: ProfileRepository): OwnProfile? {
-    var own by remember { mutableStateOf<OwnProfile?>(null) }
+    var own by rememberRetained { mutableStateOf<OwnProfile?>(null) }
     LaunchedEffect(Unit) { runSuspendCatching { profiles.ownProfile() }.onSuccess { own = it } }
     return own
 }
@@ -647,3 +687,12 @@ internal fun zoneOption(zone: TimeZone, localStart: LocalDateTime): TimeZoneOpti
     val offset = zone.offsetAt(localStart.toInstant(zone))
     return TimeZoneOption(zone.id, if (offset.totalSeconds == 0) "UTC" else "UTC$offset")
 }
+
+/** The id a single file's activity is offered for trimming under (`TrimDrafts`). */
+internal const val IMPORT_DRAFT = "import"
+
+/** The part of [draft]'s route [span] keeps, encoded for the preview's map; null without GPS. */
+private fun keptLine(draft: ActivityDraft, span: KeptSpan): String? =
+    ActivityTrimmer.route(draft.route, draft.startedAt, span)
+        .takeIf { it.size >= 2 }
+        ?.let { TrackMath.encodePolyline(TrackMath.simplify(it, SegmentedPolyline.TOLERANCE_M)) }

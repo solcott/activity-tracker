@@ -41,6 +41,8 @@ data class RecordState(
      * follows typing over or back under a limit (a native Save redraws only on one).
      */
     val textsFit: Boolean = ActivityTextLimits.fits(title.text.toString(), description.text.toString()),
+    /** The trim offered for the finished recording (feed/activity-trim); null while recording, or for one that can't be trimmed. */
+    val trim: TrimOffer? = null,
     val eventSink: (RecordEvent) -> Unit,
 ) : CircuitUiState {
     /** Whether [action]'s control can be used: none while saving, and Finish & save only while the title and description fit. */
@@ -65,4 +67,7 @@ sealed interface RecordEvent {
     data object Discard : RecordEvent
 
     data object Back : RecordEvent
+
+    /** Opens the trim screen on the paused recording ([RecordState.trim]). */
+    data object Trim : RecordEvent
 }

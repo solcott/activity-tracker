@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.record.DuplicateCheck
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.data.activity.trim.TrimDrafts
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -140,6 +141,7 @@ class ImportCombinePresenterTest {
                 repos.saveStore,
                 repos.saves,
                 BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { run }),
+                TrimDrafts(),
             )
         }
 

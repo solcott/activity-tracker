@@ -41,13 +41,14 @@ internal fun PreviewContent(state: ImportActivityState, preview: ImportPreview, 
         }
         PreviewDuplicate(state, preview)
         state.addingTo?.let { AddingTo(it, tooFar = state.tooFarFromTarget) }
-        PreviewPage(preview, state.page, medium)
+        state.trim?.let { TrimOfferRow(it, onClick = { state.eventSink(ImportActivityEvent.Trim) }, enabled = !state.saving) }
+        PreviewPage(preview, state.page, medium, kept = state.trimKept)
     }
 }
 
 /** What the activity's page will show once saved ([page], a spinner until it's built): its start, hero, map, cards and stats. */
 @Composable
-internal fun PreviewPage(preview: ImportPreview, page: ActivityPageContent?, medium: Boolean) {
+internal fun PreviewPage(preview: ImportPreview, page: ActivityPageContent?, medium: Boolean, kept: String? = null) {
     Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
         if (page == null) {
             AppProgressIndicator()
@@ -55,7 +56,8 @@ internal fun PreviewPage(preview: ImportPreview, page: ActivityPageContent?, med
         }
         StartLine(page.start)
         HeroRow(page.hero)
-        preview.polyline?.let { ActivityMap(it, gaps = preview.polylineGaps) }
+        // A trim chosen before saving shows as the trim screen shows it: the cut dashed, the kept part over it (feed/activity-trim).
+        preview.polyline?.let { ActivityMap(it, gaps = preview.polylineGaps, highlight = kept, cut = kept != null) }
         page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }
         if (medium) AvgMaxTable(page.avgMax)
         TrainingLoadCard(page.trainingLoad)
