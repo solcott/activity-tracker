@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 /** Size for an [AppFilterChip]'s icons. */
 val AppFilterChipIconSize = FilterChipDefaults.IconSize
 
-/** A toggleable chip: a filter or a choice among a few, as Material 3's filter chip. */
+/** A toggleable chip: a filter or a choice among a few, as Material 3's filter chip, in [AppHighlight]'s shape. */
 @Composable
 @NonRestartableComposable
 fun AppFilterChip(
@@ -21,5 +21,14 @@ fun AppFilterChip(
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
 ) {
-    FilterChip(selected, onClick, label, modifier, enabled, leadingIcon = leadingIcon, trailingIcon = trailingIcon)
+    FilterChip(
+        selected,
+        onClick,
+        label,
+        modifier.handCursor(),
+        enabled,
+        leadingIcon = leadingIcon,
+        trailingIcon = trailingIcon,
+        shape = AppHighlight.shape,
+    )
 }

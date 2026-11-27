@@ -1,19 +1,18 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -59,20 +58,27 @@ fun AppListRow(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = summary?.let { { Text(it) } },
-        trailingContent = trailing,
-        colors = ListItemDefaults.colors(containerColor = if (selected) colors.secondaryContainer else Color.Transparent),
-        modifier =
-            modifier
-                .clip(RoundedCornerShape(ROW_CORNER))
-                .semantics { this.selected = selected }
-                .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick).handCursor() else Modifier)
-                .alpha(if (enabled) 1f else DISABLED_ALPHA),
-    )
+    Row(
+        modifier
+            .fillMaxWidth()
+            .highlight(selected = selected, placement = HighlightPlacement.Gutter)
+            .semantics { this.selected = selected }
+            .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier)
+            .highlightInset(clickable = onClick != null && enabled)
+            .heightIn(min = ROW_MIN_HEIGHT)
+            .alpha(if (enabled) 1f else DISABLED_ALPHA),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = colors.onSurface, style = MaterialTheme.typography.bodyLarge)
+            summary?.let { Text(it, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium) }
+        }
+        trailing?.invoke()
+    }
 }
 
-private val ROW_CORNER = 12.dp
+/** A row's content height at least: with the inset, Material's 56dp one-line list item, so a row with a switch is no taller. */
+private val ROW_MIN_HEIGHT = 40.dp
 
 private const val DISABLED_ALPHA = 0.38f

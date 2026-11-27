@@ -98,7 +98,8 @@ internal fun TopBarTitle(title: String, style: TextStyle, menu: ImmutableList<Ap
     val chevron = with(LocalDensity.current) { style.fontSize.toDp() } * TITLE_CHEVRON_SCALE
     Box {
         Row(
-            Modifier.clickable(role = Role.Button) { open = true }.handCursor(),
+            // Its hover and press fill reach past the title by the inset, so the title stays where a plain one is.
+            Modifier.highlight(placement = HighlightPlacement.Bleed).clickable(role = Role.Button) { open = true }.highlightInset(),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

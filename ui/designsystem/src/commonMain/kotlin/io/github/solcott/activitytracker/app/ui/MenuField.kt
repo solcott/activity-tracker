@@ -3,19 +3,24 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -45,7 +50,15 @@ fun TapField(
             trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
             lineLimits = lineLimits,
         )
-        Box(Modifier.matchParentSize().clickable(enabled = enabled, role = role, onClick = onClick))
+        // Over the field's outline alone (its floating label sits half above it), clipped to the field's corners, so the press and
+        // hover layer draws the field's own shape.
+        Box(
+            Modifier.matchParentSize()
+                .padding(top = FIELD_LABEL_OVERHANG)
+                .clip(MaterialTheme.shapes.extraSmall)
+                .clickable(enabled = enabled, role = role, onClick = onClick)
+                .handCursor(),
+        )
     }
 }
 
@@ -82,3 +95,6 @@ fun MenuField(
         )
     }
 }
+
+/** How far an outlined field's floating label rises above its outline. */
+private val FIELD_LABEL_OVERHANG = 8.dp
