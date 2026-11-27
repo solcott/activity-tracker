@@ -129,12 +129,14 @@ struct RecordView: View {
     }
 
     @ViewBuilder private func button(_ control: RecordControl) -> some View {
-        if control.action == .Discard {
-            AppSecondaryButton(control.label, wide: true) { perform(control.action) }
-        } else {
-            AppButton(control.label, wide: true) { perform(control.action) }
-                .disabled(!state.enabled(action: control.action))
+        Group {
+            if control.action == .Discard {
+                AppSecondaryButton(control.label, wide: true) { perform(control.action) }
+            } else {
+                AppButton(control.label, wide: true) { perform(control.action) }
+            }
         }
+        .disabled(!state.enabled(action: control.action))
     }
 
     private func perform(_ action: RecordAction) {
