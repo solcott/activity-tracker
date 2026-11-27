@@ -451,7 +451,7 @@ class ActivityManager(
             "This activity can't be trimmed"
         }
         val route = tracks.readOrThrow(uri).orEmpty()
-        val load = runSuspendCatching { feed.streams(uri) }.getOrNull()?.takeIf { it.trainingLoad != null }
+        val load = runSuspendCatching { feed.streams(uri) }.getOrNull()
         val zones = load?.let { LocalZones(it.heartRateZones, it.powerZones, it.trainingLoad) }
         return TrimSource(activity, stored, record, route, zones, segmentTracks.marks(uri))
     }
