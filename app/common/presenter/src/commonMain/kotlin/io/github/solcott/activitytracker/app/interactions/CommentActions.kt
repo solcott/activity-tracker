@@ -97,7 +97,7 @@ class CommentActions(
             runSuspendCatching { activities.deleteComment(subject, uri, hidden) }
                 .onFailure { e ->
                     onCountMoved(-moved)
-                    onError(UiError.of(UiError.Kind.DeleteComment, e))
+                    onError(interactionErrorOf(e) ?: UiError.of(UiError.Kind.DeleteComment, e))
                 }
         }
     }
