@@ -108,15 +108,8 @@ struct QuoteSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    if fields.posting {
-                        AppProgress(small: true)
-                    } else {
-                        Button {
-                            fields.eventSink(QuoteEvent.Post.shared)
-                        } label: {
-                            Text(QuoteSheetTexts.shared.post)
-                        }
-                        .disabled(!fields.canPost)
+                    AppBarAction(QuoteSheetTexts.shared.post, busy: fields.posting, smallSpinner: true, enabled: fields.canPost) {
+                        fields.eventSink(QuoteEvent.Post.shared)
                     }
                 }
             }

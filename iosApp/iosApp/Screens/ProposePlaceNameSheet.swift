@@ -28,15 +28,13 @@ struct ProposePlaceNameSheet: View {
                         Button(.actionCancel) { send(ProposePlaceNameEvent.Cancel.shared) }
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        if state.sending {
-                            AppProgress(small: true)
-                        } else {
-                            Button {
-                                send(ProposePlaceNameEvent.Send.shared)
-                            } label: {
-                                Text(ProposePlaceNameTexts.shared.confirm(state: state))
-                            }
-                            .disabled(!state.canSend)
+                        AppBarAction(
+                            ProposePlaceNameTexts.shared.confirm(state: state),
+                            busy: state.sending,
+                            smallSpinner: true,
+                            enabled: state.canSend
+                        ) {
+                            send(ProposePlaceNameEvent.Send.shared)
                         }
                     }
                 }

@@ -409,12 +409,9 @@ struct PathConditionsSection: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             if let seeAll = card.seeAll {
-                Button {
+                AppTextButton(seeAll) {
                     openPhoto(0)
-                } label: {
-                    Text(seeAll)
                 }
-                .buttonStyle(.borderless)
                 .listRowBackground(Color.clear)
             }
         }

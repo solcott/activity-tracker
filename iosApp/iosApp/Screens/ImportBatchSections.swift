@@ -102,12 +102,9 @@ struct ImportBatchSections: View {
             HStack(spacing: 12) {
                 Text(texts.selected(batch: batch)).font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, alignment: .leading)
                 if let selectAll = texts.selectAll(batch: batch) {
-                    Button {
+                    AppTextButton(selectAll) {
                         send(ImportActivityEvent.AllShownSelected(selected: !batch.allShownSelected))
-                    } label: {
-                        Text(selectAll)
                     }
-                    .buttonStyle(.borderless)
                     .fixedSize()
                 }
             }

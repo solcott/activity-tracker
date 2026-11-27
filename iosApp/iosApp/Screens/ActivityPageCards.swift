@@ -199,7 +199,7 @@ struct MetricCardRows: View {
             HStack(spacing: 12) {
                 Text(ZoneTimeRows.shared.missing).font(.footnote).foregroundStyle(.secondary).frame(
                     maxWidth: .infinity, alignment: .leading)
-                Button(action: setThresholds) { Text(ZoneTimeRows.shared.setThresholds) }.buttonStyle(.borderless)
+                AppTextButton(ZoneTimeRows.shared.setThresholds, action: setThresholds)
             }
         }
         ForEach(Array(card.rows.elements(as: Figure.self).enumerated()), id: \.offset) { _, figure in FigureRowView(figure: figure) }

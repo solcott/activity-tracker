@@ -72,15 +72,8 @@ struct ReportSheet: View {
                 Button(.actionCancel) { send(ReportEvent.Close.shared) }
             }
             ToolbarItem(placement: .confirmationAction) {
-                if state.sending {
-                    AppProgress(small: true)
-                } else {
-                    Button {
-                        send(ReportEvent.Send.shared)
-                    } label: {
-                        Text(ReportTexts.shared.send)
-                    }
-                    .disabled(!state.canSend)
+                AppBarAction(ReportTexts.shared.send, busy: state.sending, smallSpinner: true, enabled: state.canSend) {
+                    send(ReportEvent.Send.shared)
                 }
             }
         }

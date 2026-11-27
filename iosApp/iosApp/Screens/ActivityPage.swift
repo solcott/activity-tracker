@@ -581,12 +581,10 @@ private struct ActivityHeader: View {
                 NoticeChip(notice: notice)
             }
             HStack(spacing: 8) {
-                Button {
+                AppTextButton(texts.author(activity: activity)) {
                     send(ActivityDetailEvent.OpenAuthor.shared)
-                } label: {
-                    Text(texts.author(activity: activity)).font(.subheadline.weight(.semibold))
                 }
-                .buttonStyle(.borderless)
+                .font(.subheadline.weight(.semibold))
                 if let badge = card.badge() {
                     Text(badge)
                         .font(.caption2)
@@ -660,21 +658,15 @@ private struct ActivityHeader: View {
         let activity = page.activity
         if let recordingOf = activity.record.recordingOf {
             Text(texts.recordingOf).font(.subheadline)
-            Button {
+            AppTextButton(texts.openRecorded) {
                 send(ActivityDetailEvent.OpenActivity(uri: recordingOf))
-            } label: {
-                Text(texts.openRecorded)
             }
-            .buttonStyle(.borderless)
         } else if let recordings = activity.recordings, !recordings.isEmpty {
             Text(texts.recordings).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
             ForEach(Array(recordings.enumerated()), id: \.offset) { _, recording in
-                Button {
+                AppTextButton(texts.recordingName(recording: recording, activityStart: activity.record.startedAt)) {
                     send(ActivityDetailEvent.OpenActivity(uri: recording.uri))
-                } label: {
-                    Text(texts.recordingName(recording: recording, activityStart: activity.record.startedAt))
                 }
-                .buttonStyle(.borderless)
             }
         }
     }
@@ -685,34 +677,25 @@ private struct ActivityHeader: View {
         let activity = page.activity
         if let combinedInto = activity.combinedInto {
             Text(texts.memberOf).font(.subheadline)
-            Button {
+            AppTextButton(texts.openCombined) {
                 send(ActivityDetailEvent.OpenActivity(uri: combinedInto))
-            } label: {
-                Text(texts.openCombined)
             }
-            .buttonStyle(.borderless)
         } else if let members = activity.members, !members.isEmpty {
             HStack {
                 Text(texts.members).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer(minLength: 8)
                 if CombinationTexts.shared.offersEdit(page: page) {
-                    Button {
+                    AppTextButton(CombinationTexts.shared.edit) {
                         editing = true
-                    } label: {
-                        Text(CombinationTexts.shared.edit)
                     }
-                    .buttonStyle(.borderless)
                     .font(.footnote)
                     .accessibilityLabel(Text(CombinationTexts.shared.editDescription))
                 }
             }
             ForEach(Array(members.enumerated()), id: \.offset) { _, member in
-                Button {
+                AppTextButton(texts.memberName(member: member)) {
                     send(ActivityDetailEvent.OpenActivity(uri: member.uri))
-                } label: {
-                    Text(texts.memberName(member: member))
                 }
-                .buttonStyle(.borderless)
             }
         }
     }
@@ -738,12 +721,9 @@ private struct CombineBanner: View {
             HStack(spacing: 12) {
                 AppButton(texts.combine) { send(ActivityDetailEvent.CombineSuggested.shared) }
                     .disabled(suggestion.busy)
-                Button {
+                AppTextButton(texts.dontCombine) {
                     send(ActivityDetailEvent.DontCombineSuggestion.shared)
-                } label: {
-                    Text(texts.dontCombine)
                 }
-                .buttonStyle(.borderless)
                 .disabled(suggestion.busy)
             }
         }

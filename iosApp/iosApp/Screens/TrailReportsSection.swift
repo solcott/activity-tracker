@@ -275,10 +275,8 @@ struct TrailReportSheetView: View {
                     Button(.actionCancel) { send(TrailReportEvent.Close.shared) }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    if sheet.posting {
-                        AppProgress(small: true)
-                    } else {
-                        Button(.trailReportPost) { send(TrailReportEvent.Post.shared) }.disabled(!sheet.canPost)
+                    AppBarAction(.trailReportPost, busy: sheet.posting, smallSpinner: true, enabled: sheet.canPost) {
+                        send(TrailReportEvent.Post.shared)
                     }
                 }
             }

@@ -124,7 +124,7 @@ struct CommentRowView: View {
         } else if let error = row.repliesError {
             ErrorMessage(error, layout: .row, retry: load)
         } else if let more = row.more {
-            Button(action: load) { Text(more).font(.footnote) }.buttonStyle(.borderless)
+            AppTextButton(more, action: load).font(.footnote)
         }
     }
 
@@ -143,12 +143,10 @@ struct CommentRowView: View {
                 if row.offersReply || row.offersLike || row.likeCount > 0 {
                     HStack(spacing: 16) {
                         if row.offersReply {
-                            Button {
+                            AppTextButton(CommentsTexts.shared.label(action: .Reply)) {
                                 send(CommentEvent.ReplyTo(uri: row.uri))
-                            } label: {
-                                Text(CommentsTexts.shared.label(action: .Reply)).font(.footnote)
                             }
-                            .buttonStyle(.borderless)
+                            .font(.footnote)
                         }
                         likes
                     }
