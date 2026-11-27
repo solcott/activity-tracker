@@ -286,7 +286,7 @@ struct PathPage: View {
             }
         )
         // Clear unless marked, so the list's ground shows: the page's beside the map, the sheet's over it.
-        .listRowBackground(selected ? Color(.secondarySystemFill) : Color.clear)
+        .listRowBackground(selected ? Color.selectedRow : Color.clear)
         // The marked row's shading stands alone, with no separator lines over or under it.
         .listRowSeparator(selected ? .hidden : .automatic)
         .accessibilityAddTraits(selected ? .isSelected : [])

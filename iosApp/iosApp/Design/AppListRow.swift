@@ -23,8 +23,8 @@ struct AppListRow<Trailing: View>: View {
 
     var body: some View {
         row
-            // What UIKit fills a selected cell of a grouped table with; nil leaves the list's own background.
-            .listRowBackground(selected ? Color(.systemGray4) : nil)
+            // nil leaves the list's own background.
+            .listRowBackground(selected ? Color.selectedRow : nil)
             .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -77,4 +77,11 @@ extension AppListRow where Trailing == EmptyView {
     init(_ title: Text, summary: Text? = nil, icon: AppIcon? = nil) {
         self.init(title, summary: summary, icon: icon) { EmptyView() }
     }
+}
+
+extension Color {
+    /// A selected row's fill, the one every list in the app marks its selected row with (a settings row beside its page, a browse or
+    /// trail row whose line the map shows): what UIKit fills a selected cell of a grouped table with. The shared UI's is the theme's
+    /// secondary container (`Modifier.highlight`).
+    static let selectedRow = Color(.systemGray4)
 }

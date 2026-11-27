@@ -320,7 +320,7 @@ struct MapBrowseNoResults: View {
 extension View {
     /// Marks a browse row as the selected one, which a tap opens and any other tap selects (Kotlin decides which).
     func mapBrowseRow(selected: Bool) -> some View {
-        listRowBackground(selected ? Color(.secondarySystemFill) : nil)
+        listRowBackground(selected ? Color.selectedRow : nil)
             .accessibilityAddTraits(selected ? .isSelected : [])
             .accessibilityHint(Text(MapBrowseTexts.shared.rowAction(selected: selected, touch: true)))
     }
