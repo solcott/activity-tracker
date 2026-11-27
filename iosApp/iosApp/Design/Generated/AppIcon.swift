@@ -24,6 +24,7 @@ enum AppIcon: CaseIterable {
     case hide
     case unhide
     case ungroup
+    case trim
     case export
     case close
     case location
@@ -71,6 +72,7 @@ enum AppIcon: CaseIterable {
         case .hide: "eye.slash"
         case .unhide: "eye"
         case .ungroup: "arrow.branch"
+        case .trim: "scissors"
         case .export: "square.and.arrow.up"
         case .close: "xmark"
         case .location: "location"

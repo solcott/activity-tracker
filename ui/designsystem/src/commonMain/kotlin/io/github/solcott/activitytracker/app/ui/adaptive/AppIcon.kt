@@ -64,6 +64,7 @@ enum class AppIcon(
     Hide(MaterialIcons.VisibilityOff, "eye.slash"),
     Unhide(MaterialIcons.Visibility, "eye"),
     Ungroup(MaterialIcons.CallSplit, "arrow.branch"),
+    Trim(MaterialIcons.ContentCut, "scissors"),
     Export(Icons.Filled.Share, "square.and.arrow.up"),
     Close(Icons.Filled.Close, "xmark"),
     Location(Icons.Filled.Place, "location"),
