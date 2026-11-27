@@ -21,6 +21,8 @@ import kotlinx.collections.immutable.ImmutableList
  * (precision
  * 5) is drawn over the route in the accent colour, such as the stretch chosen for a new segment. [overlayTop] is the height of anything the
  *    caller draws over the map's top edge, such as a segment's data credit: framing the route, first and on recenter, keeps it below that.
+ *    With [cut] (a trim's preview, feed/activity-trim) the route is what's cut, drawn dashed and muted, and [highlight] is what's kept,
+ *    drawn in the route colour over it.
  */
 @Composable
 expect fun ActivityMap(
@@ -33,6 +35,7 @@ expect fun ActivityMap(
     interactive: Boolean = false,
     highlight: String? = null,
     overlayTop: Dp = 0.dp,
+    cut: Boolean = false,
 )
 
 /** OpenFreeMap styles: free, no API key or request limits. Swap the URLs to change tile provider. */

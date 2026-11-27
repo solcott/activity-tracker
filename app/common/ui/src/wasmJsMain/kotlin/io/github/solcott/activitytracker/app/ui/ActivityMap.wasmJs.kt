@@ -18,4 +18,5 @@ actual fun ActivityMap(
     interactive: Boolean,
     highlight: String?,
     overlayTop: Dp,
-) = RoutePreview(polyline, modifier, height, gaps, ends, highlight)
+    cut: Boolean,
+) = RoutePreview(polyline, modifier, height, gaps, ends, highlight, cut)

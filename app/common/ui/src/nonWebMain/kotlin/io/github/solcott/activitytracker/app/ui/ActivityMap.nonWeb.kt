@@ -56,6 +56,7 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 
 @Composable
+@Suppress("CyclomaticComplexMethod") // The route, its markers, a highlight or a trim's cut, and how it moves.
 actual fun ActivityMap(
     polyline: String,
     modifier: Modifier,
@@ -66,19 +67,24 @@ actual fun ActivityMap(
     interactive: Boolean,
     highlight: String?,
     overlayTop: Dp,
+    cut: Boolean,
 ) {
     // Previews, tests and screenshot tools draw the route without MapLibre, its native view or a remote style.
     if (LocalInspectionMode.current) {
-        RoutePreview(polyline, modifier, height, gaps, ends, highlight)
+        RoutePreview(polyline, modifier, height, gaps, ends, highlight, cut)
         return
     }
     // What the map draws is RouteMap's (dev/shared-display-text): curves through the stored points (feed/route-line-detail), with markers
     // and framing at the points themselves.
     val map = remember(polyline, gaps, ends) { RouteMap.of(polyline, gaps, ends) } ?: return
     val routeJson = remember(map) { lineJson(map.pieces.map { it.points }) }
-    val markers = remember(map) { RouteMarkers.of(map) }
-    val color = MaterialTheme.colorScheme.primary
-    val highlightColor = MaterialTheme.colorScheme.tertiary
+    // A cut's markers sit at the kept stretch's ends.
+    val markers =
+        remember(map, highlight, cut) {
+            highlight?.takeIf { cut }?.let { RouteMap.of(it) }?.let { RouteMarkers.of(it) } ?: RouteMarkers.of(map)
+        }
+    val color = if (cut) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+    val highlightColor = if (cut) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
     val highlightJson =
         remember(highlight) {
             highlight?.let(TrackMath::decodePolylineOrNull)?.takeIf { it.size >= 2 }?.let { lineJson(listOf(RouteCurve.smooth(it))) }
@@ -86,7 +92,7 @@ actual fun ActivityMap(
     val style = BaseStyle.Uri(if (isSystemInDarkTheme()) MapStyles.DARK else MapStyles.LIGHT)
     val mapState =
         rememberMapState(baseStyle = style) {
-            RouteLayers(routeJson, markers, color) {
+            RouteLayers(routeJson, markers, color, dashed = cut) {
                 // MapLibre Compose can't replace a source's data, so a new stretch makes a new source and layer, in this place in the
                 // order.
                 key(highlightJson) {
@@ -95,7 +101,7 @@ actual fun ActivityMap(
                         id = "route-highlight",
                         source = stretch,
                         color = const(highlightColor),
-                        width = const(5.dp),
+                        width = const(if (cut) 3.dp else 5.dp),
                         cap = const(LineCap.Round),
                         join = const(LineJoin.Round),
                     )

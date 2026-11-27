@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -25,6 +26,7 @@ internal fun RouteLayers(
     routeJson: String,
     markers: RouteMarkers<GeoPoint>?,
     color: Color,
+    dashed: Boolean = false,
     above: @Composable () -> Unit = {},
 ) {
     val route = rememberGeoJsonSource(GeoJsonData.JsonString(routeJson))
@@ -33,11 +35,14 @@ internal fun RouteLayers(
         source = route,
         color = const(color),
         width = const(3.dp),
+        // MapLibre measures dashes in line widths: short dashes with room between, as a trim's cut parts are drawn.
+        dasharray = if (dashed) const(listOf(CUT_DASH, CUT_SPACE)) else const(emptyList<Number>()),
         cap = const(LineCap.Round),
         join = const(LineJoin.Round),
     )
     above()
-    markers?.let { RouteMarkerLayers(it) }
+    // MapLibre Compose can't replace a source's data, so markers that move (a trim's kept ends) make new sources.
+    markers?.let { key(it) { RouteMarkerLayers(it) } }
 }
 
 /**
@@ -111,3 +116,6 @@ internal fun lineJson(pieces: List<List<GeoPoint>>): String =
     pieces.joinToString(",", prefix = """{"type":"MultiLineString","coordinates":[""", postfix = "]}") { piece ->
         piece.joinToString(",", prefix = "[", postfix = "]") { (lat, lng) -> "[$lng,$lat]" }
     }
+
+private const val CUT_DASH = 1
+private const val CUT_SPACE = 2

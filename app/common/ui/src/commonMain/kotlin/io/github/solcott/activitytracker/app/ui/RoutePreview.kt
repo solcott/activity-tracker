@@ -29,6 +29,7 @@ import kotlinx.collections.immutable.ImmutableList
  * card's map image until it's drawn or when it can't be (`RouteMapTile`), in previews and tests, and on web, which can't draw maps yet.
  */
 @Composable
+@Suppress("CyclomaticComplexMethod") // The route, its markers and breaks, a highlight, and a trim's cut.
 fun RoutePreview(
     polyline: String,
     modifier: Modifier = Modifier,
@@ -36,16 +37,21 @@ fun RoutePreview(
     gaps: ImmutableList<Int>? = null,
     ends: RouteEnds? = null,
     highlight: String? = null,
+    cut: Boolean = false,
 ) {
     val map = remember(polyline, gaps, ends) { RouteMap.of(polyline, gaps, ends) } ?: return
     val points = remember(polyline) { TrackMath.decodePolylineOrNull(polyline).orEmpty() }
     val stretch = remember(highlight) { highlight?.let(TrackMath::decodePolylineOrNull).orEmpty() }
-    val highlightColor = MaterialTheme.colorScheme.tertiary
-    val markers = remember(map) { RouteMarkers.of(map) }
+    val highlightColor = if (cut) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+    // A cut's markers sit at the kept stretch's ends.
+    val markers =
+        remember(map, highlight, cut) {
+            highlight?.takeIf { cut }?.let { RouteMap.of(it) }?.let { RouteMarkers.of(it) } ?: RouteMarkers.of(map)
+        }
     // Drawn as curves through the stored points (feed/route-line-detail); markers and framing keep the points themselves.
     val curves = map.pieces.map { it.points }
     val stretchCurve = remember(stretch) { RouteCurve.smooth(stretch) }
-    val color = MaterialTheme.colorScheme.primary
+    val color = if (cut) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
     Canvas(modifier.fillMaxWidth().height(height)) {
         val at = canvasFit(points, size, pad = 12.dp.toPx()) ?: return@Canvas
         val path =
@@ -55,8 +61,9 @@ fun RoutePreview(
                     for (p in piece.drop(1)) lineTo(at(p).x, at(p).y)
                 }
             }
-        drawPath(path, color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-        drawHighlight(stretchCurve.map { at(it) }, highlightColor)
+        val cutDashes = if (cut) PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 6.dp.toPx())) else null
+        drawPath(path, color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = cutDashes))
+        drawHighlight(stretchCurve.map { at(it) }, highlightColor, width = if (cut) 3.dp else 5.dp)
         markers.let { (start, end, breaks) ->
             val dashes = PathEffect.dashPathEffect(floatArrayOf(RouteMarkers.CONNECTOR_DASH.toPx(), RouteMarkers.CONNECTOR_SPACE.toPx()))
             for ((stop, resume) in breaks) {
@@ -79,14 +86,14 @@ fun RoutePreview(
 }
 
 /** [points], a highlighted stretch already placed on the canvas, as a wider line over the route; nothing for fewer than two. */
-private fun DrawScope.drawHighlight(points: List<Offset>, color: Color) {
+private fun DrawScope.drawHighlight(points: List<Offset>, color: Color, width: Dp = 5.dp) {
     if (points.size < 2) return
     val path =
         Path().apply {
             moveTo(points.first().x, points.first().y)
             for (p in points.drop(1)) lineTo(p.x, p.y)
         }
-    drawPath(path, color, style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(path, color, style = Stroke(width = width.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
 /** A dot of [radius] filled with [fill] and ringed with [ring], [ringWidth] wide, as `ActivityMap` draws its markers. */

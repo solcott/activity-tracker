@@ -21,13 +21,16 @@ struct RouteMapView: View {
     var interactive = false
     var expand: (() -> Void)?
     var overlayTop: CGFloat = 0
+    /// A trim's preview (feed/activity-trim): the route is what's cut, dashed and muted, and the highlight what's kept, in the route
+    /// colour, with the start and end markers at its ends.
+    var cut = false
 
     @Environment(\.liveMaps) private var liveMaps
 
     var body: some View {
         Group {
             if liveMaps {
-                LiveRouteMap(map: map, interactive: interactive, overlayTop: overlayTop)
+                LiveRouteMap(map: map, interactive: interactive, overlayTop: overlayTop, cut: cut)
             } else {
                 RouteSketch { size in map.sketch(width: size.width, height: size.height, pad: RouteMarkerStyle.sketchPad) }
             }
@@ -56,6 +59,7 @@ private struct LiveRouteMap: View {
     let map: RouteMap
     let interactive: Bool
     let overlayTop: CGFloat
+    let cut: Bool
 
     @State private var position: MapCameraPosition = .automatic
     @State private var size: CGSize = .zero
@@ -67,11 +71,19 @@ private struct LiveRouteMap: View {
         Map(position: $position, interactionModes: interactive ? [.pan, .zoom] : []) {
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 // The catalog colour by name: inside a map's content `Color.accentColor` is the system's blue, not the app's tint.
-                MapPolyline(coordinates: line).stroke(Color("AccentColor"), style: RouteMarkerStyle.line)
+                if cut {
+                    MapPolyline(coordinates: line).stroke(RouteMarkerStyle.cutColor, style: RouteMarkerStyle.cutLine)
+                } else {
+                    MapPolyline(coordinates: line).stroke(Color("AccentColor"), style: RouteMarkerStyle.line)
+                }
             }
             if let highlight = map.highlight {
                 let stretch = Self.coordinates(highlight)
-                MapPolyline(coordinates: stretch).stroke(RouteMarkerStyle.highlightColor, style: RouteMarkerStyle.highlight)
+                if cut {
+                    MapPolyline(coordinates: stretch).stroke(Color("AccentColor"), style: RouteMarkerStyle.line)
+                } else {
+                    MapPolyline(coordinates: stretch).stroke(RouteMarkerStyle.highlightColor, style: RouteMarkerStyle.highlight)
+                }
             }
             ForEach(Array(breaks.enumerated()), id: \.offset) { _, gap in
                 MapPolyline(coordinates: [Self.coordinate(gap.stop), Self.coordinate(gap.resume)])
@@ -87,13 +99,13 @@ private struct LiveRouteMap: View {
                 }
                 .annotationTitles(.hidden)
             }
-            if let start = map.start {
+            if let start = cut ? map.highlight?.points.elements(as: GeoPoint.self).first ?? map.start : map.start {
                 Annotation("", coordinate: Self.coordinate(start), anchor: .center) {
                     RouteMarkerDot(fill: RouteMarkerStyle.startColor, ring: .white)
                 }
                 .annotationTitles(.hidden)
             }
-            if let end = map.end {
+            if let end = cut ? map.highlight?.points.elements(as: GeoPoint.self).last ?? map.end : map.end {
                 Annotation("", coordinate: Self.coordinate(end), anchor: .center) {
                     RouteMarkerDot(fill: RouteMarkerStyle.endColor, ring: .white)
                 }
@@ -225,4 +237,7 @@ enum RouteMarkerStyle {
     /// A highlighted stretch, wider than the line, as the shared map draws one.
     static let highlight = StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
     static let connector = StrokeStyle(lineWidth: connectorWidth, dash: [dash, space])
+    /// A trim's cut parts, as the shared map draws them: short dashes in a muted colour.
+    static let cutColor = Color.gray
+    static let cutLine = StrokeStyle(lineWidth: 3, lineCap: .round, dash: [3, 6])
 }
