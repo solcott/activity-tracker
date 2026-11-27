@@ -87,6 +87,7 @@ object ActivityTrimmer {
             frontShifts = record.frontShifts?.scaled(),
             rearShifts = record.rearShifts?.scaled(),
             jumps = record.jumps?.scaled(),
+            grit = record.grit?.scaled(),
             cycles = record.cycles?.scaled(),
         )
     }
@@ -124,6 +125,7 @@ object ActivityTrimmer {
             frontShifts = draft.frontShifts?.scaled(),
             rearShifts = draft.rearShifts?.scaled(),
             jumps = draft.jumps?.scaled(),
+            grit = draft.grit?.let { it * share },
             cycles = draft.cycles?.scaled(),
             trainingLoad = draft.trainingLoad?.let { trainingLoad(it, input, span, draft.movingSeconds) },
             route = route,

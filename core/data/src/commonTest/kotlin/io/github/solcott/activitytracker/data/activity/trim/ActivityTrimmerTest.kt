@@ -143,4 +143,12 @@ class ActivityTrimmerTest {
         val streams = ActivityTrimmer.streams(short, span)
         assertEquals(streams.time.size, streams.cadence?.size)
     }
+
+    @Test
+    fun gritScalesWithWhatsKept() {
+        val half = KeptSpan(0, END / 2)
+        val trimmed =
+            ActivityTrimmer.record(record.copy(grit = 120, movingTime = null), TrimInput(TrimFixtures.start, END, null, emptyList()), half)
+        assertEquals(60, trimmed.grit)
+    }
 }
