@@ -57,10 +57,10 @@ object ActivityTrimmer {
     /** [record], described by [input], cut to [span]. Its polyline is left for the rewrite to build from the trimmed route. */
     @Suppress("CyclomaticComplexMethod") // One rule per total, each kept when nothing measures it.
     fun record(record: ActivityRecord, input: TrimInput, span: KeptSpan): ActivityRecord {
-        if (span.isWhole(input.elapsedSeconds)) return record
+        if (span.isWhole(input)) return record
         val cut = TrimCut.of(input, span)
         val kept = input.streams?.let { KeptStats.of(streams(it, span)) }
-        val elapsed = span.seconds.toLong()
+        val elapsed = span.keptElapsed(input).toLong()
         val moving = record.movingTime?.let { cut.keptMoving(it.toDouble()).roundToLong() }
         val distance = record.distance?.let { d -> cut.distance?.let { (d - it).roundToLong().coerceAtLeast(0) } ?: d }
         val share = cut.share(record.movingTime?.toDouble())
@@ -96,7 +96,7 @@ object ActivityTrimmer {
     @Suppress("CyclomaticComplexMethod") // One rule per total, each kept when nothing measures it.
     fun draft(draft: ActivityDraft, span: KeptSpan): ActivityDraft {
         val input = draft.trimInput()
-        if (span.isWhole(input.elapsedSeconds)) return draft
+        if (span.isWhole(input)) return draft
         val cut = TrimCut.of(input, span)
         val streams = draft.streams?.let { streams(it, span) }
         val kept = streams?.let { KeptStats.of(it) }
@@ -106,7 +106,7 @@ object ActivityTrimmer {
         fun Int.scaled() = (this * share).roundToInt()
         return draft.copy(
             startedAt = draft.startedAt + span.from.seconds,
-            elapsed = span.seconds.seconds,
+            elapsed = span.keptElapsed(input).seconds,
             movingSeconds = moving,
             distanceMeters = draft.distanceMeters?.let { d -> cut.distance?.let { (d - it).coerceAtLeast(0.0) } ?: d },
             elevationGainMeters = draft.elevationGainMeters?.let { (it - cut.gain).coerceAtLeast(0.0) },
@@ -139,7 +139,7 @@ object ActivityTrimmer {
      * the kept share of [movingSeconds], and the rest (thresholds, training effect, stamina) stay as the device gave them.
      */
     fun trainingLoad(load: TrainingLoad, input: TrimInput, span: KeptSpan, movingSeconds: Long?): TrainingLoad {
-        if (span.isWhole(input.elapsedSeconds)) return load
+        if (span.isWhole(input)) return load
         val share = TrimCut.of(input, span).share(movingSeconds?.toDouble())
         return load.copy(
             trainingStressScore = load.trainingStressScore?.let { (it * share).roundToInt() },

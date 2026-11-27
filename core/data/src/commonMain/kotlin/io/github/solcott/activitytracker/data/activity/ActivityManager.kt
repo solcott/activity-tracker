@@ -468,7 +468,7 @@ class ActivityManager(
         val left = db.outbox().pending(clients.did.value, rkey).size
         if (left > 0) throw PendingWritesException(left)
         val input = source.input
-        require(!span.isWhole(input.elapsedSeconds)) { "A trim keeps less than the whole activity" }
+        require(!span.isWhole(input)) { "A trim keeps less than the whole activity" }
         val visibility = activity.visibilityOrPublic
         val record = source.record
         val keptRoute = ActivityTrimmer.route(source.route, record.startedAt, span)

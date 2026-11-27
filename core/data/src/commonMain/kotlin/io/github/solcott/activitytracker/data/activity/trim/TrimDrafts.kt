@@ -63,7 +63,7 @@ class TrimDrafts {
     fun apply(id: String, span: KeptSpan?) {
         drafts.update { all ->
             val draft = all[id] ?: return@update all
-            val kept = span?.takeUnless { it.isWhole(draft.input.elapsedSeconds) }
+            val kept = span?.takeUnless { it.isWhole(draft.input) }
             all + (id to TrimDraft(draft.input, draft.totals, draft.sport, draft.utcOffsetMinutes, draft.suggestion, kept))
         }
     }

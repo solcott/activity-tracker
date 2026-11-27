@@ -137,6 +137,27 @@ class ActivityTrimmerTest {
     }
 
     @Test
+    fun aPausedRecordingTrimsOnItsSamplesClockAndKeepsElapsedActive() {
+        // Elapsed leaves out the 9 min stop as a pause, while the samples run on to END.
+        val active = END - (DRIVE_START - RIDE_END)
+        val draft = TrimFixtures.draft().copy(elapsed = active.seconds)
+
+        // Cutting the drive ends before the samples do but after the elapsed time: still a trim.
+        val noDrive = KeptSpan(0, DRIVE_START)
+        assertTrue(!noDrive.isWhole(draft.trimInput()))
+        assertEquals((active - (END - DRIVE_START)).seconds, ActivityTrimmer.draft(draft, noDrive).elapsed)
+
+        // Cutting the start never makes the elapsed time longer.
+        val noCarPark = KeptSpan(STANDING_START, END)
+        assertEquals((active - STANDING_START).seconds, ActivityTrimmer.draft(draft, noCarPark).elapsed)
+
+        val drafts = TrimDrafts()
+        drafts.offer("recording", draft)
+        drafts.apply("recording", noDrive)
+        assertEquals(noDrive, drafts.draft("recording")?.span)
+    }
+
+    @Test
     fun aShortChannelIsCutWithTheRest() {
         val short = input.streams!!.let { it.copy(cadence = List(it.time.size - 5) { 80 }) }
         val span = KeptSpan(STANDING_START, END)

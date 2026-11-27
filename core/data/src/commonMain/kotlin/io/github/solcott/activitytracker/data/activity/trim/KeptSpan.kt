@@ -19,6 +19,15 @@ data class KeptSpan(val from: Int, val to: Int) {
     /** Whether this keeps the whole of an activity [elapsed] seconds long, so there's nothing to trim. */
     fun isWhole(elapsed: Int): Boolean = from <= 0 && to >= elapsed
 
+    /** Whether this keeps the whole of [input], over its samples' clock time ([TrimInput.endSeconds]). */
+    fun isWhole(input: TrimInput): Boolean = isWhole(input.endSeconds)
+
+    /**
+     * The elapsed time [input] has left once cut to this span: its elapsed time less the clock time cut, never more than the span. A
+     * recording's elapsed time leaves out its pauses while its samples' times don't, so a span can't simply be its new elapsed time.
+     */
+    fun keptElapsed(input: TrimInput): Int = (input.elapsedSeconds - (input.endSeconds - seconds)).coerceIn(0, seconds)
+
     companion object {
         /** The least a trim keeps: the handles never come closer than this. */
         const val MIN_SECONDS = 60
@@ -33,4 +42,10 @@ class TrimInput(val startedAt: Instant, val elapsedSeconds: Int, val streams: Ac
     /** Whether a span can be chosen by distance: the streams or the route say how far the athlete went. */
     val hasDistance: Boolean
         get() = TrimSeries.of(this)?.distance != null
+
+    /**
+     * Seconds from the start to the end of the recording, the timeline a [KeptSpan] is on: the elapsed time, or the last sample's time when
+     * that's later (a recording paused along the way, whose elapsed time leaves the pauses out).
+     */
+    val endSeconds: Int by lazy { maxOf(elapsedSeconds, TrimSeries.of(this)?.time?.lastOrNull() ?: 0) }
 }

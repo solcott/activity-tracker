@@ -12,7 +12,7 @@ import kotlin.math.roundToLong
  */
 class TrimPreview private constructor(val input: TrimInput, private val series: TrimSeries?) {
     /** Seconds from the start to the end of the recording, the handles' range. */
-    val elapsed: Int = maxOf(input.elapsedSeconds, series?.time?.lastOrNull() ?: 0)
+    val elapsed: Int = input.endSeconds
 
     /** Seconds from the start of each sample; empty for a manual entry. */
     val time: List<Int>
@@ -40,7 +40,7 @@ class TrimPreview private constructor(val input: TrimInput, private val series: 
         return TrimTotals(
             distanceMeters = before.distanceMeters?.let { d -> cut.distance?.let { (d - it).coerceAtLeast(0.0) } ?: d },
             movingSeconds = before.movingSeconds?.let { cut.keptMoving(it.toDouble()).roundToLong() },
-            elapsedSeconds = span.seconds.toLong(),
+            elapsedSeconds = span.keptElapsed(input).toLong(),
             gainMeters = before.gainMeters?.let { (it - cut.gain).coerceAtLeast(0.0) },
         )
     }

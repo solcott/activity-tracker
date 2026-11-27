@@ -39,6 +39,7 @@ private constructor(
         @Suppress("CyclomaticComplexMethod") // Each end and each total, cut or not.
         fun of(input: TrimInput, span: KeptSpan, series: TrimSeries? = TrimSeries.of(input)): TrimCut {
             val end = maxOf(input.elapsedSeconds, series?.time?.lastOrNull() ?: 0)
+            val kept = span.keptElapsed(input)
             val cutsStart = span.from > 0
             val cutsEnd = span.to < end
             val distance =
@@ -60,8 +61,8 @@ private constructor(
                 gain = ((startClimb?.gain ?: 0) + (endClimb?.gain ?: 0)).toDouble(),
                 loss = ((startClimb?.loss ?: 0) + (endClimb?.loss ?: 0)).toDouble(),
                 manual = input.streams == null && input.route.isEmpty(),
-                spanShare = if (input.elapsedSeconds > 0) span.seconds.toDouble() / input.elapsedSeconds else 1.0,
-                keptSeconds = span.seconds,
+                spanShare = if (input.elapsedSeconds > 0) kept.toDouble() / input.elapsedSeconds else 1.0,
+                keptSeconds = kept,
             )
         }
     }
