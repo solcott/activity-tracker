@@ -39,10 +39,14 @@ import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.VisibilityBadge
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
+import io.github.solcott.activitytracker.app.ui.adaptive.AppHighlight
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.chart.LineChartUi
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -155,10 +159,13 @@ private fun CardHeader(card: MetricCard, charts: ActivityCharts, open: Boolean, 
     val turn by animateFloatAsState(if (open) HALF_TURN else 0f)
     val toggle =
         onToggle?.let {
-            Modifier.clickable(onClickLabel = FigureTexts.cardToggle(open).string(), role = Role.Button, onClick = it).handCursor()
-        } ?: Modifier
+            Modifier.highlight(placement = HighlightPlacement.Gutter)
+                .clickable(onClickLabel = FigureTexts.cardToggle(open).string(), role = Role.Button, onClick = it)
+                .handCursor()
+        } ?: Modifier.padding(horizontal = AppHighlight.Gutter)
     Row(
-        Modifier.fillMaxWidth().then(toggle).padding(horizontal = CARD_PADDING, vertical = 10.dp),
+        // The card's 16dp side padding: the highlight's gutter and inset.
+        Modifier.fillMaxWidth().then(toggle).padding(AppHighlight.inset),
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -218,8 +225,14 @@ private fun Rows(rows: ImmutableList<Figure>, onOpenGear: ((String) -> Unit)? = 
         rows.forEachIndexed { i, figure ->
             if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             val gear = (figure.value as? FigureValue.GearItem)?.uri
-            if (gear != null && onOpenGear != null) FigureRow(figure, Modifier.clickable { onOpenGear(gear) }.handCursor())
-            else FigureRow(figure)
+            if (gear != null && onOpenGear != null) {
+                FigureRow(
+                    figure,
+                    Modifier.highlight(placement = HighlightPlacement.Bleed).clickable { onOpenGear(gear) }.highlightInset(compact = true),
+                )
+            } else {
+                FigureRow(figure)
+            }
         }
     }
 }

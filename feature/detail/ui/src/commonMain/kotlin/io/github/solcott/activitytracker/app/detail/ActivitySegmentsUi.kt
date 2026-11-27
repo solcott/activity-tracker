@@ -33,7 +33,9 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.segment.EffortRow
 import io.github.solcott.activitytracker.app.segment.SegmentKindIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_lifts
@@ -69,7 +71,7 @@ fun LiftRidesCard(lifts: ImmutableList<LiftRides>, onOpen: (LiftRides) -> Unit, 
             Text(stringResource(Res.string.detail_section_lifts), style = MaterialTheme.typography.titleMedium)
             lifts.forEach { lift ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { onOpen(lift) }.handCursor().padding(vertical = 10.dp),
+                    Modifier.fillMaxWidth().highlight(placement = HighlightPlacement.Bleed).clickable { onOpen(lift) }.highlightInset(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

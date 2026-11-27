@@ -14,6 +14,9 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.shownName
 import io.github.solcott.activitytracker.app.ui.ErrorText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_no_likes
@@ -31,7 +34,12 @@ fun LikersList(list: LikesList, onOpenProfile: (Did) -> Unit, modifier: Modifier
             list.athletes.isEmpty() -> Text(stringResource(Res.string.detail_no_likes), style = MaterialTheme.typography.bodyMedium)
             else -> {
                 list.athletes.forEach { athlete ->
-                    Column(Modifier.fillMaxWidth().clickable { onOpenProfile(athlete.did) }.padding(vertical = 6.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .highlight(placement = HighlightPlacement.Bleed)
+                            .clickable { onOpenProfile(athlete.did) }
+                            .highlightInset(),
+                    ) {
                         Text(athlete.shownName, style = MaterialTheme.typography.titleSmall)
                         Text(handleLabel(athlete.handle.value), style = MaterialTheme.typography.bodySmall)
                     }

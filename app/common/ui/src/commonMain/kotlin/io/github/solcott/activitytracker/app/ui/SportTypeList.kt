@@ -3,16 +3,16 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,7 +23,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -32,9 +31,13 @@ import io.github.solcott.activitytracker.app.sport.nestsIn
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChipIconSize
+import io.github.solcott.activitytracker.app.ui.adaptive.AppHighlight
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.type_picker_toggle_sport
 import io.github.solcott.activitytracker.data.sport.SportCategory
@@ -73,19 +76,31 @@ fun LazyListScope.sportTypeList(
             val chevron = !expandAll && type.subSport == null && type.sport in collapsible
             val isExpanded = type.sport in expanded
             val hidden = if (chevron && !isExpanded) hiddenChoice(type) else null
-            ListItem(
-                headlineContent = { Text(activityTypeLabel(type)) },
-                supportingContent = hidden?.let { { Text(activityTypeLabel(it)) } },
-                leadingContent = { ActivityTypeIcon(type, Modifier.padding(start = if (nested(type)) 24.dp else 0.dp)) },
-                trailingContent = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (chevron) ExpandButton(type.sport, isExpanded, onToggle = { onToggleExpanded(type.sport) })
-                        trailing(type)
+            Row(
+                Modifier.fillMaxWidth()
+                    .highlight(placement = HighlightPlacement.Gutter)
+                    .clickable { onClick(type) }
+                    .highlightInset()
+                    .heightIn(min = TYPE_ROW_MIN_HEIGHT),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ActivityTypeIcon(type, Modifier.padding(start = if (nested(type)) 24.dp else 0.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(activityTypeLabel(type), style = MaterialTheme.typography.bodyLarge)
+                    hidden?.let {
+                        Text(
+                            activityTypeLabel(it),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable { onClick(type) }.handCursor(),
-            )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (chevron) ExpandButton(type.sport, isExpanded, onToggle = { onToggleExpanded(type.sport) })
+                    trailing(type)
+                }
+            }
         }
     }
 }
@@ -124,8 +139,9 @@ private fun CategoryHeader(
     Row(
         Modifier.fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .highlight(placement = HighlightPlacement.Gutter)
             .then(if (onClick != null) Modifier.clickable { onClick(category) }.handCursor() else Modifier)
-            .padding(16.dp, 8.dp),
+            .padding(AppHighlight.inset),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -151,3 +167,6 @@ private fun ExpandButton(sport: String, expanded: Boolean, onToggle: () -> Unit)
 }
 
 private const val EXPANDED_ROTATION = 90f
+
+/** A type row's content height at least: with the inset, Material's 56dp one-line list item. */
+private val TYPE_ROW_MIN_HEIGHT = 40.dp

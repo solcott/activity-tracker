@@ -30,7 +30,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -61,10 +64,11 @@ private fun LeaderboardExclusion(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             Modifier.fillMaxWidth()
+                .highlight(placement = HighlightPlacement.Bleed)
                 .toggleable(excluded, enabled = enabled, role = Role.Switch) {
                     eventSink(EditActivityEvent.LeaderboardExclusionChanged(it))
                 }
-                .padding(vertical = 8.dp),
+                .highlightInset(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

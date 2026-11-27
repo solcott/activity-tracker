@@ -18,6 +18,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel
@@ -38,6 +41,7 @@ internal fun ItemRow(item: UploadItem, state: UploadsState) {
     Column {
         Row(
             Modifier.fillMaxWidth()
+                .highlight(placement = HighlightPlacement.Bleed)
                 .then(
                     if (opens && uri != null) {
                         Modifier.clickable(role = Role.Button) { state.eventSink(UploadsEvent.OpenActivity(uri.value)) }
@@ -45,7 +49,7 @@ internal fun ItemRow(item: UploadItem, state: UploadsState) {
                         Modifier
                     },
                 )
-                .padding(vertical = 4.dp),
+                .highlightInset(clickable = opens && uri != null),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {

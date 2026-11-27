@@ -32,6 +32,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.DateBounds
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.errorItem
 import io.github.solcott.activitytracker.app.ui.pickedDate
@@ -132,7 +135,10 @@ private fun ComponentRow(
     actions: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(vertical = 8.dp),
+        Modifier.fillMaxWidth()
+            .highlight(placement = HighlightPlacement.Bleed)
+            .clickable(role = Role.Button, onClick = onClick)
+            .highlightInset(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -205,8 +211,9 @@ private fun MountSheet(picker: GearMountPicker, send: (GearEvent) -> Unit) {
             items(picker.candidates, key = { it.rkey }) { candidate ->
                 Column(
                     Modifier.fillMaxWidth()
+                        .highlight(placement = HighlightPlacement.Gutter)
                         .clickable(role = Role.Button) { send(GearEvent.ChooseMount(candidate.rkey)) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .highlightInset(),
                 ) {
                     Text(candidate.name, style = MaterialTheme.typography.bodyLarge)
                     Text(

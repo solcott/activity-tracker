@@ -5,7 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import io.github.solcott.activitytracker.app.ui.DiveSite
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 
 /**
@@ -16,7 +18,13 @@ import io.github.solcott.activitytracker.app.ui.string
 internal fun DiveSiteLine(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     val site = ActivityPageTexts.diveSite(state.activity)?.string() ?: return
     if (ActivityPageTexts.opensDiveSite(state.activity)) {
-        DiveSite(site, modifier.clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenDiveSite) }.handCursor())
+        DiveSite(
+            site,
+            modifier
+                .highlight(placement = HighlightPlacement.Bleed)
+                .clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenDiveSite) }
+                .highlightInset(compact = true),
+        )
     } else {
         DiveSite(site, modifier)
     }

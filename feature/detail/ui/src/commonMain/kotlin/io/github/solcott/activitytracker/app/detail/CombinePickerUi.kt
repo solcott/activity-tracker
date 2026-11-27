@@ -28,6 +28,9 @@ import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -78,7 +81,11 @@ fun CombinePickerUi(state: CombinePickerState, modifier: Modifier = Modifier) {
 private fun Candidate(activity: ActivityView, combining: Boolean, enabled: Boolean, onPick: () -> Unit, modifier: Modifier = Modifier) {
     val record = activity.record
     Row(
-        modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onPick).padding(16.dp),
+        modifier
+            .fillMaxWidth()
+            .highlight(placement = HighlightPlacement.Gutter)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onPick)
+            .highlightInset(clickable = enabled),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -16,7 +16,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.path_photos_title
@@ -42,9 +44,9 @@ internal fun PathConditions(card: PathConditionsCard, send: (PathEvent) -> Unit,
                 if (index > 0) HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 Row(
                     Modifier.fillMaxWidth()
+                        .highlight(placement = HighlightPlacement.Gutter)
                         .clickable { send(PathEvent.Open(AtUri(row.uri))) }
-                        .handCursor()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .highlightInset(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {

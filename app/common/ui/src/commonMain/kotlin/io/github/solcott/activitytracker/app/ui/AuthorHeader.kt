@@ -13,7 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.shownName
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 
@@ -32,7 +34,13 @@ fun AuthorHeader(
 ) {
     val name = author.shownName
     Row(
-        modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick).handCursor() else Modifier),
+        modifier.then(
+            if (onClick != null) {
+                Modifier.highlight(placement = HighlightPlacement.Bleed).clickable(onClick = onClick).highlightInset(compact = true)
+            } else {
+                Modifier
+            },
+        ),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

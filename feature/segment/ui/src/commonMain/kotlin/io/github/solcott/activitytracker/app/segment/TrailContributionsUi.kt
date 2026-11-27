@@ -31,7 +31,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.string
 
@@ -175,9 +178,10 @@ private fun TrailPickerSheet(picker: TrailPicker, send: (TrailEvent) -> Unit) {
 private fun PickRow(option: TrailPickOption, selected: Boolean, onPick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
+            .highlight(placement = HighlightPlacement.Gutter)
             .selectable(selected = selected, enabled = !option.current, role = Role.RadioButton, onClick = onPick)
-            .heightIn(min = 56.dp)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .highlightInset(clickable = !option.current)
+            .heightIn(min = 40.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

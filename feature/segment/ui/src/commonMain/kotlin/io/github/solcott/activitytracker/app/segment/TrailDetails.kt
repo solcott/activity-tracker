@@ -24,7 +24,10 @@ import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 import kotlinx.collections.immutable.ImmutableList
 
@@ -75,7 +78,14 @@ internal fun TrailDetailGroups(
 private fun TrailDetailRow(row: TrailDetail, onOpen: (String) -> Unit, onOpenSegment: (String) -> Unit) {
     val uriHandler = LocalUriHandler.current
     val key = row.key
-    val tap = if (row.opens && key != null) Modifier.clickable(onClickLabel = row.label.string()) { onOpen(key) } else Modifier
+    val tap =
+        if (row.opens && key != null) {
+            Modifier.highlight(placement = HighlightPlacement.Bleed)
+                .clickable(onClickLabel = row.label.string()) { onOpen(key) }
+                .highlightInset()
+        } else {
+            Modifier
+        }
     Column {
         Row(tap.heightIn(min = if (row.opens) 48.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
             // Labels are medium weight in a lighter grey, values regular in the text colour, so each row reads label then value.
@@ -107,7 +117,10 @@ private fun TrailDetailRow(row: TrailDetail, onOpen: (String) -> Unit, onOpenSeg
             Column(Modifier.padding(start = LABEL_WIDTH, bottom = 4.dp)) {
                 row.varying.forEach { segment ->
                     Row(
-                        Modifier.fillMaxWidth().clickable { onOpenSegment(segment.uri) }.heightIn(min = 48.dp),
+                        Modifier.fillMaxWidth()
+                            .highlight(placement = HighlightPlacement.Bleed)
+                            .clickable { onOpenSegment(segment.uri) }
+                            .highlightInset(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {

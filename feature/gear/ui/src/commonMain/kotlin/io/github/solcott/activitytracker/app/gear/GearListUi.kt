@@ -41,6 +41,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppListSectionTitle
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.gear_add
@@ -139,8 +142,9 @@ private fun LazyListScope.collections(lists: GearLists, eventSink: (GearListEven
     items(lists.collections, key = { "collections/${it.rkey}" }) { row ->
         Column(
             Modifier.fillMaxWidth()
+                .highlight(placement = HighlightPlacement.Gutter)
                 .clickable(role = Role.Button) { eventSink(GearListEvent.OpenCollection(row.rkey)) }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .highlightInset(),
         ) {
             Text(row.name, style = MaterialTheme.typography.titleMedium)
             Text(
@@ -172,10 +176,12 @@ internal fun GearRowItem(
     trailing: @Composable () -> Unit = {},
 ) {
     Row(
-        modifier
-            .fillMaxWidth()
+        // The highlight first, so a caller's own click (a tick in a collection's picker) draws inside it too.
+        Modifier.fillMaxWidth()
+            .highlight(placement = HighlightPlacement.Gutter)
+            .then(modifier)
             .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .highlightInset(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

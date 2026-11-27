@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -23,6 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuEntry
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuShape
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.string
@@ -71,6 +72,7 @@ private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled:
         )
         ExposedDropdownMenu(
             expanded = expanded,
+            shape = AppMenuShape,
             onDismissRequest = {
                 expanded = false
                 query.setTextAndPlaceCursorAtEnd(selected)
@@ -78,8 +80,8 @@ private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled:
         ) {
             matches.forEach { zone ->
                 val label = zoneLabel(zone)
-                DropdownMenuItem(
-                    text = { Text(label) },
+                AppMenuEntry(
+                    label,
                     onClick = {
                         onPick(zone.id)
                         query.setTextAndPlaceCursorAtEnd(label)

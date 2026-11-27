@@ -11,7 +11,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -46,15 +45,20 @@ import io.github.solcott.activitytracker.app.ui.PastDateField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuEntry
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuShape
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.compressAvatar
 import io.github.solcott.activitytracker.app.ui.countryName
@@ -231,10 +235,11 @@ private fun ApproveFollowers(state: EditProfileState, modifier: Modifier = Modif
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             Modifier.fillMaxWidth()
+                .highlight(placement = HighlightPlacement.Bleed)
                 .toggleable(state.approveFollowers, enabled = state.loaded && !state.saving, role = Role.Switch) {
                     state.eventSink(EditProfileEvent.ApproveFollowersChanged(it))
                 }
-                .padding(vertical = 8.dp),
+                .highlightInset(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -343,21 +348,22 @@ private fun CountryField(
         )
         ExposedDropdownMenu(
             expanded = expanded,
+            shape = AppMenuShape,
             onDismissRequest = {
                 expanded = false
                 query.setTextAndPlaceCursorAtEnd(selectedName)
             },
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.edit_profile_not_set)) },
+            AppMenuEntry(
+                stringResource(Res.string.edit_profile_not_set),
                 onClick = {
                     onSelect("")
                     expanded = false
                 },
             )
             matches.forEach { (countryCode, name) ->
-                DropdownMenuItem(
-                    text = { Text(name) },
+                AppMenuEntry(
+                    name,
                     onClick = {
                         onSelect(countryCode)
                         query.setTextAndPlaceCursorAtEnd(name)

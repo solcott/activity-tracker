@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 
 /**
@@ -69,10 +71,8 @@ private fun Loading(text: String) {
 @Composable
 private fun PreviewRow(row: CommentPreviewRow, onClick: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth()
-            .clip(MaterialTheme.shapes.small)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+        // On the block's own edges: its other rows sit the highlight's inset in, so this one's text lines up with theirs.
+        Modifier.fillMaxWidth().highlight().clickable(role = Role.Button, onClick = onClick).highlightInset(),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         CommentAuthorLine(row.author, row.createdAt)

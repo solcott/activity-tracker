@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,7 +25,10 @@ import io.github.solcott.activitytracker.app.browse.MapBrowseTexts
 import io.github.solcott.activitytracker.app.segment.TrailRating
 import io.github.solcott.activitytracker.app.text.AppText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 
 /**
@@ -58,17 +60,12 @@ fun SelectableRow(
     Row(
         modifier
             .fillMaxWidth()
-            .then(
-                when {
-                    selected -> Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = SELECTED_ALPHA))
-                    hover.uri == key -> Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                    else -> Modifier
-                },
-            )
+            .highlight(selected = selected, hovered = hover.uri == key, placement = HighlightPlacement.Gutter)
             .mapBrowseHover(hover, key)
             .semantics { this.selected = selected }
             .clickable(onClickLabel = MapBrowseTexts.rowAction(selected, touch).string()) { if (touch) onTap() else onOpen() }
-            .padding(start = 16.dp + indent, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            .highlightInset()
+            .padding(start = indent),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (rating != null) {
@@ -93,9 +90,6 @@ fun SelectableRow(
         trailing?.invoke()
     }
 }
-
-/** The selected row's tint: the brand colour, faint enough that its text reads as on the plain list. */
-private const val SELECTED_ALPHA = 0.12f
 
 /**
  * Puts [key] in [hover] while a mouse pointer is over this element, so the map highlights what [key] names, and takes it out when the

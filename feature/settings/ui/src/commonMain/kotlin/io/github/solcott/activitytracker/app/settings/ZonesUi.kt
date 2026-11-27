@@ -31,7 +31,10 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableScrollColumn
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -128,10 +131,11 @@ private fun ThresholdField(
         val checked = state.autoUpdates(threshold)
         Row(
             Modifier.fillMaxWidth()
+                .highlight(placement = HighlightPlacement.Bleed)
                 .toggleable(checked, enabled = state.loaded, role = Role.Switch) {
                     state.eventSink(ZonesEvent.AutoUpdateChanged(threshold.token, it))
                 }
-                .padding(vertical = 8.dp),
+                .highlightInset(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(stringResource(Res.string.zones_auto_update), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)

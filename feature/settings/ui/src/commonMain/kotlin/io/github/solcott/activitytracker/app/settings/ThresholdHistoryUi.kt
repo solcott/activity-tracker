@@ -54,8 +54,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.chart.LineChartUi
 import io.github.solcott.activitytracker.app.ui.string
@@ -152,10 +155,11 @@ private fun GroupHeader(group: ThresholdHistoryGroup, onToggle: () -> Unit, modi
     Row(
         modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
+            .highlight(placement = HighlightPlacement.Gutter)
             .clickable(role = Role.Button, onClick = onToggle)
             .semantics { stateDescription = stateText }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .highlightInset()
+            .heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

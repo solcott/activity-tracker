@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,8 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,9 +46,12 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.chart.LineChartUi
 import io.github.solcott.activitytracker.app.ui.interactiveMapSupported
 import io.github.solcott.activitytracker.app.ui.mapBrowseHover
@@ -236,12 +236,11 @@ private fun DetailsFold(state: PathState) {
     Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             // Its hover and press fill reach past the column by the row's inner padding, so its text still lines up with the header's.
-            Modifier.outdent(FOLD_PADDING)
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.small)
+            Modifier.fillMaxWidth()
+                .highlight(placement = HighlightPlacement.Bleed)
                 .clickable(onClickLabel = TrailTexts.toggleLabel(expanded).string()) { state.eventSink(PathEvent.ToggleDetails) }
                 .testTag(TestTags.PATH_DETAILS_TOGGLE)
-                .padding(horizontal = FOLD_PADDING, vertical = 10.dp),
+                .highlightInset(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -263,23 +262,6 @@ private fun DetailsFold(state: PathState) {
         }
     }
 }
-
-/** Widens a full-width element by [by] on each side of the space its parent gives it, drawing it that far past the parent's padding. */
-private fun Modifier.outdent(by: Dp): Modifier = layout { measurable, constraints ->
-    val extra = by.roundToPx()
-    val wide =
-        if (constraints.hasBoundedWidth) {
-            constraints.copy(minWidth = constraints.maxWidth + 2 * extra, maxWidth = constraints.maxWidth + 2 * extra)
-        } else {
-            constraints
-        }
-    val placeable = measurable.measure(wide)
-    val width = if (constraints.hasBoundedWidth) constraints.maxWidth else placeable.width
-    layout(width, placeable.height) { placeable.place(-extra, 0) }
-}
-
-/** The Trail details row's inner padding, which its hover fill reaches past the header column by. */
-private val FOLD_PADDING = 12.dp
 
 @Composable
 private fun GroupRow(state: PathState, group: SegmentGroupRow, hover: MapBrowseHover, units: UnitSystem, indent: Dp = 0.dp) {
@@ -342,11 +324,11 @@ private fun SectionRow(
     Column {
         Row(
             Modifier.fillMaxWidth()
-                .then(if (hover.uri == section.key) Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
+                .highlight(hovered = hover.uri == section.key, placement = HighlightPlacement.Gutter)
                 .mapBrowseHover(hover, section.key)
                 .clickable(onClickLabel = PathTexts.toggleLabel(section, expanded).string()) { state.eventSink(state.toggleEvent(section)) }
                 .testTag(TestTags.PATH_SECTION)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .highlightInset(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PlatformIcon(if (expanded) AppIcon.ChevronDown else AppIcon.Chevron, null)

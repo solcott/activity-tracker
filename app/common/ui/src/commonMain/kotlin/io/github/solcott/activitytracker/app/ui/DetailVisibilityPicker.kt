@@ -18,7 +18,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -32,8 +31,10 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.text.LabelText
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
 import io.github.solcott.activitytracker.app.visibility.DetailsSummary
 import io.github.solcott.activitytracker.app.visibility.DetailsSummaryLine
@@ -130,11 +131,10 @@ private fun DetailsSummaryRow(fields: VisibilityFields, expanded: Boolean, onTog
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth()
-            .clip(MaterialTheme.shapes.small)
+            .highlight(placement = HighlightPlacement.Bleed)
             .clickable(role = Role.Button, onClick = onToggle)
-            .handCursor()
             .semantics(mergeDescendants = true) { stateDescription = stateText }
-            .padding(vertical = 10.dp),
+            .highlightInset(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

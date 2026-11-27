@@ -37,6 +37,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
@@ -160,9 +162,15 @@ private fun BatchRow(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        // No gap after the checkbox: the opening part's highlight inset keeps its text 12dp from the box.
+        Row(verticalAlignment = Alignment.CenterVertically) {
             AppCheckbox(row.selected, onCheckedChange = { eventSink(ImportActivityEvent.ItemToggled(row.index)) }, enabled = enabled)
-            Column(Modifier.weight(1f).clickable(enabled = enabled) { eventSink(ImportActivityEvent.ItemOpened(row.index)) }) {
+            Column(
+                Modifier.weight(1f)
+                    .highlight()
+                    .clickable(enabled = enabled) { eventSink(ImportActivityEvent.ItemOpened(row.index)) }
+                    .highlightInset(clickable = enabled),
+            ) {
                 Text(ImportActivityTexts.rowTitle(row).string(), style = MaterialTheme.typography.bodyLarge)
                 Text(
                     ImportActivityTexts.rowDetails(row, LocalUnitSystem.current).string(),
