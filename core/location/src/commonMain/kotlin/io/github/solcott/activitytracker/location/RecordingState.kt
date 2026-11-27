@@ -99,7 +99,7 @@ data class RecordingState(
         val nextBase = if (altitude != null && (base == null || abs(altitude - base) > ELEVATION_HYSTERESIS_M)) altitude else base
         return copy(
             distanceMeters = distanceMeters + step,
-            movingMillis = movingMillis + if (speed > MovingTime.SPEED_MPS) millis else 0,
+            movingMillis = movingMillis + if (MovingTime.isMoving(speed)) millis else 0,
             elevationGainMeters = elevationGainMeters + climb,
             maxSpeedMps = maxOf(maxSpeedMps, speed),
             last = sample,
