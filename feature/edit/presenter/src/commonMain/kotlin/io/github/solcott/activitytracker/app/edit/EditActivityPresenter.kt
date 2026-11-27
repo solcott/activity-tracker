@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -19,6 +18,7 @@ import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.record.GearChoice
 import io.github.solcott.activitytracker.app.record.GearChoices
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
@@ -60,9 +60,9 @@ fun EditActivityPresenter(
     // Why a save failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val loaded =
-        produceRetainedContentState<EditActivityLoad?>(null, loadKey) {
+        produceRetainedContentState<EditActivityLoad?>(null, reload.key) {
             outcomeFlow {
                 val view = feed.activity(AtUri(screen.uri))
                 // Charts are extra: without them (or when they can't load) only the categories its summary has are offered.
@@ -159,7 +159,7 @@ fun EditActivityPresenter(
             }
 
             EditActivityEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             is EditActivityEvent.LeaderboardExclusionChanged -> {

@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -14,6 +13,7 @@ import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.readyFormContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
@@ -51,10 +51,10 @@ private val CHOICES: ImmutableList<Int> =
 @CircuitInject(PrivacyZonesScreen::class, SessionScope::class)
 @Composable
 fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: LocationTracker): PrivacyZonesState {
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // A session that can't read the zones (signed in before the `space:` scope) doesn't know them: it asks to sign in again instead.
     val readable = privacy.canRead
-    val loaded = produceRetainedContentState<PrivacySettings?>(null, loadKey) { if (readable) privacy.zonesOutcome() else emptyFlow() }
+    val loaded = produceRetainedContentState<PrivacySettings?>(null, reload.key) { if (readable) privacy.zonesOutcome() else emptyFlow() }
     // As read when the screen first loaded them, then as each save here returned them. Later loads change nothing.
     var settings by rememberRetained { mutableStateOf<PrivacySettings?>(null) }
     // Why a change failed; never a loading failure, which is [loaded]'s.
@@ -104,7 +104,7 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
         when (event) {
             PrivacyZonesEvent.Back -> navigator.pop()
 
-            PrivacyZonesEvent.Retry -> loadKey++
+            PrivacyZonesEvent.Retry -> reload.retry()
 
             is PrivacyZonesEvent.RadiusChanged -> save { it.withRadius(event.index, event.meters) }
 

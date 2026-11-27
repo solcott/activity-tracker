@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -10,6 +9,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.launchAction
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.gear.GearDefaults
@@ -30,9 +30,9 @@ import kotlinx.coroutines.flow.map
 @Composable
 fun IgnoredSensorsPresenter(navigator: Navigator, defaults: GearDefaults): IgnoredSensorsState {
     // Bumped on Retry and after each un-ignore: the list reads again, staying on screen meanwhile.
-    var retryKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val content =
-        produceRetainedContentState<ImmutableList<LinkedSensor>>(persistentListOf(), retryKey) {
+        produceRetainedContentState<ImmutableList<LinkedSensor>>(persistentListOf(), reload.key) {
             defaults.recordOutcome().map { outcome -> outcome.mapData(::ignoredOf) }
         }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -40,13 +40,13 @@ fun IgnoredSensorsPresenter(navigator: Navigator, defaults: GearDefaults): Ignor
     return IgnoredSensorsState(content, error) { event ->
         when (event) {
             IgnoredSensorsEvent.Back -> navigator.pop()
-            IgnoredSensorsEvent.Retry -> retryKey++
+            IgnoredSensorsEvent.Retry -> reload.retry()
             is IgnoredSensorsEvent.Unignore -> {
                 val key = defaults.current.value?.ignored.orEmpty().firstOrNull { it.id == event.id } ?: return@IgnoredSensorsState
                 error = null
                 flights.launchAction(event, UiError.Kind.SaveGearLinks, { error = it }) {
                     defaults.editLinks(GearLinkEdit(unignore = listOf(key)))
-                    retryKey++
+                    reload.retry()
                 }
             }
         }

@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.segment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -14,6 +13,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.names.rememberPlaceNames
 import io.github.solcott.activitytracker.app.names.sharedPlaceOf
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -64,7 +64,7 @@ fun SegmentPresenter(
     var shown by rememberRetained { mutableStateOf(screen.uri) }
     val uri = AtUri(shown)
     var starred by remember { mutableStateOf<Boolean?>(null) }
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val flights = rememberSingleFlight()
 
     // Retained, so coming back from an effort's activity shows the segment at once; a retry restarts both reads under it.
@@ -72,7 +72,7 @@ fun SegmentPresenter(
         produceRetainedContentStates(
             contentStatesOf<GetSegment.Output?, ImmutableList<EffortView>>(null, persistentListOf()),
             shown,
-            loadKey,
+            reload.key,
         ) {
             combineOutcomes(
                 // The viewer's own proposals, edits and votes show at once, laid over each read until the AppView catches up.
@@ -95,10 +95,10 @@ fun SegmentPresenter(
     val polyline = remember(segment) { segment?.let { mapLine(it.record.line) } }
     val group = remember(segment, detail.data?.groupMembers) { segment?.let { GroupSwitcher.of(it, detail.data?.groupMembers.orEmpty()) } }
     // The star is extra: unknown (null) hides it rather than showing it unstarred.
-    LaunchedEffect(shown, loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
+    LaunchedEffect(shown, reload.key) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
     // A lift has no boards (segments/segment-lifts), so it's never treated as one that could.
     val active = segment?.let { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE && SegmentKind.isRanked(it.record.kind) } == true
-    val boards = rememberBoards(segments, uri, screen.board, active, loadKey)
+    val boards = rememberBoards(segments, uri, screen.board, active, reload.key)
     val pathUris = remember(segment?.paths) { segment?.paths.orEmpty().toImmutableList() }
     val trails = rememberTrails(segments, pathUris)
 
@@ -135,7 +135,7 @@ fun SegmentPresenter(
     ) { event ->
         when (event) {
             SegmentEvent.Back -> navigator.pop()
-            SegmentEvent.Retry -> loadKey++
+            SegmentEvent.Retry -> reload.retry()
             SegmentEvent.ToggleStar -> {
                 val loaded = segment
                 val was = starred

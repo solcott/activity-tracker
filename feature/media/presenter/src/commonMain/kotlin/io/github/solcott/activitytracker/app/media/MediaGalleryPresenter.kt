@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.media
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -13,6 +12,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.report.ReportingEvent
@@ -45,9 +45,9 @@ fun MediaGalleryPresenter(
     reports: ReportRepository,
 ): MediaGalleryState {
     val uri = AtUri(screen.uri)
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // Retained, so coming back to the gallery shows the photos at once; a retry reloads under them.
-    val loaded = produceRetainedContentState<ActivityView?>(null, uri, loadKey) { feed.activityOutcome(uri) }
+    val loaded = produceRetainedContentState<ActivityView?>(null, uri, reload.key) { feed.activityOutcome(uri) }
     // Why blocking the author failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
     var page by rememberSaveable { mutableStateOf(screen.index) }
@@ -88,7 +88,7 @@ fun MediaGalleryPresenter(
 
             MediaGalleryEvent.ReportPhoto -> shown?.takeIf { canReport }?.let { reporting.reportPhoto(it, shownPage) }
 
-            MediaGalleryEvent.Retry -> loadKey++
+            MediaGalleryEvent.Retry -> reload.retry()
         }
     }
 }

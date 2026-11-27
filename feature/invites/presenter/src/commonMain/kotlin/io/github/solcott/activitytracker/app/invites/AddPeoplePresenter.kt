@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.invites
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -12,6 +11,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -32,8 +32,8 @@ fun AddPeoplePresenter(
     auth: AuthRepository,
 ): AddPeopleState {
     val activity = AtUri(screen.activity)
-    var loadKey by remember { mutableIntStateOf(0) }
-    val loaded = produceRetainedContentState<People?>(null, loadKey) { invites.peopleOutcome(activity) }
+    val reload = rememberReload()
+    val loaded = produceRetainedContentState<People?>(null, reload.key) { invites.peopleOutcome(activity) }
     // Changes made here, laid over every load: the AppView catches up with the athlete's `self` space a moment later.
     var added by rememberRetained { mutableStateOf(emptyList<InviteeView>()) }
     var removed by rememberRetained { mutableStateOf(emptySet<Did>()) }
@@ -80,7 +80,7 @@ fun AddPeoplePresenter(
             }
 
             AddPeopleEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             AddPeopleEvent.SignInAgain -> {

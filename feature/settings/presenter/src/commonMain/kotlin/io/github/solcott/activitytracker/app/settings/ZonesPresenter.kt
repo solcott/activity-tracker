@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -14,6 +13,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.rememberFormSeed
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.OwnProfile
@@ -38,8 +38,8 @@ import kotlinx.collections.immutable.toImmutableSet
 @Composable
 fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clock): ZonesState {
     val form = rememberForm()
-    var loadKey by remember { mutableIntStateOf(0) }
-    val loaded = produceRetainedContentState<OwnProfile?>(null, loadKey) { profiles.ownProfileOutcome() }
+    val reload = rememberReload()
+    val loaded = produceRetainedContentState<OwnProfile?>(null, reload.key) { profiles.ownProfileOutcome() }
     // Why a save failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
@@ -75,7 +75,7 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clo
             }
 
             ZonesEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             is ZonesEvent.HeartRateModelChanged -> {

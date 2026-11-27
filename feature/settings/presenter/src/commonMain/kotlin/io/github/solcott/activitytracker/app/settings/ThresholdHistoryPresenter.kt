@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -14,6 +13,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -48,10 +48,10 @@ fun ThresholdHistoryPresenter(
 ): ThresholdHistoryState {
     val timeZone = remember { TimeZones.device() }
     val unitSystem = units.units.collectAsState().value
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // Retained, so coming back shows the history at once; a retry reloads under it.
     val loaded =
-        produceRetainedContentState<TrainingDetails?>(null, loadKey) {
+        produceRetainedContentState<TrainingDetails?>(null, reload.key) {
             profiles.ownProfileOutcome().map { outcome ->
                 outcome.mapData { TrainingHistory.backfilled(it.details.training ?: TrainingDetails()) }
             }
@@ -91,7 +91,7 @@ fun ThresholdHistoryPresenter(
             }
 
             ThresholdHistoryEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             is ThresholdHistoryEvent.Remove -> {

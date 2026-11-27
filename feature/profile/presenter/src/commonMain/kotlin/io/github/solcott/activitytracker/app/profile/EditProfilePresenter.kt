@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.profile
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -13,6 +12,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -47,8 +47,8 @@ fun EditProfilePresenter(
     auth: AuthRepository,
 ): EditProfileState {
     val form = rememberForm(unitsRepository.units.value)
-    var loadKey by remember { mutableIntStateOf(0) }
-    val loaded = produceRetainedContentState<OwnProfile?>(null, loadKey) { profiles.ownProfileOutcome() }
+    val reload = rememberReload()
+    val loaded = produceRetainedContentState<OwnProfile?>(null, reload.key) { profiles.ownProfileOutcome() }
     var picked by remember { mutableStateOf<AvatarImage.Picked?>(null) }
     var avatarRemoved by remember { mutableStateOf(false) }
     // Why a save failed; never a loading failure, which is [loaded]'s.
@@ -124,7 +124,7 @@ fun EditProfilePresenter(
             }
 
             EditProfileEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             EditProfileEvent.SignInAgain -> {

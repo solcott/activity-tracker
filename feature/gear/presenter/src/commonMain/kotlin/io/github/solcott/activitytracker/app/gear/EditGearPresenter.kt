@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -20,6 +19,7 @@ import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.readyFormContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -81,8 +81,8 @@ fun EditGearPresenter(
     clock: Clock,
 ): EditGearState {
     val rkey = screen.rkey
-    var loadKey by remember { mutableIntStateOf(0) }
-    val loaded = produceRetainedContentState<GearItem?>(null, loadKey) { rkey?.let(gear::itemOutcome) ?: emptyFlow() }
+    val reload = rememberReload()
+    val loaded = produceRetainedContentState<GearItem?>(null, reload.key) { rkey?.let(gear::itemOutcome) ?: emptyFlow() }
     var existing by rememberRetained { mutableStateOf<GearItem?>(null) }
     val name = rememberTextFieldState()
     val brand = rememberTextFieldState()
@@ -244,7 +244,7 @@ fun EditGearPresenter(
     ) { event ->
         when (event) {
             EditGearEvent.Back -> navigator.pop()
-            EditGearEvent.Retry -> loadKey++
+            EditGearEvent.Retry -> reload.retry()
             is EditGearEvent.TypeChanged -> {
                 if (event.type != type) kind = null
                 type = event.type

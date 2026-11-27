@@ -3,14 +3,12 @@ package io.github.solcott.activitytracker.app.detail
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
-import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.gear.GearScreen
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -36,12 +34,12 @@ fun ActivityDataPresenter(
     segmentEfforts: SegmentRepository,
 ): ActivityDataState {
     val uri = AtUri(screen.uri)
-    var loadKey by rememberRetained { mutableIntStateOf(0) }
-    val content = produceRetainedContentState<ActivityView?>(null, loadKey) { feed.activityOutcome(uri) }
+    val reload = rememberReload()
+    val content = produceRetainedContentState<ActivityView?>(null, reload.key) { feed.activityOutcome(uri) }
     val rewrite by remember(screen.uri) { feed.rewrites.observe(uri) }.collectAsState(null)
     val unitSystem by units.units.collectAsState()
-    val charts = rememberCharts(uri, loadKey, unitSystem, feed)
-    val segments = rememberSegments(uri, loadKey, segmentEfforts)
+    val charts = rememberCharts(uri, reload.key, unitSystem, feed)
+    val segments = rememberSegments(uri, reload.key, segmentEfforts)
 
     val served = content.data?.let { view -> rewrite?.let { feed.rewrites.rewritten(view, it) } ?: view }
     val shown = remember(served) { served?.let { it.copy(record = it.effectiveRecord()) } }
@@ -57,7 +55,7 @@ fun ActivityDataPresenter(
     return ActivityDataState(content.mapContent { data }) { event ->
         when (event) {
             ActivityDataEvent.Back -> navigator.pop()
-            ActivityDataEvent.Retry -> loadKey++
+            ActivityDataEvent.Retry -> reload.retry()
             is ActivityDataEvent.OpenGear -> navigator.goTo(GearScreen(event.uri))
         }
     }

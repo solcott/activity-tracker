@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -13,6 +12,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.launchAction
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.UploadQueue
@@ -31,8 +31,8 @@ import kotlinx.collections.immutable.toImmutableList
 @CircuitInject(UploadsScreen::class, SessionScope::class)
 @Composable
 fun UploadsPresenter(navigator: Navigator, uploads: UploadQueue, locationTracker: LocationTracker): UploadsState {
-    var retryKey by remember { mutableIntStateOf(0) }
-    val content = produceRetainedContentState<UploadQueueView?>(null, retryKey) { uploads.queueOutcomes }
+    val reload = rememberReload()
+    val content = produceRetainedContentState<UploadQueueView?>(null, reload.key) { uploads.queueOutcomes }
     val summary by uploads.summary.collectAsState(UploadSummary())
     val timeLeft by uploads.estimate.collectAsState(null)
     var expanded by remember { mutableStateOf(persistentListOf<String>()) }
@@ -71,7 +71,7 @@ fun UploadsPresenter(navigator: Navigator, uploads: UploadQueue, locationTracker
     ) { event ->
         when (event) {
             UploadsEvent.Back -> navigator.pop()
-            UploadsEvent.Retry -> retryKey++
+            UploadsEvent.Retry -> reload.retry()
             is UploadsEvent.Cancel -> confirmingCancel = event.rkey
             is UploadsEvent.CancelRest -> confirmingCancelRest = event.batchId
             UploadsEvent.Dismiss -> {

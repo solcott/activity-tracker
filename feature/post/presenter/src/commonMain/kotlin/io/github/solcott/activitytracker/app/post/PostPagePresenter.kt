@@ -3,12 +3,10 @@ package io.github.solcott.activitytracker.app.post
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
-import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.comments.CommentsScreen
@@ -24,6 +22,7 @@ import io.github.solcott.activitytracker.app.posts.PostEvent
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
 import io.github.solcott.activitytracker.app.posts.rememberQuoting
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
@@ -66,13 +65,13 @@ fun PostPagePresenter(
     quotes: QuotePosts,
 ): PostPageState {
     val uri = AtUri(screen.uri)
-    var loadKey by rememberRetained { mutableIntStateOf(0) }
+    val reload = rememberReload()
     var error by remember { mutableStateOf<UiError?>(null) }
     var showLikes by remember { mutableStateOf(false) }
     var showReposts by remember { mutableStateOf(false) }
     val flights = rememberSingleFlight()
 
-    val content = produceRetainedContentState<PostView?>(null, loadKey) { feed.postOutcome(uri) }
+    val content = produceRetainedContentState<PostView?>(null, reload.key) { feed.postOutcome(uri) }
     val loaded = content.data
     // How far the viewer's comment actions on the Comments screen have moved the count since [loaded] loaded: a reload's answer counts
     // them itself.
@@ -95,7 +94,7 @@ fun PostPagePresenter(
         }
 
     // The block's first page, loaded again after each comment action on the Comments screen.
-    val comments = rememberComments(uri, profiles.did, loadKey + rememberCommentChanges(uri, feed.commentMoves), feed)
+    val comments = rememberComments(uri, profiles.did, reload.key + rememberCommentChanges(uri, feed.commentMoves), feed)
     val reporting = rememberReporting(reports) { author, _ -> flights.blockReported(author, blocks) { error = it } }
     // Deleting the page's own quote leaves the page, which would only say it's gone.
     val quoting = rememberQuoting(quotes, onDelete = { if (it.uri == uri) navigator.pop() }) { error = it }
@@ -106,7 +105,7 @@ fun PostPagePresenter(
     val sink: (PostPageEvent) -> Unit = { event ->
         when (event) {
             PostPageEvent.Back -> navigator.pop()
-            PostPageEvent.Retry -> loadKey++
+            PostPageEvent.Retry -> reload.retry()
             // Already here.
             is PostPageEvent.Post -> if (event.event !is PostEvent.OpenPost) postEvents(event.event)
             PostPageEvent.ToggleLikesList -> showLikes = !showLikes

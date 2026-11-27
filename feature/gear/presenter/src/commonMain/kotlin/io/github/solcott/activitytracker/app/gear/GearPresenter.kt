@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -17,6 +16,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -76,10 +76,10 @@ fun GearPresenter(
 ): GearState {
     val uri = AtUri(screen.uri)
     val isOwner = uri.authority == gear.did.value
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val changes by gear.changes.collectAsState()
     val content =
-        produceRetainedContentState<GearPage?>(null, loadKey to changes) {
+        produceRetainedContentState<GearPage?>(null, reload.key to changes) {
             gear.usageOutcome(uri).map { outcome -> outcome.mapData { pageOf(it, isOwner) } }
         }
     val counted =
@@ -154,7 +154,7 @@ fun GearPresenter(
         when (event) {
             GearEvent.Back -> navigator.pop()
             GearEvent.Retry -> {
-                loadKey++
+                reload.retry()
                 counted.retry()
             }
             GearEvent.LoadMore -> counted.loadMore()

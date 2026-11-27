@@ -1,10 +1,6 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
@@ -55,9 +51,12 @@ fun rememberActivityRouteLoad(
     activities: ActivityRepository,
     privacy: PrivacyZones,
 ): ActivityRouteLoad {
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val loads =
-        produceRetainedContentStates(contentStatesOf<ActivityView?, List<LocationSample>?, PrivacySettings?>(null, null, null), loadKey) {
+        produceRetainedContentStates(
+            contentStatesOf<ActivityView?, List<LocationSample>?, PrivacySettings?>(null, null, null),
+            reload.key,
+        ) {
             combineOutcomes(feed.activityOutcome(uri), activities.ownRouteOutcome(uri), privacy.zonesOutcome())
         }
     // A null track is an answer (none), so it counts only once it has loaded.
@@ -68,6 +67,6 @@ fun rememberActivityRouteLoad(
         content = content,
         activityFailed = loads.first.errorOrNull != null,
         trackFailed = loads.second.errorOrNull != null,
-        retry = { loadKey++ },
+        retry = { reload.retry() },
     )
 }

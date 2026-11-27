@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.posts.rememberPostEventSink
 import io.github.solcott.activitytracker.app.posts.rememberQuoting
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.segment.StarredSegmentsScreen
@@ -75,10 +76,10 @@ fun ProfilePresenter(
     names: SegmentNames,
     quotes: QuotePosts,
 ): ProfileState {
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // The header drives the page. Retained, so coming back from an activity shows it at once; a retry reloads under it.
     val header =
-        produceRetainedContentState<ProfileView?>(null, screen.actor, loadKey) {
+        produceRetainedContentState<ProfileView?>(null, screen.actor, reload.key) {
             profiles.profileOutcome(screen.actor).map { outcome -> outcome.mapData(blocks::applyTo) }
         }
     // An action's answer, shown over the loaded profile until the next load answers, which the repositories lay the same changes over.
@@ -90,7 +91,7 @@ fun ProfilePresenter(
     val items = remember {
         snapshotFlow { latestDid }.filterNotNull().distinctUntilChanged()
     }
-        .produceRetainedContentState<String, ImmutableList<ActivityView>>(persistentListOf(), loadKey) { author ->
+        .produceRetainedContentState<String, ImmutableList<ActivityView>>(persistentListOf(), reload.key) { author ->
             feed.authorOutcomes(author).map { outcome -> outcome.mapData { it.toImmutableList() } }
         }
     // Why an action failed; never a loading failure, which is [header]'s or [items]'.
@@ -123,7 +124,7 @@ fun ProfilePresenter(
     var tab by rememberRetained { mutableStateOf(ProfileTab.Activities) }
     val postsFor = did?.takeIf { tab == ProfileTab.Posts }
     val posts =
-        rememberRetainedPaging(did.orEmpty(), loadKey, idOf = PostView::uri, enabled = postsFor != null) { cursor ->
+        rememberRetainedPaging(did.orEmpty(), reload.key, idOf = PostView::uri, enabled = postsFor != null) { cursor ->
             flow { postsFor?.let { emit(feed.authorPostsPage(Did(it), cursor)) } }
         }
     val postChanges by names.changes.collectAsState()
@@ -240,7 +241,7 @@ fun ProfilePresenter(
             }
 
             ProfileEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
         }
     }

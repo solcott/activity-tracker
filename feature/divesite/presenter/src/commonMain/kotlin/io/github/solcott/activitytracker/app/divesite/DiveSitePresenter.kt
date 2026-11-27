@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.divesite
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -14,6 +13,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.names.rememberPlaceNames
 import io.github.solcott.activitytracker.app.names.sharedPlaceOf
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.segments.SegmentNames
@@ -38,11 +38,11 @@ import kotlinx.coroutines.flow.flow
 @Suppress("LongMethod") // An event per action on the site and its dives.
 fun DiveSitePresenter(screen: DiveSiteScreen, navigator: Navigator, sites: DiveSiteRepository, names: SegmentNames): DiveSiteState {
     val uri = AtUri(screen.uri)
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
 
     // Retained, so coming back from a dive shows the site at once; the viewer's own name changes show over each read.
     val content =
-        produceRetainedContentState<DiveSiteView?>(null, loadKey) {
+        produceRetainedContentState<DiveSiteView?>(null, reload.key) {
             combine(sites.siteOutcome(uri), names.changes) { outcome, _ -> outcome.mapData(names::applyTo) }
         }
     val site = content.data
@@ -53,9 +53,9 @@ fun DiveSitePresenter(screen: DiveSiteScreen, navigator: Navigator, sites: DiveS
 
     // Conditions and the top Regular are extra: a failed read leaves the last shown, or none, and never an error.
     var conditions by rememberRetained { mutableStateOf<DiveSiteConditions?>(null) }
-    LaunchedEffect(loadKey) { sites.conditions(uri).dataOrNull()?.let { conditions = it } }
+    LaunchedEffect(reload.key) { sites.conditions(uri).dataOrNull()?.let { conditions = it } }
     var regulars by rememberRetained { mutableStateOf<RegularsSummary?>(null) }
-    LaunchedEffect(active, loadKey) {
+    LaunchedEffect(active, reload.key) {
         if (!active) {
             regulars = null
             return@LaunchedEffect
@@ -89,7 +89,7 @@ fun DiveSitePresenter(screen: DiveSiteScreen, navigator: Navigator, sites: DiveS
         when (event) {
             DiveSiteEvent.Back -> navigator.pop()
             DiveSiteEvent.Retry -> {
-                loadKey++
+                reload.retry()
                 dives.retry()
             }
             is DiveSiteEvent.OpenDive -> navigator.goTo(ActivityDetailScreen(event.uri.value))

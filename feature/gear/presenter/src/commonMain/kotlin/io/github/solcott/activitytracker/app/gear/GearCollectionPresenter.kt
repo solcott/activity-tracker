@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.gear
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -11,6 +10,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.launchAction
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.gear.GearCollectionItems
@@ -34,11 +34,11 @@ fun GearCollectionPresenter(
     gear: GearRepository,
     collections: GearCollections,
 ): GearCollectionState {
-    var retryKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val changes by gear.changes.collectAsState()
     val collectionChanges by collections.changes.collectAsState()
     val content =
-        produceRetainedContentState(GearCollectionDetail(), retryKey, changes, collectionChanges) {
+        produceRetainedContentState(GearCollectionDetail(), reload.key, changes, collectionChanges) {
             gear.collectionOutcome(screen.rkey).map { outcome -> outcome.mapData(::detailOf) }
         }
     var confirmingDelete by remember { mutableStateOf(false) }
@@ -52,7 +52,7 @@ fun GearCollectionPresenter(
     ) { event ->
         when (event) {
             GearCollectionEvent.Back -> navigator.pop()
-            GearCollectionEvent.Retry -> retryKey++
+            GearCollectionEvent.Retry -> reload.retry()
             is GearCollectionEvent.Open -> navigator.goTo(GearScreen(GearItem.uriOf(gear.did, event.rkey).value))
             GearCollectionEvent.Edit -> navigator.goTo(EditGearCollectionScreen(screen.rkey))
             GearCollectionEvent.Delete -> confirmingDelete = true

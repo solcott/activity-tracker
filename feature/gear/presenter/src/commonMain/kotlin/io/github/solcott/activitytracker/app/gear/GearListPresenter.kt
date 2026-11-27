@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -12,6 +11,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.gear.GearCollection
@@ -34,23 +34,23 @@ import kotlinx.coroutines.flow.map
 @CircuitInject(GearListScreen::class, SessionScope::class)
 @Composable
 fun GearListPresenter(navigator: Navigator, gear: GearRepository, collections: GearCollections): GearListState {
-    var retryKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val changes by gear.changes.collectAsState()
     val collectionChanges by collections.changes.collectAsState()
     var totals by rememberRetained { mutableStateOf<Map<String, GearTotals>?>(null) }
-    LaunchedEffect(retryKey, changes) {
+    LaunchedEffect(reload.key, changes) {
         runSuspendCatching { gear.actorGear(gear.did.value) }
             .onSuccess { items -> totals = items.associate { it.gear.uri.value to it.totals } }
     }
     val content =
-        produceRetainedContentState(LoadedGear(), retryKey, changes, collectionChanges) {
+        produceRetainedContentState(LoadedGear(), reload.key, changes, collectionChanges) {
             gear.gearAndCollectionsOutcome().map { outcome -> outcome.mapData { LoadedGear(it.items, it.collections) } }
         }
     val lists = remember(content, totals) { content.mapContent { listsOf(it.items, gear.did, totals, it.collections) } }
     return GearListState(lists) { event ->
         when (event) {
             GearListEvent.Back -> navigator.pop()
-            GearListEvent.Retry -> retryKey++
+            GearListEvent.Retry -> reload.retry()
             GearListEvent.Add -> navigator.goTo(EditGearScreen())
             is GearListEvent.Open -> navigator.goTo(GearScreen(GearItem.uriOf(gear.did, event.rkey).value))
             is GearListEvent.OpenCollection -> navigator.goTo(GearCollectionScreen(event.rkey))

@@ -37,6 +37,7 @@ import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.blockReported
 import io.github.solcott.activitytracker.app.report.rememberReporting
@@ -99,11 +100,11 @@ fun ActivityDetailPresenter(
     var likeError by remember { mutableStateOf<UiError?>(null) }
     var blockError by remember { mutableStateOf<UiError?>(null) }
     // Retained with the page: the page's load is keyed on it.
-    var loadKey by rememberRetained { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // Bumped when the activity loads only after waiting for the AppView to index it.
     var indexedLate by rememberRetained { mutableIntStateOf(0) }
     // The page's other loads restart with it, and once more when it was indexed late: the first time, the AppView had none of them.
-    val extrasKey = loadKey + indexedLate
+    val extrasKey = reload.key + indexedLate
     var showLikes by remember { mutableStateOf(false) }
     val flights = rememberSingleFlight()
     // The viewer's own like toggles, laid over the loaded activity: the AppView only reflects them once Jetstream catches up.
@@ -112,7 +113,7 @@ fun ActivityDetailPresenter(
     // Retained, so coming back from a segment, a photo or a profile shows the page at once; a retry or a reload restarts it under the page.
     // An activity just written here (a combined one, or one just saved) isn't served until the AppView indexes it: it's asked for again.
     val content =
-        produceRetainedContentState<ActivityView?>(null, loadKey) {
+        produceRetainedContentState<ActivityView?>(null, reload.key) {
             feed.activityOutcome(uri).awaitIndexed(indexed = { indexedLate++ }) { justWritten(screen, feed) }
         }
     val activity = content.data
@@ -146,14 +147,14 @@ fun ActivityDetailPresenter(
     val sections = shown?.let { detailSections(it, shownCharts) } ?: persistentListOf()
     val narrower = narrowerCategories(served?.takeIf { isOwn }, charts.streams)
     val pageContent = rememberPage(shown, shownCharts, narrower)
-    val manage = rememberManage(activity.takeIf { isOwn }, extrasKey, feed, manager, navigator, flights) { loadKey++ }
-    val dataSources = rememberDataSources(activity.takeIf { isOwn }, extrasKey, manager, flights) { loadKey++ }
+    val manage = rememberManage(activity.takeIf { isOwn }, extrasKey, feed, manager, navigator, flights) { reload.retry() }
+    val dataSources = rememberDataSources(activity.takeIf { isOwn }, extrasKey, manager, flights) { reload.retry() }
     val chartSources = remember(shown, sections) { chartSources(shown, sections) }
     val suggestion =
         rememberCombineSuggestion(activity.takeIf { isOwn }, extrasKey, screen.suggestOnOpen, suggestions, manager, navigator, flights)
     val ownRoute =
         rememberOwnRoute(activity?.uri?.takeIf { isOwn }, extrasKey, activities, flights, combined = activity?.record?.combined != null)
-    val ownCopy = rememberOwnCopy(activity?.takeIf { isOwn }, manager, flights) { loadKey++ }
+    val ownCopy = rememberOwnCopy(activity?.takeIf { isOwn }, manager, flights) { reload.retry() }
     val ownGroup = rememberOwnGroup(activity?.uri?.takeIf { isOwn }, extrasKey, groups, flights)
     val hasStreams = charts.charts != null
     val isDive = shown?.record?.sport == Sport.DIVE
@@ -180,7 +181,7 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.CloseAllData -> view.on(event, lead, screen.uri, navigator)
 
             ActivityDetailEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             ActivityDetailEvent.OpenAuthor,

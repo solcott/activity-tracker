@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -11,6 +10,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -37,9 +37,9 @@ import kotlinx.collections.immutable.toImmutableList
 @Composable
 fun TrainingZonesPresenter(navigator: Navigator, profiles: ProfileRepository, units: UnitsRepository): TrainingZonesState {
     val unitSystem = units.units.collectAsState().value
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // Retained and reloaded each time the screen shows: coming back from an editor shows the zones at once, then what it saved.
-    val loaded = produceRetainedContentState<OwnProfile?>(null, loadKey) { profiles.ownProfileOutcome() }
+    val loaded = produceRetainedContentState<OwnProfile?>(null, reload.key) { profiles.ownProfileOutcome() }
     // The training visibility saved here since the last load; the next load reads it back from the PDS.
     var savedHere by remember(loaded.data) { mutableStateOf<String?>(null) }
     val profile =
@@ -75,7 +75,7 @@ fun TrainingZonesPresenter(navigator: Navigator, profiles: ProfileRepository, un
                     }
                 }
             is TrainingZonesEvent.EditSport -> navigator.goTo(SportZonesScreen(event.sport))
-            TrainingZonesEvent.Retry -> loadKey++
+            TrainingZonesEvent.Retry -> reload.retry()
         }
     }
 }

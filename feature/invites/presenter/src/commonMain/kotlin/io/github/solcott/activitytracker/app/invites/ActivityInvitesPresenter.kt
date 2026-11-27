@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.invites
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -12,6 +11,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -24,9 +24,9 @@ import kotlinx.collections.immutable.toImmutableList
 @Composable
 fun ActivityInvitesPresenter(navigator: Navigator, invites: ActivityInvitesRepository, auth: AuthRepository): ActivityInvitesState {
     var tab by rememberSaveable { mutableStateOf(ActivityInvitesTab.Pending) }
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // Retained, so coming back from an invite shows the list at once; a retry reloads under it.
-    val loaded = produceRetainedContentState<Incoming?>(null, loadKey) { invites.incomingOutcome() }
+    val loaded = produceRetainedContentState<Incoming?>(null, reload.key) { invites.incomingOutcome() }
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
 
@@ -58,7 +58,7 @@ fun ActivityInvitesPresenter(navigator: Navigator, invites: ActivityInvitesRepos
             }
 
             ActivityInvitesEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             ActivityInvitesEvent.SignInAgain -> {

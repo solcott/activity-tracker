@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.invites
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -12,6 +11,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -37,8 +37,8 @@ fun AcceptInvitePresenter(
     auth: AuthRepository,
 ): AcceptInviteState {
     val uri = AtUri(screen.invite)
-    var loadKey by remember { mutableIntStateOf(0) }
-    val loaded = produceRetainedContentState<GetActivityInvite.Output?>(null, loadKey) { invites.inviteOutcome(uri) }
+    val reload = rememberReload()
+    val loaded = produceRetainedContentState<GetActivityInvite.Output?>(null, reload.key) { invites.inviteOutcome(uri) }
     val invite = loaded.data
     val title = rememberTextFieldState()
     var overlaps by remember { mutableStateOf(false) }
@@ -88,7 +88,7 @@ fun AcceptInvitePresenter(
             }
 
             AcceptInviteEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             AcceptInviteEvent.SignInAgain -> {

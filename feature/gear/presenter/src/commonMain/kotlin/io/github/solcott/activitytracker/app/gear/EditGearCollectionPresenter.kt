@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -12,6 +11,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.rememberFormSeed
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -47,9 +47,9 @@ fun EditGearCollectionPresenter(
     clock: Clock,
 ): EditGearCollectionState {
     val rkey = screen.rkey
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val loaded =
-        produceRetainedContentState<Loaded?>(null, loadKey) {
+        produceRetainedContentState<Loaded?>(null, reload.key) {
             if (rkey == null) gear.itemsOutcome().map { outcome -> outcome.mapData { Loaded(null, emptyList(), it) } }
             else
                 gear.collectionOutcome(rkey).map { outcome ->
@@ -108,7 +108,7 @@ fun EditGearCollectionPresenter(
     ) { event ->
         when (event) {
             EditGearCollectionEvent.Back -> navigator.pop()
-            EditGearCollectionEvent.Retry -> loadKey++
+            EditGearCollectionEvent.Retry -> reload.retry()
             is EditGearCollectionEvent.Add ->
                 members = (members + event.rkeys.filter { it !in members && it in byRkey }).take(GearCollectionRecord.MAX_ITEMS)
             is EditGearCollectionEvent.Remove -> members = members - event.rkey

@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app.detail
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -12,6 +11,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -33,10 +33,10 @@ fun CombinePickerPresenter(
     feed: FeedRepository,
     manager: ActivityManager,
 ): CombinePickerState {
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // One answer from two reads: the candidates need the activity's start, and neither is any use alone. Retained, so a retry keeps them.
     val loaded =
-        produceRetainedContentState<CombinePick?>(null, loadKey) {
+        produceRetainedContentState<CombinePick?>(null, reload.key) {
             outcomeFlow {
                 val into = feed.activity(AtUri(screen.uri))
                 val start = into.record.startedAt
@@ -56,7 +56,7 @@ fun CombinePickerPresenter(
     ) { event ->
         when (event) {
             CombinePickerEvent.Back -> navigator.pop()
-            CombinePickerEvent.Retry -> loadKey++
+            CombinePickerEvent.Retry -> reload.retry()
             is CombinePickerEvent.Pick -> {
                 val into = loaded.data?.into
                 val other = loaded.data?.candidates?.firstOrNull { it.uri == event.uri }

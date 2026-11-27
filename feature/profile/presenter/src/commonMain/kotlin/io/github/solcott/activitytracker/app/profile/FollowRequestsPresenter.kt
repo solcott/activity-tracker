@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -13,6 +12,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.launchAction
 import io.github.solcott.activitytracker.app.mapContent
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -28,9 +28,9 @@ import kotlinx.collections.immutable.toImmutableSet
 @Composable
 fun FollowRequestsPresenter(navigator: Navigator, answers: FollowRequestsRepository, auth: AuthRepository): FollowRequestsState {
     var tab by rememberSaveable { mutableStateOf(FollowRequestsTab.Requests) }
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     // Retained, so coming back from a profile shows the requests at once; a retry reloads under them.
-    val loaded = produceRetainedContentState<FollowRequests?>(null, loadKey) { answers.followRequestsOutcome() }
+    val loaded = produceRetainedContentState<FollowRequests?>(null, reload.key) { answers.followRequestsOutcome() }
     // Answers given here, laid over every load for as long as the screen lives: the AppView lists a request as pending until it catches up.
     var approved by rememberRetained { mutableStateOf(emptySet<Did>()) }
     var declinedHere by rememberRetained { mutableStateOf(emptyList<ProfileViewBasic>()) }
@@ -85,7 +85,7 @@ fun FollowRequestsPresenter(navigator: Navigator, answers: FollowRequestsReposit
             }
 
             FollowRequestsEvent.Retry -> {
-                loadKey++
+                reload.retry()
             }
 
             FollowRequestsEvent.SignInAgain -> {

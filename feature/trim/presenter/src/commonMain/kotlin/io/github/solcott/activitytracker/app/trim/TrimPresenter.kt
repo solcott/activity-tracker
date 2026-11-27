@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.trim
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -12,6 +11,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.launchAction
+import io.github.solcott.activitytracker.app.rememberReload
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.text.StartText
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -51,9 +51,9 @@ fun TrimPresenter(
     segments: SegmentRepository,
     drafts: TrimDrafts,
 ): TrimState {
-    var loadKey by remember { mutableIntStateOf(0) }
+    val reload = rememberReload()
     val loaded =
-        produceRetainedContentState<TrimLoad?>(null, loadKey) { outcomeFlow { TrimLoad.of(screen, feed, manager, segments, drafts) } }
+        produceRetainedContentState<TrimLoad?>(null, reload.key) { outcomeFlow { TrimLoad.of(screen, feed, manager, segments, drafts) } }
     val model = (loaded.data as? TrimLoad.Ready)?.model
     var chosen by rememberRetained { mutableStateOf<KeptSpan?>(null) }
     var byDistance by rememberRetained { mutableStateOf(false) }
@@ -100,7 +100,7 @@ fun TrimPresenter(
     ) { event ->
         when (event) {
             TrimEvent.Back -> navigator.pop()
-            TrimEvent.Retry -> loadKey++
+            TrimEvent.Retry -> reload.retry()
             is TrimEvent.Moved -> move(event.from, event.to)
             is TrimEvent.ModeChanged -> byDistance = event.byDistance && model?.preview?.distance != null
             TrimEvent.ApplySuggestion -> model?.suggestion?.let { chosen = it.span }
