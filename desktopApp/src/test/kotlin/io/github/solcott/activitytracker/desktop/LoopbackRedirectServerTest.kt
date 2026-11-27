@@ -38,7 +38,7 @@ class LoopbackRedirectServerTest {
     fun errorDescriptionIsHtmlEscaped() {
         val page = redirectPage(mapOf("error" to "x", "error_description" to "<script>alert('&\"')</script>"))
 
-        assertContains(page, "&lt;script&gt;alert(&#39;&amp;&quot;&#39;)&lt;/script&gt;")
+        assertContains(page, "&lt;script&gt;alert(&#x27;&amp;&quot;&#x27;)&lt;/script&gt;")
         assertFalse("<script>" in page)
     }
 }

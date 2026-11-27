@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.desktop
 import com.sun.net.httpserver.HttpServer
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.parseRedirectParams
+import io.ktor.util.escapeHTML
 import java.awt.Window
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -52,20 +53,7 @@ internal fun redirectPage(params: Map<String, String>): String {
             "Signed in. You can close this tab and return to Activity Tracker."
         } else {
             val reason = params["error_description"]?.takeIf { it.isNotBlank() } ?: error
-            "Sign-in failed: ${reason.escapeHtml()}. You can close this tab and return to Activity Tracker."
+            "Sign-in failed: ${reason.escapeHTML()}. You can close this tab and return to Activity Tracker."
         }
     return "<!doctype html><title>Activity Tracker</title><p style=\"font-family:sans-serif\">$message</p>"
-}
-
-private fun String.escapeHtml(): String = buildString {
-    for (c in this@escapeHtml) {
-        when (c) {
-            '&' -> append("&amp;")
-            '<' -> append("&lt;")
-            '>' -> append("&gt;")
-            '"' -> append("&quot;")
-            '\'' -> append("&#39;")
-            else -> append(c)
-        }
-    }
 }

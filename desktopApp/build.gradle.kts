@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.dbus.java.core)
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.utils)
     implementation(libs.maplibre.compose)
 
     runtimeOnly(libs.dbus.java.transport.native.unixsocket)
