@@ -391,7 +391,7 @@ data class ActivityDraft(
          */
         fun polylineOf(samples: List<LocationSample>): SegmentedPolyline? = SegmentedPolyline.of(RouteBreaks.segments(samples))
 
-        private fun gpxOf(samples: List<LocationSample>, title: String?, sport: String): ByteArray? =
+        internal fun gpxOf(samples: List<LocationSample>, title: String?, sport: String): ByteArray? =
             samples.takeIf { it.isNotEmpty() }?.let { Gpx.write(title ?: sport, sport, it).encodeToByteArray() }
     }
 }

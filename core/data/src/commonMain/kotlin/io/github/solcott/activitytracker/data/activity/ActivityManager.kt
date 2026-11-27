@@ -2,12 +2,18 @@ package io.github.solcott.activitytracker.data.activity
 
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.data.activity.trim.ActivityTrimmer
+import io.github.solcott.activitytracker.data.activity.trim.KeptSpan
+import io.github.solcott.activitytracker.data.activity.trim.TrimInput
+import io.github.solcott.activitytracker.data.activity.trim.TrimRules
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.UploadItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.segments.SegmentTrackMarks
 import io.github.solcott.activitytracker.data.segments.SegmentTracks
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -16,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ChannelSource
 import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
@@ -27,6 +34,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.activitytracker.location.Gpx
+import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Clock
 
 /**
@@ -406,34 +414,135 @@ class ActivityManager(
                 ?: ActivityCombiner.narrowestTiers(visibility, members.map { it.tiers })
         val layout = ActivityLayout.split(record, null, uri, visibility, categories)
         if (logged) logBuilt(uri, rebuilt = current != null, layout.record, batchId)
-        queueLayout(layout, uri, visibility)
-        val mapTier = DetailCategory.tiers(visibility, categories).getValue(DetailCategory.MAP)
-        val published = privacy.published(uri, visibility, mapTier, built.route, trim)
-        if (built.route.isNotEmpty()) {
-            val segments = CombinedRoute.segments(built.route)
-            tracks.put(uri, Gpx.writeSegments(record.title ?: record.sport, record.sport, segments).encodeToByteArray())
-            segmentTracks.put(uri, built.route, published, combined = true, replacing = current != null)
-        } else if (current != null) {
-            tracks.delete(uri)
-            segmentTracks.delete(uri)
-        }
-        built.streams?.let { data ->
+        rewrite(
+            uri,
+            layout,
+            visibility,
+            categories,
+            built.route,
+            CombinedRoute.segments(built.route),
+            trim,
+            combined = true,
+            replacing = current != null,
+            built.streams,
+        ) {
             // Zones from the member whose heart rate the combined activity takes (its power's, when heart rate is left out): a draft's
             // own, else as the AppView serves them.
             val combined = built.record.combined
-            val zones =
-                (combined?.sourcesOf(StreamChannel.HEART_RATE)?.firstOrNull() ?: combined?.sourcesOf(StreamChannel.POWER)?.firstOrNull())
-                    ?.let { source ->
-                        members.firstOrNull { it.member.uri == source }?.zones
-                            ?: feed.streams(source)?.let { LocalZones(it.heartRateZones, it.powerZones, it.trainingLoad) }
-                    }
-            val rebuilt = ActivityStreams(data, visibility, categories, zones?.heartRate, zones?.power, zones?.trainingLoad)
+            (combined?.sourcesOf(StreamChannel.HEART_RATE)?.firstOrNull() ?: combined?.sourcesOf(StreamChannel.POWER)?.firstOrNull())
+                ?.let { source ->
+                    members.firstOrNull { it.member.uri == source }?.zones
+                        ?: feed.streams(source)?.let { LocalZones(it.heartRateZones, it.powerZones, it.trainingLoad) }
+                }
+        }
+    }
+
+    /**
+     * Reads [activity] for a trim (feed/activity-trim): every place it's stored, its full track and its zones, straight from the PDS. The
+     * outbox drains first, and it throws [PendingWritesException] while any write for the activity is still queued, since what's read would
+     * miss it. Throws when the activity can't be trimmed ([TrimRules]) or read.
+     */
+    suspend fun loadForTrim(activity: ActivityView): TrimSource {
+        val uri = activity.uri
+        drainBeforeTrim(uri)
+        val stored = places.read(uri)
+        val record = stored.full ?: throw XrpcException(NOT_FOUND_STATUS, "RecordNotFound", "No activity $uri")
+        require(TrimRules.canTrim(record, isOwner = true, isCombinedMember = activity.combinedInto != null, stored.data)) {
+            "This activity can't be trimmed"
+        }
+        val route = tracks.readOrThrow(uri).orEmpty()
+        val load = runSuspendCatching { feed.streams(uri) }.getOrNull()?.takeIf { it.trainingLoad != null }
+        val zones = load?.let { LocalZones(it.heartRateZones, it.powerZones, it.trainingLoad) }
+        return TrimSource(activity, stored, record, route, zones, segmentTracks.marks(uri))
+    }
+
+    /**
+     * Queues [source]'s activity cut to [span] and rewritten in place: the same record key, visibility and categories, its record, details,
+     * streams, track and segment track rebuilt from what's kept ([ActivityTrimmer]). Needs no connection: the writes go through the outbox.
+     * Throws [PendingWritesException] if a write for the activity was queued since it was read.
+     */
+    suspend fun trim(source: TrimSource, span: KeptSpan) {
+        val activity = source.activity
+        val uri = activity.uri
+        val rkey = requireNotNull(uri.rkey)
+        val left = db.outbox().pending(clients.did.value, rkey).size
+        if (left > 0) throw PendingWritesException(left)
+        val input = source.input
+        require(!span.isWhole(input.elapsedSeconds)) { "A trim keeps less than the whole activity" }
+        val visibility = activity.visibilityOrPublic
+        val record = source.record
+        val keptRoute = ActivityTrimmer.route(source.route, record.startedAt, span)
+        val trim = privacy.forPublish()
+        val line = trim.trim.polylineOf(keptRoute)
+        val trimmed = ActivityTrimmer.record(record, input, span).copy(polyline = line?.polyline, polylineGaps = line?.gaps)
+        val categories = source.stored.narrowestTiers().let { (summary, channels) -> DetailCategory.tiers(visibility, summary + channels) }
+        val layout = ActivityLayout.split(trimmed, null, uri, visibility, categories)
+        logBuilt(uri, rebuilt = true, layout.record, batchId = null)
+        rewrite(
+            uri,
+            layout,
+            visibility,
+            categories,
+            keptRoute,
+            listOf(keptRoute),
+            trim,
+            combined = false,
+            replacing = true,
+            input.streams?.let { ActivityTrimmer.streams(it, span) },
+            marks = source.marks,
+        ) {
+            // The zones stay as stored, unless the device's training load needs scaling to what's kept.
+            source.zones?.let { zones ->
+                LocalZones(
+                    zones.heartRate,
+                    zones.power,
+                    zones.trainingLoad?.let { ActivityTrimmer.trainingLoad(it, input, span, record.movingTime) },
+                )
+            }
+        }
+        outbox.drain()
+    }
+
+    /**
+     * Queues [layout] at [uri] with what goes with it: its details narrowest first and its record at [visibility]; its full [route] as the
+     * track (one `trkseg` per [trackSegments]) with its segment track trimmed by [trim], or, with no route, deletes of both when
+     * [replacing]; and [data] as its streams with the [zones] it takes. The feed shows it at once.
+     */
+    @Suppress("LongParameterList") // Everything a rebuilt activity is written as.
+    private suspend fun rewrite(
+        uri: AtUri,
+        layout: ActivityLayout,
+        visibility: String,
+        categories: Map<String, String>,
+        route: List<LocationSample>,
+        trackSegments: List<List<LocationSample>>,
+        trim: PublishTrim,
+        combined: Boolean,
+        replacing: Boolean,
+        data: ActivityStreamData?,
+        marks: SegmentTrackMarks = SegmentTrackMarks(),
+        zones: suspend () -> LocalZones?,
+    ) {
+        val record = layout.record
+        queueLayout(layout, uri, visibility)
+        val mapTier = DetailCategory.tiers(visibility, categories).getValue(DetailCategory.MAP)
+        val published = privacy.published(uri, visibility, mapTier, route, trim)
+        if (route.isNotEmpty()) {
+            tracks.put(uri, Gpx.writeSegments(record.title ?: record.sport, record.sport, trackSegments).encodeToByteArray())
+            segmentTracks.put(uri, route, published, combined = combined, replacing = replacing, marks = marks)
+        } else if (replacing) {
+            tracks.delete(uri)
+            segmentTracks.delete(uri)
+        }
+        data?.let {
+            val local = zones()
+            val rebuilt = ActivityStreams(it, visibility, categories, local?.heartRate, local?.power, local?.trainingLoad)
             streams.put(uri, rebuilt)
             // The detail page's charts show these at once, as its figures show the record, until the AppView indexes them.
-            rebuilt.servedAs(uri)?.let { feed.localStreams.set(uri, it) }
+            rebuilt.servedAs(uri)?.let { served -> feed.localStreams.set(uri, served) }
         }
-        feed.rewrites.set(uri, layout.record)
-        feed.updateCached(uri) { feed.rewrites.rewritten(it, layout.record) }
+        feed.rewrites.set(uri, record)
+        feed.updateCached(uri) { feed.rewrites.rewritten(it, record) }
     }
 
     /** Lists the combined activity at [uri] in the upload queue: a new one, or an edit when [rebuilt] (data/upload-queue). */
@@ -496,6 +605,17 @@ class ActivityManager(
         if (left > 0) throw PendingWritesException(left)
     }
 
+    /**
+     * Sends every queued write, then throws [PendingWritesException] if any write for [uri] is still queued: a trim reads the activity, its
+     * streams and its track back from the PDS, and rewrites them all.
+     */
+    private suspend fun drainBeforeTrim(uri: AtUri) {
+        outbox.drain()
+        val rkey = requireNotNull(uri.rkey)
+        val left = outbox.drain { it.rkey == rkey }
+        if (left > 0) throw PendingWritesException(left)
+    }
+
     private suspend fun queueDelete(uri: AtUri, visibility: String, recordingOf: AtUri? = null) {
         val rkey = requireNotNull(uri.rkey)
         // Its delete counts with other changes (data/upload-queue).
@@ -528,7 +648,24 @@ class ActivityManager(
 /** A member to combine, with each detail category's narrowest tier, and, for a draft, its zones. */
 private class MemberData(val member: CombineMember, val tiers: Map<String, String>, val zones: LocalZones? = null)
 
-private class LocalZones(val heartRate: ZoneSnapshot?, val power: ZoneSnapshot?, val trainingLoad: TrainingLoad?)
+internal class LocalZones(val heartRate: ZoneSnapshot?, val power: ZoneSnapshot?, val trainingLoad: TrainingLoad?)
+
+/**
+ * The athlete's own activity as read for a trim ([ActivityManager.loadForTrim]): its record as stored, its full-resolution route (empty
+ * without GPS) and its streams, which the trim screen previews and [ActivityManager.trim] cuts.
+ */
+class TrimSource
+internal constructor(
+    val activity: ActivityView,
+    internal val stored: StoredActivity,
+    val record: ActivityRecord,
+    val route: List<LocationSample>,
+    internal val zones: LocalZones?,
+    internal val marks: SegmentTrackMarks,
+) {
+    /** What the trim works over. */
+    val input: TrimInput = TrimInput(record.startedAt, record.elapsedTime.toInt(), stored.data, route)
+}
 
 /**
  * [built] with [line] as its polyline, and what the athlete gave the combined activity so far ([kept], when it's rebuilt): its title,

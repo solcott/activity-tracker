@@ -229,6 +229,21 @@ class SegmentMatcherTest : SegmentTestBase() {
     }
 
     @Test
+    fun aTrackTrimmedShortOfTheSegmentsEndLosesItsEffort() {
+        matching(true)
+        segment("3ks")
+        activity("3ka")
+        track("3ka")
+        match()
+        assertEquals(1, efforts().size)
+
+        // The athlete trims the activity's end (feed/activity-trim): the rewritten track stops halfway along the segment.
+        track("3ka", pieces = listOf(listOf(0.0 to -100.0, 0.0 to 500.0)))
+        match()
+        assertEquals(emptyList(), efforts())
+    }
+
+    @Test
     fun aDeletedTrackLosesItsEffort() {
         matching(true)
         segment("3ks")
