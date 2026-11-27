@@ -25,6 +25,7 @@ class ActivityPageTextsTest {
                 isOwn = true,
                 manage = manage,
                 canHideRouteEnds = true,
+                canTrim = true,
                 export = ActivityExportState(persistentListOf(ExportFormat.GPX)),
             )
         assertEquals(
@@ -36,6 +37,7 @@ class ActivityPageTextsTest {
                 ActivityMenuAction.Ungroup,
                 ActivityMenuAction.HideStart,
                 ActivityMenuAction.HideEnd,
+                ActivityMenuAction.Trim,
                 ActivityMenuAction.Export,
                 ActivityMenuAction.Delete,
             ),
@@ -44,6 +46,9 @@ class ActivityPageTextsTest {
         // Split, Export and Delete are asked about first.
         assertTrue(ActivityPageTexts.ownerMenu(page).filter { it.event() == null }.all { it.action in ASKED })
         assertTrue(ActivityPageTexts.ownerMenu(ActivityDetailSamples.page).isEmpty())
+        // A combined activity, a member, a dive or sets (feed/activity-trim) leave Trim out.
+        assertTrue(ActivityPageTexts.ownerMenu(page.copy(canTrim = false)).none { it.action == ActivityMenuAction.Trim })
+        assertEquals(ActivityDetailEvent.Trim, ActivityPageTexts.ownerMenu(page).single { it.action == ActivityMenuAction.Trim }.event())
     }
 
     @Test

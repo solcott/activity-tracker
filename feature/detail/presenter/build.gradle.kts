@@ -17,6 +17,7 @@ kotlin {
             implementation(projects.featureRecordApi)
             implementation(projects.featureSegmentApi)
             implementation(projects.featureSettingsApi)
+            implementation(projects.featureTrimApi)
         }
     }
 }

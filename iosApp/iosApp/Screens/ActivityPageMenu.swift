@@ -102,6 +102,7 @@ struct ActivityPageMenu: View {
         case .Split, .Ungroup: .ungroup
         case .HideStart, .HideEnd: .hide
         case .CreateDiveSite: .location
+        case .Trim: .trim
         case .Export: .export
         default: .delete
         }

@@ -34,6 +34,7 @@ kotlin {
             implementation(projects.featureSearchApi)
             implementation(projects.featureSegmentApi)
             implementation(projects.featureSettingsApi)
+            implementation(projects.featureTrimApi)
             implementation(libs.circuit.retained)
             implementation(libs.circuit.runtime.presenter)
             implementation(libs.compose.runtime)

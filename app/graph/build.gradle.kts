@@ -62,6 +62,7 @@ kotlin {
             implementation(projects.featureSearchPresenter)
             implementation(projects.featureSegmentPresenter)
             implementation(projects.featureSettingsPresenter)
+            implementation(projects.featureTrimPresenter)
             implementation(projects.featureUploadsPresenter)
         }
     }

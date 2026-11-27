@@ -60,6 +60,7 @@ import io.github.solcott.activitytracker.app.settings.SportZonesScreen
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.app.settings.ZonesScreen
+import io.github.solcott.activitytracker.app.trim.TrimScreen
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -104,6 +105,8 @@ object AppLinkRoutes {
             LeftElsewhereScreen::class,
             SegmentBrowseScreen::class,
             DiveSiteBrowseScreen::class,
+            // An editor over an unsaved draft (feed/activity-trim) or opened from the activity's menu, never a page to land on.
+            TrimScreen::class,
         )
 
     /**

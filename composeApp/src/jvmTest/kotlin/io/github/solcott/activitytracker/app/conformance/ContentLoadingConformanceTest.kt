@@ -100,6 +100,8 @@ import io.github.solcott.activitytracker.app.settings.TrainingZonesSamples
 import io.github.solcott.activitytracker.app.settings.TrainingZonesUi
 import io.github.solcott.activitytracker.app.settings.ZonesSamples
 import io.github.solcott.activitytracker.app.settings.ZonesUi
+import io.github.solcott.activitytracker.app.trim.TrimSamples
+import io.github.solcott.activitytracker.app.trim.TrimUi
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.uploads.UploadsSamples
@@ -175,6 +177,7 @@ class ContentLoadingConformanceTest {
             entry({ SportZonesSamples.all }, null) { SportZonesUi(it) },
             entry({ PrivacyZonesSamples.all }, null) { PrivacyZonesUi(it) },
             entry({ EditActivitySamples.all }, null) { EditActivityUi(it) },
+            entry({ TrimSamples.all }, null) { TrimUi(it) },
             entry({ GearListSamples.all }, "Gravel bike") { GearListUi(it) },
             entry({ GearSamples.all }, "Rivendell Appaloosa") { GearUi(it) },
             entry({ PostPageSamples.all }, "Everyone at the trailhead already calls it this.") { PostPageUi(it) },

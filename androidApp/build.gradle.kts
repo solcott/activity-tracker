@@ -52,6 +52,7 @@ android {
                 implementation(projects.featureSearchUi)
                 implementation(projects.featureSegmentUi)
                 implementation(projects.featureSettingsUi)
+                implementation(projects.featureTrimUi)
                 implementation(projects.featureUploadsUi)
                 implementation(projects.uiDesignsystem)
                 implementation(libs.compose.material3)

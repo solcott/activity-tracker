@@ -32,6 +32,7 @@ kotlin {
             api(projects.featureSearchApi)
             api(projects.featureSegmentApi)
             api(projects.featureSettingsApi)
+            api(projects.featureTrimApi)
             api(projects.featureUploadsApi)
             api(libs.dataresult.uistate)
 

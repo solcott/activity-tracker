@@ -91,6 +91,7 @@ private val ActivityMenuAction.icon: AppIcon
             ActivityMenuAction.HideStart,
             ActivityMenuAction.HideEnd -> AppIcon.Hide
             ActivityMenuAction.CreateDiveSite -> AppIcon.Location
+            ActivityMenuAction.Trim -> AppIcon.Trim
             ActivityMenuAction.Export -> AppIcon.Export
             ActivityMenuAction.Delete -> AppIcon.Delete
         }

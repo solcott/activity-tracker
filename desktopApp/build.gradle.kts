@@ -57,6 +57,8 @@ dependencies {
     implementation(projects.featureSegmentUi)
     implementation(projects.featureSettingsPresenter)
     implementation(projects.featureSettingsUi)
+    implementation(projects.featureTrimPresenter)
+    implementation(projects.featureTrimUi)
     implementation(projects.featureUploadsPresenter)
     implementation(projects.featureUploadsUi)
     implementation(projects.uiResources)

@@ -694,6 +694,18 @@ typealias CreateSegmentTexts = SegmentPackage.CreateSegmentTexts
 typealias CreateSegmentUnavailable = SegmentPackage.CreateSegmentUnavailable
 typealias SelectionCheck = SegmentPackage.SelectionCheck
 
+// Trimming an activity's start or end (feed/activity-trim): its contract, what it shows and says, the suggestion and the totals.
+typealias TrimPackage = AppPackage.trim
+typealias TrimScreen = TrimPackage.TrimScreen
+typealias TrimState = TrimPackage.TrimState
+typealias TrimEvent = TrimPackage.TrimEvent
+typealias TrimEditor = TrimPackage.TrimEditor
+typealias TrimExactValue = TrimPackage.TrimExactValue
+typealias TrimTexts = TrimPackage.TrimTexts
+typealias TrimTotalRow = TrimPackage.TrimTotalRow
+typealias TrimOffer = RecordPackage.TrimOffer
+typealias TrimSuggestion = ExportedKotlinPackages.io.github.solcott.activitytracker.data.activity.trim.TrimSuggestion
+
 // The import screen (ios-native-import): picking files, one activity's preview and form, a batch with its rows and opened row, the new
 // devices, the saved and after-import panels, and what they say.
 typealias ImportActivityScreen = RecordPackage.ImportActivityScreen

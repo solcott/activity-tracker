@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
 import io.github.solcott.activitytracker.app.segment.TrailPhotosScreen
 import io.github.solcott.activitytracker.app.text.AppText
+import io.github.solcott.activitytracker.app.trim.TrimScreen
 
 /**
  * The signed-in app's tabs (sidebar entries on wide desktop and web). Each keeps its own back stack. Both shells name them by [title]; each
@@ -55,6 +56,7 @@ enum class TopLevelDestination {
             top !in FullScreenFlows &&
                 top !is ImportActivityScreen &&
                 top !is EditActivityScreen &&
+                top !is TrimScreen &&
                 top !is MediaGalleryScreen &&
                 top !is RouteMapScreen &&
                 top !is SegmentMapScreen &&

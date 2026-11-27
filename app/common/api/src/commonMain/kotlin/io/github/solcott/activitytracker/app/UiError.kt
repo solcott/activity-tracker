@@ -113,6 +113,8 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         RemoveFollower,
         SearchAthletes,
         SaveActivity,
+        LoadTrim,
+        SaveTrim,
         DeleteActivity,
         DeleteComment,
         HideComment,

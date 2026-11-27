@@ -128,6 +128,8 @@ data class ActivityDetailPage(
     val canCreateDiveSite: Boolean = false,
     /** A dive site was just published from this dive; it shows once the AppView has processed it. */
     val diveSiteCreated: Boolean = false,
+    /** The owner can trim the activity's start or end (feed/activity-trim): it isn't combined, a member, multisport, a dive or sets. */
+    val canTrim: Boolean = false,
     /**
      * Other athletes' activities done together with this one that the viewer may see (feed/group-activities), most recently paired first;
      * empty when there are none, or the owner just left the group here.
@@ -364,6 +366,9 @@ sealed interface ActivityDetailEvent {
 
     /** The owner creates a dive site from the dive's entry ([ActivityDetailPage.canCreateDiveSite]). */
     data object CreateDiveSite : ActivityDetailEvent
+
+    /** The owner trims the activity's start or end ([ActivityDetailPage.canTrim]). */
+    data object Trim : ActivityDetailEvent
 
     /** Opens the dive site the dive visits (`activityView.diveSite`). */
     data object OpenDiveSite : ActivityDetailEvent

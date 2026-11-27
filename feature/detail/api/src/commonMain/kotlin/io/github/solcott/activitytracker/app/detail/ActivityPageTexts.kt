@@ -36,6 +36,7 @@ enum class ActivityMenuAction {
     HideEnd,
     CreateSegment,
     CreateDiveSite,
+    Trim,
     Export,
     Delete,
 }
@@ -54,6 +55,7 @@ class ActivityMenuItem(val label: AppText, val action: ActivityMenuAction, val d
             ActivityMenuAction.HideEnd -> ActivityDetailEvent.HideEnd
             ActivityMenuAction.CreateSegment -> ActivityDetailEvent.CreateSegment
             ActivityMenuAction.CreateDiveSite -> ActivityDetailEvent.CreateDiveSite
+            ActivityMenuAction.Trim -> ActivityDetailEvent.Trim
             ActivityMenuAction.Split,
             ActivityMenuAction.Export,
             ActivityMenuAction.Delete -> null
@@ -247,6 +249,7 @@ object ActivityPageTexts {
                     ),
                 )
             }
+            if (page.canTrim) add(ActivityMenuItem(AppText.named("trim_title"), ActivityMenuAction.Trim))
             if (page.export != null) add(ActivityMenuItem(AppText.named("detail_export"), ActivityMenuAction.Export))
             add(ActivityMenuItem(AppText.named("detail_delete"), ActivityMenuAction.Delete, destructive = true))
         }

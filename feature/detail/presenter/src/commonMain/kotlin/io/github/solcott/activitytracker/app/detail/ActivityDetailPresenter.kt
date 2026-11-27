@@ -43,10 +43,12 @@ import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.segment.CreateSegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
+import io.github.solcott.activitytracker.app.trim.TrimScreen
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
+import io.github.solcott.activitytracker.data.activity.trim.TrimRules
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.divesites.DiveSiteRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -192,6 +194,7 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.OpenMap,
             ActivityDetailEvent.CreateSegment,
             ActivityDetailEvent.CreateDiveSite,
+            ActivityDetailEvent.Trim,
             ActivityDetailEvent.OpenDiveSite,
             ActivityDetailEvent.AddPeople,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
@@ -284,6 +287,7 @@ fun ActivityDetailPresenter(
             segmentCreated = uri in segmentsCreated,
             canCreateDiveSite = canCreateDiveSite(isOwn, ownRoute, it.record, it.diveSite),
             diveSiteCreated = uri in sitesCreated,
+            canTrim = TrimRules.canTrim(it.record, isOwner = isOwn, isCombinedMember = it.combinedInto != null, charts.streams?.data),
             partners = ownGroup.shown(it.group),
             ownGroup = ownGroup.offered(it.group),
             canAddPeople = isOwn,
@@ -454,6 +458,7 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         ActivityDetailEvent.OpenMap -> goTo(RouteMapScreen(uri))
         ActivityDetailEvent.CreateSegment -> goTo(CreateSegmentScreen(uri))
         ActivityDetailEvent.CreateDiveSite -> goTo(CreateDiveSiteScreen(uri))
+        ActivityDetailEvent.Trim -> goTo(TrimScreen(uri = uri))
         ActivityDetailEvent.OpenDiveSite -> current?.diveSite?.let { goTo(DiveSiteScreen(it.uri.value)) }
         ActivityDetailEvent.AddPeople -> goTo(AddPeopleScreen(uri))
         ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))

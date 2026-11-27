@@ -195,6 +195,7 @@
         /// Create segment (ios-native-create-segment) in each state it shows, states beyond content loading apart.
         static var createSegment: [String: CreateSegmentState] { SegmentPackage.CreateSegmentSamples.shared.all }
         static var createSegmentVariants: [String: CreateSegmentState] { SegmentPackage.CreateSegmentSamples.shared.variants }
+        static var trim: [String: TrimState] { TrimPackage.TrimSamples.shared.all }
         static var importActivity: [String: ImportActivityState] { RecordPackage.ImportActivitySamples.shared.all }
         static var importActivityVariants: [String: ImportActivityState] { RecordPackage.ImportActivitySamples.shared.variants }
         /// Record (ios-native-record) in each state it shows.

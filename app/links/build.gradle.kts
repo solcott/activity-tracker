@@ -28,6 +28,7 @@ kotlin {
             implementation(projects.featureSearchApi)
             implementation(projects.featureSegmentApi)
             implementation(projects.featureSettingsApi)
+            implementation(projects.featureTrimApi)
             implementation(projects.featureUploadsApi)
             implementation(libs.ktor.http)
         }
