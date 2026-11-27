@@ -4,7 +4,8 @@ import io.github.solcott.activitytracker.app.text.StatText
 import io.github.solcott.activitytracker.data.activity.trim.TrimPreview
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
-import kotlin.math.roundToLong
+import io.github.solcott.activitytracker.data.units.formatDecimal
+import io.github.solcott.activitytracker.data.units.parseDecimal
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.UtcOffset
@@ -26,8 +27,7 @@ internal object TrimValues {
                 "${at.hour.toString().padStart(2, '0')}:${at.minute.toString().padStart(2, '0')}"
             }
             editor.byDistance && meters != null -> {
-                val hundredths = (UnitConversions.toDistanceUnit(meters, units) * HUNDRED).roundToLong()
-                "${hundredths / HUNDRED.toLong()}.${(hundredths % HUNDRED.toLong()).toString().padStart(2, '0')}"
+                formatDecimal(UnitConversions.toDistanceUnit(meters, units), DISTANCE_DECIMALS, separator = '.', grouping = null)
             }
             else -> StatText.duration(seconds.toLong())
         }
@@ -40,7 +40,7 @@ internal object TrimValues {
         return when {
             editor.manual -> clockSeconds(typed, editor)
             editor.byDistance && distance != null -> {
-                val value = typed.replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 } ?: return null
+                val value = parseDecimal(typed)?.takeIf { it >= 0 } ?: return null
                 val meters = UnitConversions.fromDistanceUnit(value, units)
                 if (start) distance.startAt(meters) else distance.endAt(meters)
             }
@@ -84,7 +84,7 @@ internal object TrimValues {
     private fun zone(editor: TrimEditor): TimeZone =
         editor.utcOffsetMinutes?.let { UtcOffset(seconds = it * SIXTY).asTimeZone() } ?: TimeZone.currentSystemDefault()
 
-    private const val HUNDRED = 100.0
+    private const val DISTANCE_DECIMALS = 2
 
     /** Hours, minutes and seconds. */
     private const val MAX_PARTS = 3

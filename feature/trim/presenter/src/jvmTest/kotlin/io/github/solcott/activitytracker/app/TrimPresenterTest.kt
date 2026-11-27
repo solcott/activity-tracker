@@ -155,6 +155,23 @@ class TrimPresenterTest {
     }
 
     @Test
+    fun aDistanceThatIsntAFiniteNumberIsRefused() = runTest {
+        offer()
+        presenterTestOf(presenter(TrimScreen(draftId = DRAFT))) {
+            val loaded = awaitEditor()
+            loaded.eventSink(TrimEvent.ModeChanged(byDistance = true))
+            awaitUntil { it.editor?.byDistance == true }
+            loaded.eventSink(TrimEvent.EditExact(start = false, UnitSystem.Metric))
+            val open = assertNotNull(awaitUntil { it.exact != null }.exact)
+
+            open.field.setTextAndPlaceCursorAtEnd("Infinity")
+            loaded.eventSink(TrimEvent.ApplyExact(UnitSystem.Metric))
+            assertTrue(awaitUntil { it.exact?.invalid == true }.exact!!.invalid)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun aManualEntryMovesItsTimesOnlyAndTakesAClockTime() = runTest {
         offer(manual)
         presenterTestOf(presenter(TrimScreen(draftId = DRAFT))) {
