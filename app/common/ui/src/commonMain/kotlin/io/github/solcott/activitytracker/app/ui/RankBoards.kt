@@ -31,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -48,9 +47,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableMaxWidth
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_your_place
 import io.github.solcott.activitytracker.composeApp.resources.mayors_mayor
@@ -122,12 +123,12 @@ fun RankRow(
     Row(
         modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
+            .highlight(placement = HighlightPlacement.Bleed)
+            // The athlete's own place: a "you" marker, not a selection, so it keeps its own tint inside the highlight's shape.
             .then(if (own) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = OWN_ROW_TINT)) else Modifier)
             .clickable(onClick = onClick)
-            .handCursor()
             .semantics(mergeDescendants = true) { if (own) stateDescription = you }
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .highlightInset(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -265,7 +266,7 @@ fun LeaderCard(
     modifier: Modifier = Modifier,
     stacked: Boolean = false,
 ) {
-    AppCard(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
+    AppCard(onClick, modifier) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
             if (leader == null) {

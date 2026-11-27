@@ -1,12 +1,9 @@
 package io.github.solcott.activitytracker.app.feed
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,7 +14,7 @@ import io.github.solcott.activitytracker.app.ui.AuthorHeader
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.RoutePreview
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import kotlinx.collections.immutable.toImmutableList
@@ -29,7 +26,7 @@ import kotlinx.collections.immutable.toImmutableList
 @Composable
 internal fun ImportCard(card: ImportCardView, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val openLabel = ImportCardTexts.open().string()
-    Card(modifier.fillMaxWidth().clickable(onClickLabel = openLabel, onClick = onClick).handCursor()) {
+    AppCard(onClick, modifier, onClickLabel = openLabel) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AuthorHeader(card.author) {
                 Text(

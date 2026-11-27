@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,12 +24,17 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.AuthorHeader
 import io.github.solcott.activitytracker.app.ui.LikeButton
 import io.github.solcott.activitytracker.app.ui.TestTags
+import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
+import io.github.solcott.activitytracker.app.ui.adaptive.AppHighlight
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
+import io.github.solcott.activitytracker.app.ui.adaptive.HighlightPlacement
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.highlight
+import io.github.solcott.activitytracker.app.ui.adaptive.highlightInset
 import io.github.solcott.activitytracker.app.ui.string
 import io.github.solcott.activitytracker.lexicon.app.PostEmbedView
 import io.github.solcott.activitytracker.lexicon.app.PostView
@@ -58,7 +62,7 @@ fun PostCard(
 ) {
     val content = remember(post, viewerDid, reason) { PostCardContent.of(post, viewerDid, reason) }
     val openLabel = PostCardContent.open().string()
-    Card(modifier.fillMaxWidth().clickable(onClickLabel = openLabel) { onEvent(PostEvent.OpenPost(post)) }.handCursor()) {
+    AppCard({ onEvent(PostEvent.OpenPost(post)) }, modifier, onClickLabel = openLabel) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             content.repostedBy()?.let { RepostedBy(content, it.string(), onEvent) }
             Header(content, canReport, onEvent)
@@ -83,8 +87,9 @@ private fun RepostedBy(content: PostCardContent, text: String, onEvent: (PostEve
     val reposter = content.reposter ?: return
     Row(
         Modifier.testTag(TestTags.POST_REPOSTED_BY)
+            .highlight(placement = HighlightPlacement.Bleed)
             .clickable(onClickLabel = PostCardContent.openReposter().string()) { onEvent(PostEvent.OpenReposter(reposter)) }
-            .handCursor(),
+            .highlightInset(compact = true),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -137,7 +142,7 @@ private fun Counts(content: PostCardContent, onEvent: (PostEvent) -> Unit, showC
  */
 @Composable
 private fun QuotedPost(content: PostCardContent, onEvent: (PostEvent) -> Unit) {
-    val shape = MaterialTheme.shapes.medium
+    val shape = AppHighlight.shape
     val framed = Modifier.fillMaxWidth().clip(shape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
     val quoted = content.quoted
     if (quoted == null) {
@@ -167,8 +172,9 @@ private fun QuotedPost(content: PostCardContent, onEvent: (PostEvent) -> Unit) {
             Text(
                 content.quotedLinkText().string(),
                 Modifier.testTag(TestTags.QUOTED_POST_LINK)
+                    .highlight(placement = HighlightPlacement.Bleed)
                     .clickable(onClickLabel = openLabel) { onEvent(PostEvent.OpenQuoted(link)) }
-                    .handCursor(),
+                    .highlightInset(compact = true),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -217,7 +223,9 @@ private fun Proposal(content: PostCardContent, embed: PostEmbedView.Proposal, on
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             content.place()?.string().orEmpty(),
-            Modifier.clickable(onClickLabel = PostCardContent.openPlace().string()) { onEvent(PostEvent.Open(post)) }.handCursor(),
+            Modifier.highlight(placement = HighlightPlacement.Bleed)
+                .clickable(onClickLabel = PostCardContent.openPlace().string()) { onEvent(PostEvent.Open(post)) }
+                .highlightInset(compact = true),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary,
         )

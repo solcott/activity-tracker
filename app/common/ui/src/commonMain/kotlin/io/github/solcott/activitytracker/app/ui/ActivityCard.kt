@@ -1,12 +1,10 @@
 package io.github.solcott.activitytracker.app.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,9 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.activitylist.ActivityCardContent
+import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.like_content_description
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -48,7 +46,7 @@ fun ActivityCard(
     val content = remember(activity, isOwn) { ActivityCardContent(activity, isOwn) }
     val record = content.record
     val units = LocalUnitSystem.current
-    Card(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
+    AppCard(onClick, modifier) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // A blurred avatar is revealed on the athlete's profile, which a tap here opens.
             AuthorHeader(activity.author, onClick = onAuthorClick, beside = { VisibilityBadge(activity.visibilityOrPublic) }) {
