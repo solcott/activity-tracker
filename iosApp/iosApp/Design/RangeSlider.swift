@@ -23,8 +23,9 @@ struct RangeSlider: View {
     let onChange: (Double, Double) -> Void
 
     @Environment(\.isEnabled) private var isEnabled
-    /// A slowed drag's anchor: where the thumb was and the finger's x when the current share began, and the share.
-    @State private var slowed: (value: Double, x: CGFloat, share: Double)?
+    /// Each slowed drag's anchor, by thumb (true the lower): where the thumb was and the finger's x when the current share began, and the
+    /// share. One per thumb, so two fingers dragging both never move each other's.
+    @State private var slowed: [Bool: (value: Double, x: CGFloat, share: Double)] = [:]
 
     private static let thumb: CGFloat = 28
     private static let track: CGFloat = 4
@@ -42,8 +43,8 @@ struct RangeSlider: View {
                     .fill(isEnabled ? Color.accentColor : Color(.tertiaryLabel))
                     .frame(width: max(x(upper, width) - x(lower, width), 0), height: Self.track)
                     .offset(x: x(lower, width))
-                thumb(at: lower, width: width, label: lowerLabel) { moved in onChange(min(moved, upper), upper) }
-                thumb(at: upper, width: width, label: upperLabel) { moved in onChange(lower, max(moved, lower)) }
+                thumb(at: lower, width: width, label: lowerLabel, isLower: true) { moved in onChange(min(moved, upper), upper) }
+                thumb(at: upper, width: width, label: upperLabel, isLower: false) { moved in onChange(lower, max(moved, lower)) }
             }
             .frame(height: geometry.size.height)
             .coordinateSpace(.named(Self.space))
@@ -52,7 +53,9 @@ struct RangeSlider: View {
     }
 
     /// A thumb at `position`, moved to wherever a drag along the track is, and stepped by VoiceOver.
-    private func thumb(at position: Double, width: CGFloat, label: Text, move: @escaping (Double) -> Void) -> some View {
+    private func thumb(
+        at position: Double, width: CGFloat, label: Text, isLower: Bool, move: @escaping (Double) -> Void
+    ) -> some View {
         Circle()
             .fill(.white)
             .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
@@ -68,20 +71,21 @@ struct RangeSlider: View {
                             return
                         }
                         let share = precision(max(drag.location.y - (Self.thumb + 8) / 2, 0))
-                        if slowed == nil || slowed?.share != share {
-                            if slowed != nil || share != 1 { onPrecision(share) }
-                            slowed = (position, drag.location.x, share)
+                        let previous = slowed[isLower]
+                        if previous == nil || previous?.share != share {
+                            if previous != nil || share != 1 { onPrecision(share) }
+                            slowed[isLower] = (position, drag.location.x, share)
                         }
-                        guard let anchor = slowed else { return }
+                        guard let anchor = slowed[isLower] else { return }
                         let room = Double(max(width - Self.thumb, 1))
                         let span = bounds.upperBound - bounds.lowerBound
                         let moved = anchor.value + Double(drag.location.x - anchor.x) / room * span * share
                         move(min(max(moved, bounds.lowerBound), bounds.upperBound))
                     }
                     .onEnded { _ in
-                        if slowed != nil, precision != nil {
-                            slowed = nil
-                            onPrecision(nil)
+                        if slowed.removeValue(forKey: isLower) != nil, precision != nil {
+                            // The other thumb's share while it's still dragged, else none.
+                            onPrecision(slowed.values.first?.share)
                         }
                     }
             )
