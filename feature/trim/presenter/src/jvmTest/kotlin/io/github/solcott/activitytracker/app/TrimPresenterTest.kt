@@ -196,6 +196,21 @@ class TrimPresenterTest {
     }
 
     @Test
+    fun aManualEntryStartingMidMinuteKeepsItsStartWhenTheShownTimeIsApplied() = runTest {
+        val midMinute = TrimInput(Instant.parse("2026-11-22T07:36:45Z"), 3_600, null, emptyList())
+        drafts.offer(DRAFT, midMinute, TrimTotals(null, null, 3_600, null), sport = "ride", utcOffsetMinutes = 0)
+        presenterTestOf(presenter(TrimScreen(draftId = DRAFT))) {
+            val loaded = awaitEditor()
+            loaded.eventSink(TrimEvent.EditExact(start = true, UnitSystem.Metric))
+            val opened = awaitUntil { it.exact != null }
+            assertEquals("07:36", opened.exact!!.field.text.toString())
+            opened.eventSink(TrimEvent.ApplyExact(UnitSystem.Metric))
+            assertEquals(0, awaitUntil { it.exact == null }.editor!!.from)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun doneKeepsTheSpanForTheDraftAndLeaves() = runTest {
         offer()
         val screen = TrimScreen(draftId = DRAFT)

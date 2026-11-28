@@ -69,7 +69,10 @@ internal object TrimValues {
         return parts.fold(0L) { total, part -> total * SIXTY + part }.takeIf { it <= Int.MAX_VALUE }?.toInt()
     }
 
-    /** `hh:mm` on the manual entry's clock, as seconds since its start (a time before the start is on the next day). */
+    /**
+     * `hh:mm` on the manual entry's clock, as seconds since its start: the start's own minute is the start (the field shows no seconds),
+     * and a time before that minute is on the next day.
+     */
     @Suppress("ReturnCount") // Each way the text doesn't read as a clock time.
     private fun clockSeconds(text: String, editor: TrimEditor): Int? {
         val parts = text.split(':').map { it.toIntOrNull() ?: return null }
@@ -77,8 +80,13 @@ internal object TrimValues {
         val (hour, minute) = parts
         if (hour !in 0 until HOURS || minute !in 0 until SIXTY) return null
         val startTime = Instant.fromEpochSeconds(editor.startedAtEpochSeconds).toLocalDateTime(zone(editor)).time
-        val since = (hour * SIXTY + minute) * SIXTY - startTime.toSecondOfDay()
-        return if (since < 0) since + DAY_SECONDS else since
+        val startSecond = startTime.toSecondOfDay()
+        val since = (hour * SIXTY + minute) * SIXTY - startSecond
+        return when {
+            since >= 0 -> since
+            since > -(startSecond % SIXTY) - 1 -> 0
+            else -> since + DAY_SECONDS
+        }
     }
 
     private fun zone(editor: TrimEditor): TimeZone =
