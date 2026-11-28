@@ -1,7 +1,7 @@
 [versions]
 # Toolchain. A Kotlin preview, for Swift export (Beta from 2.5; dev/ios-swift-interop). Circuit 0.39 is built with Kotlin 2.4.20 and
 # needs Compose Multiplatform 1.12.x; Metro supports 2.5.0-RC from 1.6.0.
-kotlin = "2.5.0-RC"
+kotlin = "2.5.0-RC2"
 # JDK used for every compile/test/run toolchain (Amazon Corretto, provisioned via foojay).
 #noinspection UnusedVersionCatalogEntry
 jdk = "25"
