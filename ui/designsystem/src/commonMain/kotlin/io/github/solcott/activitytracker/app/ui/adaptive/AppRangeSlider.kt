@@ -2,17 +2,22 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -60,6 +65,9 @@ fun AppRangeSlider(
         return
     }
     Box(modifier) {
+        // Material insets its track by half its thumb's measured width, so the drag below maps over the same track from this width.
+        val thumbWidth = remember { mutableIntStateOf(0) }
+        val startInteractions = remember { MutableInteractionSource() }
         RangeSlider(
             value = value,
             onValueChange = onValueChange,
@@ -68,6 +76,14 @@ fun AppRangeSlider(
             modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
             enabled = enabled,
             onValueChangeFinished = onValueChangeFinished,
+            startInteractionSource = startInteractions,
+            startThumb = {
+                SliderDefaults.Thumb(
+                    interactionSource = startInteractions,
+                    modifier = Modifier.onSizeChanged { thumbWidth.intValue = it.width },
+                    enabled = enabled,
+                )
+            },
         )
         if (labels != null) RangeSliderSemantics(value, onValueChange, valueRange, enabled, onValueChangeFinished, labels)
         if (precision != null) {
@@ -79,6 +95,7 @@ fun AppRangeSlider(
                     rememberUpdatedState(onValueChangeFinished),
                     rememberUpdatedState(precision),
                     rememberUpdatedState(onPrecisionChange),
+                    thumbWidth,
                 )
             // Over the slider, so Material's own drag never sees the pointer: this one takes the drag, or leaves it to the page.
             Box(Modifier.matchParentSize().pointerInput(enabled, valueRange) { if (enabled) with(drag) { run() } })
@@ -129,7 +146,7 @@ private fun BoxScope.RangeSliderSemantics(
  * share [precision] gives for how far below the track it is. Both thumbs at one place are told apart by the drag's direction, left the
  * start and right the end, so the one chosen can always move that way. Each new share starts from where the thumb is, so it never jumps. A
  * press that lifts without moving moves the nearer thumb there, as Material's does. Values map along Material's track, which is inset by
- * half a thumb at each end, so a full-speed drag keeps the thumb under the pointer.
+ * half its measured thumb at each end, so a full-speed drag keeps the thumb under the pointer.
  */
 private class PrecisionDrag(
     private val value: State<ClosedFloatingPointRange<Float>>,
@@ -138,6 +155,7 @@ private class PrecisionDrag(
     private val onFinished: State<(() -> Unit)?>,
     private val precision: State<(Dp) -> Float>,
     private val onPrecision: State<(Float?) -> Unit>,
+    private val thumbWidth: State<Int>,
 ) {
     private val span: Float
         get() = valueRange.endInclusive - valueRange.start
@@ -146,7 +164,7 @@ private class PrecisionDrag(
     @Suppress("CyclomaticComplexMethod", "LongMethod", "LoopWithTooManyJumpStatements")
     suspend fun PointerInputScope.run() = awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
-        val inset = (MATERIAL_THUMB_WIDTH.toPx() / 2).coerceAtMost(size.width / 2f)
+        val inset = (thumbWidth.value / 2f).coerceAtMost(size.width / 2f)
         val track = (size.width - 2 * inset).coerceAtLeast(1f)
         val centre = size.height / 2f
         fun x(v: Float) = inset + (v - valueRange.start) / span.coerceAtLeast(Float.MIN_VALUE) * track
@@ -207,9 +225,6 @@ private class PrecisionDrag(
         )
     }
 }
-
-/** Material's thumb handle width (`SliderDefaults.Thumb`): its track starts and ends half of it in from the slider's edges. */
-private val MATERIAL_THUMB_WIDTH = 4.dp
 
 /** How near a thumb a press counts as on it, so a drag from there is the slider's whichever way it goes. */
 private val THUMB_REACH = 24.dp
