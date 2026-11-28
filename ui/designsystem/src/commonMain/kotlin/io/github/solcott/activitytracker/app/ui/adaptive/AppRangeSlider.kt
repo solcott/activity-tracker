@@ -80,7 +80,7 @@ fun AppRangeSlider(
             startThumb = {
                 SliderDefaults.Thumb(
                     interactionSource = startInteractions,
-                    modifier = Modifier.onSizeChanged { thumbWidth.intValue = it.width },
+                    modifier = Modifier.onSizeChanged { size -> thumbWidth.intValue = size.width },
                     enabled = enabled,
                 )
             },
@@ -148,6 +148,7 @@ private fun BoxScope.RangeSliderSemantics(
  * press that lifts without moving moves the nearer thumb there, as Material's does. Values map along Material's track, which is inset by
  * half its measured thumb at each end, so a full-speed drag keeps the thumb under the pointer.
  */
+@Suppress("LongParameterList") // The slider's current state, each held so a running gesture reads the latest.
 private class PrecisionDrag(
     private val value: State<ClosedFloatingPointRange<Float>>,
     private val valueRange: ClosedFloatingPointRange<Float>,
