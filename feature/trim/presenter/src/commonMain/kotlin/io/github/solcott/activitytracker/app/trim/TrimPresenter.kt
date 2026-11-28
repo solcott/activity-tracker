@@ -108,7 +108,7 @@ fun TrimPresenter(
             is TrimEvent.Nudge -> {
                 val e = currentEditor()
                 if (exact == null && e != null && model != null) {
-                    val target = TrimValues.nudge(e, model.preview, event.start, event.later, event.repeat, event.units)
+                    val target = TrimValues.nudge(e, model.preview, event)
                     if (event.start) move(target, e.to) else move(e.from, target)
                 }
             }

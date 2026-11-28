@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * One of the trim screen's totals: its [label], its [value] over the kept span, and what it [was] before the trim (null when unchanged).
@@ -83,9 +84,9 @@ object TrimTexts {
             else -> AppText.named("trim_scrub_fine")
         }
 
-    private val TIME_NUDGE_SECONDS = listOf(1, 10, 60)
-    private val MANUAL_NUDGE_SECONDS = listOf(60, 300, 900)
-    private val DISTANCE_NUDGES = listOf(0.01, 0.1, 1.0)
+    private val TIME_NUDGE_SECONDS = persistentListOf(1, 10, 60)
+    private val MANUAL_NUDGE_SECONDS = persistentListOf(60, 300, 900)
+    private val DISTANCE_NUDGES = persistentListOf(0.01, 0.1, 1.0)
     private const val NUDGE_TIER_TWO = 8
     private const val NUDGE_TIER_THREE = 20
     private const val SCRUB_HALF = 24.0
