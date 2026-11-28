@@ -31,6 +31,7 @@ struct FeedPage: View {
             }
         }
         .listStyle(.insetGrouped)
+        .cardSpacing()
         .pullToRefresh(refreshing: refreshing(shown)) { refresh() }
         .pageTitle(Text(FeedTexts.shared.title(state: state))) { addMenu }
         .toolbarTitleMenu { scopeMenu }

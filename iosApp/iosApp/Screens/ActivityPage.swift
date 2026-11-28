@@ -157,6 +157,7 @@ private struct ActivityColumn: View {
                 sections.allData(inPane: false)
             }
             .listStyle(.insetGrouped)
+            .cardSpacing()
             .cardMotion(PageCard.openKey(page, openings: openings))
             // Tried again while an opening card moves the rows, since a list scrolls only to a row it has placed.
             .task(id: pending) {
@@ -241,6 +242,7 @@ private struct ActivityPanes: View {
                         sections.allData(inPane: true)
                     }
                     .listStyle(.insetGrouped)
+                    .cardSpacing()
                 }
             }
             .frame(width: 400)
@@ -250,6 +252,7 @@ private struct ActivityPanes: View {
                 sections.segments
             }
             .listStyle(.insetGrouped)
+            .cardSpacing()
             .cardMotion(PageCard.openKey(page, openings: openings))
             .frame(maxWidth: 1_040)
         }
@@ -505,7 +508,6 @@ private struct ActivitySections {
         } header: {
             if item.heading { Text(texts.moreCharts).transition(.opacity) }
         }
-        .listSectionSpacing(.compact)
     }
 
     /// The page's last row, opening All data: in the side pane on a wide window (`inPane`), else as its own page.

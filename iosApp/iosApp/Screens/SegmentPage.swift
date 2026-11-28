@@ -23,6 +23,7 @@ struct SegmentPage: View {
                 loaded(segment)
             }
         }
+        .cardSpacing()
         .pageTitle(Text(verbatim: state.segment?.currentName ?? "")) {
             if state.segment != nil, let starred = state.starred {
                 AppIconButton(.star, label: SegmentPageTexts.shared.star(starred: starred), filled: starred) {

@@ -23,6 +23,7 @@ struct ImportBatchView: View {
             EmptyMessage(.importBatchEmpty)
         }
         .pageTitle(Text(ImportBatchTexts.shared.title(state: state)))
+        .cardSpacing()
     }
 
     /// A section per card, as the shared page spaces its cards apart, the month's heading over its first.

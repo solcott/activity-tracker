@@ -18,6 +18,7 @@ struct DiveSitePage: View {
                 loaded(site)
             }
         }
+        .cardSpacing()
         .pageTitle(Text(verbatim: state.site?.currentName ?? ""))
         .placeNames(state.names)
     }

@@ -23,6 +23,7 @@ struct TrailReportsView: View {
             EmptyMessage(.trailConditionsNone)
         }
         .pageTitle(Text(verbatim: state.name), subtitle: Text(.trailConditionsTitle))
+        .cardSpacing()
         .alert(
             Text(.blockConfirmTitle(blocking?.author ?? "")), isPresented: .shown(blocking != nil) { blocking = nil },
             presenting: blocking

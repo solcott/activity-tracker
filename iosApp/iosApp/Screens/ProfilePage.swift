@@ -59,6 +59,7 @@ struct ProfilePage: View {
             }
         }
         .listStyle(.insetGrouped)
+        .cardSpacing()
     }
 
     // MARK: Actions

@@ -53,6 +53,7 @@ struct ImportActivityView: View {
                 ImportBatchSections(state: state, batch: batch)
             }
             .listStyle(.insetGrouped)
+            .cardSpacing()
             .sheet(
                 isPresented: .shown(state.batch?.preview != nil) { send(ImportActivityEvent.ItemClosed.shared) }
             ) {
@@ -69,6 +70,7 @@ struct ImportActivityView: View {
                             ImportPreviewSections(state: state, preview: preview, wide: true)
                         }
                         .listStyle(.insetGrouped)
+                        .cardSpacing()
                         .frame(maxWidth: 900)
                         Divider()
                         List { ImportFormSections(state: state) }
@@ -83,6 +85,7 @@ struct ImportActivityView: View {
                         ImportFormSections(state: state)
                     }
                     .listStyle(.insetGrouped)
+                    .cardSpacing()
                 }
             }
         } else {

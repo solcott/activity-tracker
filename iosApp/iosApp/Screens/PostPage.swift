@@ -50,6 +50,7 @@ struct PostPage: View {
             }
         }
         .listStyle(.insetGrouped)
+        .cardSpacing()
         .reporting(page.reporting)
     }
 
@@ -120,6 +121,7 @@ struct PostQuotesView: View {
             }
         }
         .pageTitle(Text(PostPageTexts.shared.quotesTitle))
+        .cardSpacing()
         .quoteSheet(state.quote)
         .reporting(state.reporting)
     }

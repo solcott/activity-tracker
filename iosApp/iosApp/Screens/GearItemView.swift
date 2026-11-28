@@ -15,6 +15,7 @@ struct GearItemView: View {
 
     var body: some View {
         content
+            .cardSpacing()
             .pageTitle(Text(verbatim: state.title)) {
                 if state.showsEdit {
                     AppTextButton(.gearPageEdit) { send(GearEvent.Edit.shared) }
