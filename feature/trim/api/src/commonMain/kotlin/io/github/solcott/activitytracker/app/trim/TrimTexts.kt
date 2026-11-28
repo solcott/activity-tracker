@@ -32,6 +32,69 @@ object TrimTexts {
     /** A step of the exact value by time, in seconds. */
     const val TIME_STEP_SECONDS = 10
 
+    /**
+     * The seconds the [repeat]-th nudge of a held button moves an end by time (0 the first press): 1 s, then 10 s, then a minute, so a hold
+     * crosses minutes quickly once the athlete has seen it move. A manual entry's clock shows minutes, so its steps are 1, 5 and 15 min.
+     */
+    fun nudgeSeconds(editor: TrimEditor, repeat: Int): Int {
+        val steps = if (editor.manual) MANUAL_NUDGE_SECONDS else TIME_NUDGE_SECONDS
+        return steps[nudgeTier(repeat)]
+    }
+
+    /** The meters the [repeat]-th nudge moves an end by distance: a hundredth, a tenth, then one km or mi. */
+    fun nudgeMeters(repeat: Int, units: UnitSystem): Double = UnitConversions.fromDistanceUnit(DISTANCE_NUDGES[nudgeTier(repeat)], units)
+
+    private fun nudgeTier(repeat: Int): Int =
+        when {
+            repeat < NUDGE_TIER_TWO -> 0
+            repeat < NUDGE_TIER_THREE -> 1
+            else -> 2
+        }
+
+    /** What a screen reader says for a nudge button: "Start earlier", "End later". */
+    fun nudgeLabel(start: Boolean, later: Boolean): AppText =
+        AppText.named(
+            when {
+                start && later -> "trim_nudge_start_later"
+                start -> "trim_nudge_start_earlier"
+                later -> "trim_nudge_end_later"
+                else -> "trim_nudge_end_earlier"
+            },
+        )
+
+    /**
+     * How fast a dragged handle follows the pointer once it has moved [offset] dp (or points) below the track (feed/activity-trim): full
+     * speed on the track, then half, a quarter and a tenth, so a small correction needs no steady hand.
+     */
+    fun scrubFactor(offset: Double): Double =
+        when {
+            offset < SCRUB_HALF -> 1.0
+            offset < SCRUB_QUARTER -> HALF
+            offset < SCRUB_FINE -> QUARTER
+            else -> FINE
+        }
+
+    /** What the screen says while a handle moves at [factor] of full speed; nothing at full speed. */
+    fun scrubLabel(factor: Double): AppText? =
+        when {
+            factor >= 1.0 -> null
+            factor >= HALF -> AppText.named("trim_scrub_half")
+            factor >= QUARTER -> AppText.named("trim_scrub_quarter")
+            else -> AppText.named("trim_scrub_fine")
+        }
+
+    private val TIME_NUDGE_SECONDS = listOf(1, 10, 60)
+    private val MANUAL_NUDGE_SECONDS = listOf(60, 300, 900)
+    private val DISTANCE_NUDGES = listOf(0.01, 0.1, 1.0)
+    private const val NUDGE_TIER_TWO = 8
+    private const val NUDGE_TIER_THREE = 20
+    private const val SCRUB_HALF = 24.0
+    private const val SCRUB_QUARTER = 64.0
+    private const val SCRUB_FINE = 104.0
+    private const val HALF = 0.5
+    private const val QUARTER = 0.25
+    private const val FINE = 0.1
+
     /** Where the [start] or the end lands: the time into the activity ("12:30 in"), or the distance from its start ("0.40 km"). */
     fun position(editor: TrimEditor, start: Boolean, units: UnitSystem): AppText {
         val seconds = if (start) editor.from else editor.to

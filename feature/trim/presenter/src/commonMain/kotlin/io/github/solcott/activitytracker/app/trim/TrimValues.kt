@@ -60,6 +60,20 @@ internal object TrimValues {
         return (if (start) editor.from else editor.to) + sign * TrimTexts.TIME_STEP_SECONDS
     }
 
+    /**
+     * The second the [repeat]-th nudge of a held button moves the [start] or the end to, [later] or earlier: [TrimTexts.nudgeSeconds] by
+     * time, [TrimTexts.nudgeMeters] by distance, always reaching another sample there.
+     */
+    fun nudge(editor: TrimEditor, preview: TrimPreview, start: Boolean, later: Boolean, repeat: Int, units: UnitSystem): Int {
+        val seconds = if (start) editor.from else editor.to
+        val distance = preview.distance
+        if (editor.byDistance && distance != null) {
+            return distance.nudge(seconds, start, later, TrimTexts.nudgeMeters(repeat, units))
+        }
+        val step = TrimTexts.nudgeSeconds(editor, repeat)
+        return if (later) seconds + step else seconds - step
+    }
+
     /** `h:mm:ss`, `m:ss` or whole seconds as seconds. */
     @Suppress("ReturnCount") // Each way the text doesn't read as a time.
     private fun durationSeconds(text: String): Int? {

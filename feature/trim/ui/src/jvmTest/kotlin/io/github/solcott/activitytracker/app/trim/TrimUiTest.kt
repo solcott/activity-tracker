@@ -44,6 +44,22 @@ class TrimUiTest {
     }
 
     @Test
+    fun theNudgeButtonsStepEachEndAndTheHintTeachesTheSlowDrag() = runComposeUiTest {
+        val events = mutableListOf<TrimEvent>()
+        setContent { AppPreview { TrimUi(TrimSamples.trimmed.copy(eventSink = { events += it })) } }
+        onNodeWithText("Drag down while moving a handle to slow it").assertExists()
+        onNodeWithContentDescription("Start later").performClick()
+        onNodeWithContentDescription("End earlier").performClick()
+        assertEquals(
+            listOf<TrimEvent>(
+                TrimEvent.Nudge(start = true, later = true, repeat = 0, UnitSystem.Metric),
+                TrimEvent.Nudge(start = false, later = false, repeat = 0, UnitSystem.Metric),
+            ),
+            events,
+        )
+    }
+
+    @Test
     fun manualEntryShowsDistanceDisabledWithItsReason() = runComposeUiTest {
         setContent { AppPreview { TrimUi(TrimSamples.manual) } }
         onNodeWithText("Distance needs a recorded distance or GPS, which this activity doesn't have.").assertExists()
@@ -88,7 +104,10 @@ class TrimUiTest {
                             TrimTexts.confirm(editor.copy(from = 60)),
                             TrimTexts.confirm(editor.copy(to = editor.elapsed - 60, from = 0)),
                         )
-                }
+                } +
+                listOf(true, false).flatMap { start -> listOf(true, false).map { TrimTexts.nudgeLabel(start, it) } } +
+                listOf(1.0, 0.5, 0.25, 0.1).mapNotNull(TrimTexts::scrubLabel) +
+                AppText.named("trim_scrub_hint")
         val missing = texts.flatMap(::names).distinct().filterNot { it in Res.allStringResources }
         assertTrue(missing.isEmpty(), "No string for $missing")
     }

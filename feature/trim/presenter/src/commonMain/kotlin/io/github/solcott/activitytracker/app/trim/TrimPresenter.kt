@@ -105,6 +105,13 @@ fun TrimPresenter(
             is TrimEvent.ModeChanged -> byDistance = event.byDistance && model?.preview?.distance != null
             TrimEvent.ApplySuggestion -> model?.suggestion?.let { chosen = it.span }
             TrimEvent.Reset -> chosen = model?.let { KeptSpan.whole(it.preview.elapsed) }
+            is TrimEvent.Nudge -> {
+                val e = currentEditor()
+                if (exact == null && e != null && model != null) {
+                    val target = TrimValues.nudge(e, model.preview, event.start, event.later, event.repeat, event.units)
+                    if (event.start) move(target, e.to) else move(e.from, target)
+                }
+            }
             is TrimEvent.EditExact -> seedExact(event.start, event.units)
             is TrimEvent.StepExact -> {
                 val open = exact

@@ -26896,6 +26896,50 @@
         }
       }
     },
+    "trim_nudge_end_earlier" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End earlier"
+          }
+        }
+      }
+    },
+    "trim_nudge_end_later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End later"
+          }
+        }
+      }
+    },
+    "trim_nudge_start_earlier" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start earlier"
+          }
+        }
+      }
+    },
+    "trim_nudge_start_later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start later"
+          }
+        }
+      }
+    },
     "trim_offer" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -26969,6 +27013,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Trim"
+          }
+        }
+      }
+    },
+    "trim_scrub_fine" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fine scrubbing"
+          }
+        }
+      }
+    },
+    "trim_scrub_half" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Half speed"
+          }
+        }
+      }
+    },
+    "trim_scrub_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag down while moving a handle to slow it"
+          }
+        }
+      }
+    },
+    "trim_scrub_quarter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quarter speed"
           }
         }
       }

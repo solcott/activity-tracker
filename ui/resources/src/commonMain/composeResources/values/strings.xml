@@ -2884,6 +2884,14 @@
     <string name="trim_exact_set">Set</string>
     <string name="trim_profile_elevation">The activity's elevation over time, with the trimmed parts shaded.</string>
     <string name="trim_profile_speed">The activity's speed over time, with the trimmed parts shaded.</string>
+    <string name="trim_nudge_start_earlier">Start earlier</string>
+    <string name="trim_nudge_start_later">Start later</string>
+    <string name="trim_nudge_end_earlier">End earlier</string>
+    <string name="trim_nudge_end_later">End later</string>
+    <string name="trim_scrub_hint">Drag down while moving a handle to slow it</string>
+    <string name="trim_scrub_half">Half speed</string>
+    <string name="trim_scrub_quarter">Quarter speed</string>
+    <string name="trim_scrub_fine">Fine scrubbing</string>
     <string name="trim_not_sent">This activity can be trimmed once it's sent.</string>
     <string name="error_load_trim">Couldn't open the activity for trimming</string>
     <string name="error_save_trim">Couldn't save the trim</string>

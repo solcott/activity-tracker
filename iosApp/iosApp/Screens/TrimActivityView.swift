@@ -66,6 +66,8 @@ private struct TrimForm: View {
     let state: TrimState
     let editor: TrimEditor
     @Environment(\.stats) private var stats
+    /// The share of full speed a slowed handle follows at, while one does.
+    @State private var scrub: Double?
 
     var body: some View {
         let texts = TrimTexts.shared
@@ -96,17 +98,31 @@ private struct TrimForm: View {
                     lowerLabel: Text(.trimStartHandle), upperLabel: Text(.trimEndHandle),
                     value: { value in
                         Text(texts.handleValue(editor: editor, start: abs(value - Double(editor.from)) < 0.5, units: units))
-                    }
+                    },
+                    precision: { texts.scrubFactor(offset: Double($0)) },
+                    onPrecision: { scrub = $0 }
                 ) { from, to in
                     state.eventSink(TrimEvent.Moved(from: Int32(from.rounded()), to: Int32(to.rounded())))
                 }
                 .frame(height: 44)
                 .disabled(state.saving)
-                HStack(alignment: .top) {
-                    TrimReadout(editor: editor, start: true) { state.eventSink(TrimEvent.EditExact(start: true, units: units)) }
-                    Spacer()
-                    TrimReadout(editor: editor, start: false) { state.eventSink(TrimEvent.EditExact(start: false, units: units)) }
+                // One line either way, so the form never moves while the handle slows: the hint, or how fast the handle follows.
+                Group {
+                    if let share = scrub, let speed = texts.scrubLabel(factor: share) {
+                        Text(speed).foregroundStyle(Color.accentColor)
+                    } else {
+                        Text(.trimScrubHint).foregroundStyle(.secondary)
+                    }
                 }
+                .font(.footnote)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                HStack(alignment: .top) {
+                    TrimEnd(editor: editor, start: true, send: state.eventSink)
+                    Spacer()
+                    TrimEnd(editor: editor, start: false, send: state.eventSink)
+                }
+                .disabled(state.saving)
                 if editor.changed {
                     Button {
                         state.eventSink(TrimEvent.Reset.shared)
@@ -160,6 +176,50 @@ private struct TrimForm: View {
 
     private var byDistance: Binding<Bool> {
         Binding(get: { editor.byDistance }, set: { state.eventSink(TrimEvent.ModeChanged(byDistance: $0)) })
+    }
+}
+
+/// One end: its readout, which opens its exact value, over the buttons that nudge it earlier or later; holding one repeats it, and the
+/// steps grow the longer it is held (`TrimTexts.nudgeSeconds`).
+private struct TrimEnd: View {
+    let editor: TrimEditor
+    let start: Bool
+    let send: (any TrimEvent) -> Void
+    @Environment(\.stats) private var stats
+    @State private var repeats = NudgeRepeat()
+
+    var body: some View {
+        VStack(alignment: start ? .leading : .trailing, spacing: 4) {
+            TrimReadout(editor: editor, start: start) { send(TrimEvent.EditExact(start: start, units: stats.units)) }
+            HStack(spacing: 16) {
+                ForEach([false, true], id: \.self) { later in
+                    AppIconButton(later ? .chevron : .chevronBack, label: TrimTexts.shared.nudgeLabel(start: start, later: later)) {
+                        let count = repeats.next(later: later, at: .now)
+                        send(TrimEvent.Nudge(start: start, later: later, repeat: count, units: stats.units))
+                    }
+                    .font(.title3)
+                    .buttonRepeatBehavior(.enabled)
+                }
+            }
+        }
+    }
+}
+
+/// How many steps a held nudge button has taken: SwiftUI repeats a held button's action without saying so, so steps closer together than
+/// `gap` in one direction count as one hold, and a pause or the other button starts a new one at 0.
+struct NudgeRepeat {
+    static let gap: TimeInterval = 0.7
+    private var last: (later: Bool, at: Date)?
+    private var count: Int32 = 0
+
+    mutating func next(later: Bool, at now: Date) -> Int32 {
+        if let last, last.later == later, now.timeIntervalSince(last.at) < Self.gap {
+            count += 1
+        } else {
+            count = 0
+        }
+        last = (later, now)
+        return count
     }
 }
 

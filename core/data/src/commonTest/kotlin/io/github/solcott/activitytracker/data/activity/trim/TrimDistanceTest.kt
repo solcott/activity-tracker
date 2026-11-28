@@ -25,6 +25,18 @@ class TrimDistanceTest {
     }
 
     @Test
+    fun aNudgeShorterThanTheSamplesReachesTheNextOne() {
+        // Samples 80 m apart: 10 m on from the start of riding is still the first, so the nudge goes on to the next sample.
+        assertEquals(STANDING_START + 10, distance.nudge(STANDING_START, start = true, later = true, meters = 10.0))
+        // 200 m lands between samples; a start keeps from the last one before it.
+        assertEquals(STANDING_START + 20, distance.nudge(STANDING_START, start = true, later = true, meters = 200.0))
+        // Back from the start of riding is all standing at 0 m, with nowhere earlier to go.
+        assertEquals(STANDING_START, distance.nudge(STANDING_START, start = true, later = false, meters = 10.0))
+        // An end nudged earlier keeps to the first sample at its distance.
+        assertEquals(RIDE_END - 10, distance.nudge(RIDE_END, start = false, later = false, meters = 10.0))
+    }
+
+    @Test
     fun distanceCountsFromTheFirstSample() {
         // An activity trimmed before distance was re-based starts its distance where the old start was cut.
         val offset = 480_000

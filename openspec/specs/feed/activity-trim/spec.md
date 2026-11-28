@@ -77,6 +77,28 @@ The screen SHALL say what the trim cuts at each end, as a duration and, when the
 - **WHEN** the athlete steps the end value back once in time mode
 - **THEN** the kept range ends 10 seconds earlier
 
+### Requirement: Each end can be nudged in small steps
+Each end SHALL have buttons beside its readout that move it earlier or later by one small step, for corrections too small to drag. A step SHALL be 1 second in time mode and 0.01 km (or 0.01 mi in imperial units) in distance mode. For a manual entry, whose clock shows minutes, it SHALL be 1 minute. Holding a button SHALL repeat it, and the step SHALL grow while it is held: in time mode to 10 seconds from the 9th step and to 1 minute from the 21st; in distance mode to 0.1 and then 1 km or mi; for a manual entry to 5 and then 15 minutes. In distance mode a nudge SHALL always reach another sample when there is one that way, even when the samples are further apart than the step. A nudge SHALL be clamped like any other move. A screen reader SHALL name each button by its end and direction ("Start later").
+
+#### Scenario: Nudge the start
+- **WHEN** the athlete taps the start's later button once in time mode
+- **THEN** the kept range starts 1 second later
+
+#### Scenario: Hold to move further
+- **WHEN** the athlete holds the end's earlier button
+- **THEN** the end moves back a second at a time, then 10 seconds, then a minute at a time
+
+#### Scenario: Samples further apart than a nudge
+- **WHEN** the athlete nudges the start 0.01 km later in distance mode where samples are 80 m apart
+- **THEN** the kept range starts at the next sample
+
+### Requirement: A handle slows when dragged below the track
+While the athlete drags a handle, moving the finger or pointer below the track SHALL slow how far the handle moves for the same sideways travel: full speed within 24 points of the track's centre, half to 64, a quarter to 104, and a tenth beyond. A change of speed SHALL start from where the handle is, so it never jumps. While a handle moves slower than full speed the screen SHALL say how fast ("Half speed", "Quarter speed", "Fine scrubbing"), and otherwise SHALL show a hint that dragging down slows the handle, in the same place, so the screen doesn't shift. A drag that starts away from both handles and goes mostly up or down SHALL scroll the page instead.
+
+#### Scenario: Fine-tune the end by dragging
+- **WHEN** the athlete drags the end handle, moves the finger well below the track, and moves it sideways
+- **THEN** the end moves a tenth as far as the finger and the screen shows "Fine scrubbing"
+
 ### Requirement: The map previews the cut
 For an activity with GPS, the trim screen SHALL show the athlete's full-resolution route. The kept part SHALL be drawn in the route colour, and the cut parts dashed in a muted colour. Start and end markers SHALL sit at the kept range's ends and follow the handles as they move. The map SHALL frame the whole recorded route. An activity without GPS SHALL show no map.
 

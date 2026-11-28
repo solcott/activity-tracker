@@ -155,6 +155,54 @@ class TrimPresenterTest {
     }
 
     @Test
+    fun aNudgeMovesASecondAndGrowsWhileHeld() = runTest {
+        offer()
+        presenterTestOf(presenter(TrimScreen(draftId = DRAFT))) {
+            val loaded = awaitEditor()
+            loaded.eventSink(TrimEvent.Nudge(start = true, later = true, repeat = 0, UnitSystem.Metric))
+            assertEquals(1, awaitUntil { it.editor?.from != 0 }.editor!!.from)
+            loaded.eventSink(TrimEvent.Nudge(start = true, later = true, repeat = 8, UnitSystem.Metric))
+            assertEquals(11, awaitUntil { it.editor?.from != 1 }.editor!!.from)
+            loaded.eventSink(TrimEvent.Nudge(start = false, later = false, repeat = 20, UnitSystem.Metric))
+            assertEquals(END - 60, awaitUntil { it.editor?.to != END }.editor!!.to)
+            // Nothing is earlier than the start of the activity.
+            loaded.eventSink(TrimEvent.Nudge(start = true, later = false, repeat = 30, UnitSystem.Metric))
+            assertEquals(0, awaitUntil { it.editor?.from == 0 }.editor!!.from)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun byDistanceANudgeReachesTheNextSample() = runTest {
+        offer()
+        presenterTestOf(presenter(TrimScreen(draftId = DRAFT))) {
+            val loaded = awaitEditor()
+            loaded.eventSink(TrimEvent.ModeChanged(byDistance = true))
+            awaitUntil { it.editor?.byDistance == true }
+            loaded.eventSink(TrimEvent.Moved(STANDING, END))
+            awaitUntil { it.editor?.from == STANDING }
+            // Samples are 80 m apart while riding, so a 10 m nudge goes on to the next one.
+            loaded.eventSink(TrimEvent.Nudge(start = true, later = true, repeat = 0, UnitSystem.Metric))
+            assertEquals(STANDING + 10, awaitUntil { it.editor?.from != STANDING }.editor!!.from)
+            // Back from there: the standing before it is all at 0 m, so the start goes back to where the athlete set off.
+            loaded.eventSink(TrimEvent.Nudge(start = true, later = false, repeat = 0, UnitSystem.Metric))
+            assertEquals(STANDING, awaitUntil { it.editor?.from == STANDING }.editor!!.from)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aManualEntryNudgesByMinutes() = runTest {
+        offer(manual)
+        presenterTestOf(presenter(TrimScreen(draftId = DRAFT))) {
+            val loaded = awaitEditor()
+            loaded.eventSink(TrimEvent.Nudge(start = false, later = false, repeat = 0, UnitSystem.Metric))
+            assertEquals(3_600 - 60, awaitUntil { it.editor?.to != 3_600 }.editor!!.to)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun aDistanceThatIsntAFiniteNumberIsRefused() = runTest {
         offer()
         presenterTestOf(presenter(TrimScreen(draftId = DRAFT))) {

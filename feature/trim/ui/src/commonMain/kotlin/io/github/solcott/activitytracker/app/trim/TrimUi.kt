@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -16,7 +17,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -33,7 +37,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppRangeSlider
+import io.github.solcott.activitytracker.app.ui.adaptive.AppRepeatIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
@@ -67,6 +73,7 @@ import io.github.solcott.activitytracker.composeApp.resources.trim_mode_time
 import io.github.solcott.activitytracker.composeApp.resources.trim_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.trim_reset
 import io.github.solcott.activitytracker.composeApp.resources.trim_save
+import io.github.solcott.activitytracker.composeApp.resources.trim_scrub_hint
 import io.github.solcott.activitytracker.composeApp.resources.trim_start
 import io.github.solcott.activitytracker.composeApp.resources.trim_start_handle
 import io.github.solcott.activitytracker.composeApp.resources.trim_suggest_apply
@@ -186,6 +193,7 @@ private fun Panel(state: TrimState, editor: TrimEditor) {
                 val spans = TrimTexts.cutSpans(editor)
                 LineChartUi(remember(profile, spans) { profile.withSpans(spans) }, interactive = false)
             }
+            var scrub by remember { mutableStateOf<Float?>(null) }
             AppRangeSlider(
                 value = editor.from.toFloat()..editor.to.toFloat(),
                 onValueChange = { sink(TrimEvent.Moved(it.start.roundToInt(), it.endInclusive.roundToInt())) },
@@ -198,11 +206,23 @@ private fun Panel(state: TrimState, editor: TrimEditor) {
                         end = stringResource(Res.string.trim_end_handle),
                         endValue = TrimTexts.handleValue(editor, start = false, units).string(),
                     ),
+                precision = { TrimTexts.scrubFactor(it.value.toDouble()).toFloat() },
+                onPrecisionChange = { scrub = it },
                 modifier = Modifier.fillMaxWidth(),
             )
+            // One line either way, so the panel never moves while the handle slows: the hint, or how fast the handle follows.
+            val speed = scrub?.let { TrimTexts.scrubLabel(it.toDouble()) }
+            Text(
+                speed?.string() ?: stringResource(Res.string.trim_scrub_hint),
+                Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (speed != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Readout(editor, start = true, onClick = { sink(TrimEvent.EditExact(true, units)) }, Modifier.weight(1f))
-                Readout(editor, start = false, onClick = { sink(TrimEvent.EditExact(false, units)) }, Modifier.weight(1f))
+                End(editor, start = true, enabled = !state.saving, sink, Modifier.weight(1f))
+                End(editor, start = false, enabled = !state.saving, sink, Modifier.weight(1f))
             }
             if (editor.changed) {
                 AppTextButton(onClick = { sink(TrimEvent.Reset) }) { Text(stringResource(Res.string.trim_reset)) }
@@ -233,6 +253,26 @@ private fun Panel(state: TrimState, editor: TrimEditor) {
         Text(it.string(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
     }
     state.error?.let { ErrorText(it) }
+}
+
+/** One end: its readout, which opens its exact value, over the buttons that nudge it earlier or later. */
+@Composable
+private fun End(editor: TrimEditor, start: Boolean, enabled: Boolean, sink: (TrimEvent) -> Unit, modifier: Modifier = Modifier) {
+    val units = LocalUnitSystem.current
+    Column(modifier, horizontalAlignment = if (start) Alignment.Start else Alignment.End) {
+        Readout(editor, start, onClick = { sink(TrimEvent.EditExact(start, units)) })
+        // The icons' own edges line up with the readout's text, past the buttons' touch padding.
+        Row(Modifier.offset(x = if (start) -NUDGE_INSET else NUDGE_INSET)) {
+            listOf(false, true).forEach { later ->
+                AppRepeatIconButton(
+                    if (later) AppIcon.Chevron else AppIcon.ChevronBack,
+                    TrimTexts.nudgeLabel(start, later).string(),
+                    onStep = { sink(TrimEvent.Nudge(start, later, it, units)) },
+                    enabled = enabled,
+                )
+            }
+        }
+    }
 }
 
 /** One end's readout: where it lands, its clock time and what it cuts; a tap opens its exact value. */
@@ -303,3 +343,6 @@ private fun ExactSheet(exact: TrimExactValue, editor: TrimEditor, sink: (TrimEve
 }
 
 private val PANEL_WIDTH = 400.dp
+
+/** The space between an icon button's edge and its icon. */
+private val NUDGE_INSET = 12.dp

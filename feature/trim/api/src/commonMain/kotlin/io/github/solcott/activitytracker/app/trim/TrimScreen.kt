@@ -145,6 +145,12 @@ sealed interface TrimEvent {
     /** Back to the whole activity, from the suggestion or anything else. */
     data object Reset : TrimEvent
 
+    /**
+     * Moves the [start] or the end one small step [later] or earlier; [repeat] counts the steps of a held button (0 the press), which grow
+     * as it is held ([TrimTexts.nudgeSeconds], [TrimTexts.nudgeMeters] in [units]).
+     */
+    data class Nudge(val start: Boolean, val later: Boolean, val repeat: Int, val units: UnitSystem) : TrimEvent
+
     /** Opens the exact value for the [start] or the end, filled in [units]. */
     data class EditExact(val start: Boolean, val units: UnitSystem) : TrimEvent
 
