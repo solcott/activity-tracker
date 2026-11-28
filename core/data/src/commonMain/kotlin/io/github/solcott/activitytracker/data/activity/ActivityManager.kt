@@ -473,8 +473,15 @@ class ActivityManager(
         val record = source.record
         val keptRoute = ActivityTrimmer.route(source.route, record.startedAt, span)
         val trim = privacy.forPublish()
-        val line = trim.trim.polylineOf(keptRoute)
-        val trimmed = ActivityTrimmer.record(record, input, span).copy(polyline = line?.polyline, polylineGaps = line?.gaps)
+        val cut = ActivityTrimmer.record(record, input, span)
+        // Without a stored track there's nothing to draw the kept part from, so the polyline stays as published rather than going.
+        val trimmed =
+            if (source.route.isEmpty()) {
+                cut
+            } else {
+                val line = trim.trim.polylineOf(keptRoute)
+                cut.copy(polyline = line?.polyline, polylineGaps = line?.gaps)
+            }
         val categories = source.stored.narrowestTiers().let { (summary, channels) -> DetailCategory.tiers(visibility, summary + channels) }
         val layout = ActivityLayout.split(trimmed, null, uri, visibility, categories)
         logBuilt(uri, rebuilt = true, layout.record, batchId = null)

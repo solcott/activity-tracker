@@ -35,6 +35,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /** Trimming a saved activity in place (feed/activity-trim), against the fake PDS. */
 class ActivityTrimTest {
@@ -123,6 +124,24 @@ class ActivityTrimTest {
             AtJson.decodeFromString(SegmentTrackData.serializer(), blobOf(stored(Visibility.SELF, Nsid.FEED_SEGMENT_TRACK, rkey)!!)).pieces
         assertTrue(pieces.isNotEmpty())
         assertTrue(s.db.outbox().pending(s.clients.did.value, rkey).isEmpty())
+    }
+
+    @Test
+    fun aTrimWithoutAStoredTrackKeepsThePublishedPolyline() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft())
+        OutboxProcessor(s.db, s.clients, Logger).drain()
+        val rkey = uri.rkey!!
+        // An activity whose record has a line but whose full track was never stored.
+        val key = "${Nsid.FEED_ACTIVITY}/$rkey"
+        val followers = pds.stored.getValue(Visibility.FOLLOWERS)
+        followers[key] = JsonObject(followers.getValue(key) + ("polyline" to JsonPrimitive("_p~iF~ps|U_ulLnnqC")))
+        val withLine = record(uri)
+        pds.stored[Visibility.SELF]?.remove("${Nsid.FEED_ACTIVITY_TRACK}/$rkey")
+
+        s.manager.trim(s.manager.loadForTrim(view(uri, withLine)), span)
+
+        assertEquals("_p~iF~ps|U_ulLnnqC", record(uri).polyline)
     }
 
     @Test
