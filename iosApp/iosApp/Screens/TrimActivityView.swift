@@ -186,40 +186,21 @@ private struct TrimEnd: View {
     let start: Bool
     let send: (any TrimEvent) -> Void
     @Environment(\.stats) private var stats
-    @State private var repeats = NudgeRepeat()
 
     var body: some View {
         VStack(alignment: start ? .leading : .trailing, spacing: 4) {
             TrimReadout(editor: editor, start: start) { send(TrimEvent.EditExact(start: start, units: stats.units)) }
             HStack(spacing: 16) {
                 ForEach([false, true], id: \.self) { later in
-                    AppIconButton(later ? .chevron : .chevronBack, label: TrimTexts.shared.nudgeLabel(start: start, later: later)) {
-                        let count = repeats.next(later: later, at: .now)
+                    AppRepeatIconButton(
+                        later ? .chevron : .chevronBack, label: TrimTexts.shared.nudgeLabel(start: start, later: later)
+                    ) { count in
                         send(TrimEvent.Nudge(start: start, later: later, repeat: count, units: stats.units))
                     }
                     .font(.title3)
-                    .buttonRepeatBehavior(.enabled)
                 }
             }
         }
-    }
-}
-
-/// How many steps a held nudge button has taken: SwiftUI repeats a held button's action without saying so, so steps closer together than
-/// `gap` in one direction count as one hold, and a pause or the other button starts a new one at 0.
-struct NudgeRepeat {
-    static let gap: TimeInterval = 0.7
-    private var last: (later: Bool, at: Date)?
-    private var count: Int32 = 0
-
-    mutating func next(later: Bool, at now: Date) -> Int32 {
-        if let last, last.later == later, now.timeIntervalSince(last.at) < Self.gap {
-            count += 1
-        } else {
-            count = 0
-        }
-        last = (later, now)
-        return count
     }
 }
 

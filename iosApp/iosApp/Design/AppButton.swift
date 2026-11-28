@@ -130,6 +130,76 @@ struct AppIconButton: View {
     }
 }
 
+/// An icon-only action that repeats while held, such as a nudge: `onStep` hears 0 for the press and, while it stays pressed, how many steps
+/// came before each repeat. Each press starts again at 0, however soon after the last, so quick taps never count as a hold.
+struct AppRepeatIconButton: View {
+    private let icon: AppIcon
+    private let label: Text
+    private let onStep: (Int32) -> Void
+    @State private var repeats = RepeatCount()
+
+    init(_ icon: AppIcon, label: any AppText, onStep: @escaping (Int32) -> Void) {
+        self.icon = icon
+        self.label = Text(label)
+        self.onStep = onStep
+    }
+
+    var body: some View {
+        Button { onStep(repeats.next(at: .now)) } label: { Image(icon, filled: false) }
+            .buttonStyle(RepeatButtonStyle { repeats.released() })
+            .buttonRepeatBehavior(.enabled)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            .accessibilityLabel(label)
+    }
+}
+
+/// How many steps a held repeating button has taken: SwiftUI repeats its action without saying which step it is, so the count grows
+/// with each action until the press ends (`released`), or, for an action with no press (VoiceOver's), until `gap` passes without one.
+struct RepeatCount {
+    static let gap: TimeInterval = 0.7
+    private var last: Date?
+    private var count: Int32 = 0
+
+    mutating func next(at now: Date) -> Int32 {
+        if let last, now.timeIntervalSince(last) < Self.gap {
+            count += 1
+        } else {
+            count = 0
+        }
+        last = now
+        return count
+    }
+
+    mutating func released() {
+        last = nil
+    }
+}
+
+/// A borderless button's look that also says when a press ends, which `AppRepeatIconButton` needs to start each press at 0.
+private struct RepeatButtonStyle: ButtonStyle {
+    let released: () -> Void
+
+    func makeBody(configuration: Configuration) -> some View {
+        RepeatButtonBody(configuration: configuration, released: released)
+    }
+}
+
+private struct RepeatButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let released: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        configuration.label
+            .foregroundStyle(isEnabled ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+            .opacity(configuration.isPressed ? 0.3 : 1)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if !pressed { released() }
+            }
+    }
+}
+
 extension View {
     /// A wide button's label fills the width it's given.
     fileprivate func wideLabel(_ wide: Bool) -> some View {
