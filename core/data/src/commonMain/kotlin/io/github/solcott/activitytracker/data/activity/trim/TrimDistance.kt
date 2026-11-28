@@ -30,18 +30,20 @@ class TrimDistance private constructor(private val series: TrimSeries) {
 
     /**
      * Where a nudge of [meters] [later] or earlier moves the [start] or the end at [seconds], snapped as [startAt] and [endAt] snap. When
-     * that leaves it where it was (samples further apart than the nudge), it goes to the next distance a sample reaches that way, so a
-     * nudge always moves while there is somewhere to go.
+     * that leaves it where it was or moves it the other way (samples further apart than the nudge, or an end between samples, which
+     * snapping takes back to one), it goes to the next distance a sample reaches that way, so a nudge always moves the way asked while
+     * there is somewhere to go.
      */
     @Suppress("ReturnCount") // Snapped there, else on to the next sample, else nowhere to go.
     fun nudge(seconds: Int, start: Boolean, later: Boolean, meters: Double): Int {
+        fun snap(to: Double) = if (start) startAt(to) else endAt(to)
+        fun onward(to: Int) = if (later) to > seconds else to < seconds
         val here = at(seconds)
-        val target = (if (later) here + meters else here - meters).coerceIn(0.0, total)
-        val snapped = if (start) startAt(target) else endAt(target)
-        if (snapped != seconds) return snapped
+        val snapped = snap((if (later) here + meters else here - meters).coerceIn(0.0, total))
+        if (onward(snapped)) return snapped
         val d = series.distance ?: return seconds
         val next = if (later) d.firstOrNull { it > here } else d.lastOrNull { it < here }
-        return next?.let { if (start) startAt(it) else endAt(it) } ?: seconds
+        return next?.let(::snap)?.takeIf(::onward) ?: seconds
     }
 
     companion object {

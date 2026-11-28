@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.data.activity.trim.TrimFixtures.STANDIN
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class TrimDistanceTest {
     private val distance = TrimDistance.of(TrimFixtures.input)!!
@@ -34,6 +35,14 @@ class TrimDistanceTest {
         assertEquals(STANDING_START, distance.nudge(STANDING_START, start = true, later = false, meters = 10.0))
         // An end nudged earlier keeps to the first sample at its distance.
         assertEquals(RIDE_END - 10, distance.nudge(RIDE_END, start = false, later = false, meters = 10.0))
+    }
+
+    @Test
+    fun aNudgeFromBetweenSamplesMovesTheWayAsked() {
+        // 5 s past the start of riding reads the sample before it; snapping 10 m on would take the start back there.
+        assertEquals(STANDING_START + 10, distance.nudge(STANDING_START + 5, start = true, later = true, meters = 10.0))
+        // An end between samples nudged earlier keeps going earlier, never on to the sample after it.
+        assertTrue(distance.nudge(RIDE_END - 5, start = false, later = false, meters = 10.0) < RIDE_END - 5)
     }
 
     @Test
