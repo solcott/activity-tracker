@@ -76,4 +76,37 @@ class AppRangeSliderUiTest {
         assertEquals(100f, range.endInclusive)
         assertEquals(listOf(0.25f, null), shares)
     }
+
+    @Test
+    fun bothThumbsAtOnePlaceFollowTheDragsDirection() = runComposeUiTest {
+        var range by mutableStateOf(50f..50f)
+        setContent {
+            AppPreview {
+                AppRangeSlider(
+                    value = range,
+                    onValueChange = { range = it },
+                    valueRange = 0f..100f,
+                    modifier = Modifier.width(400.dp).testTag("slider"),
+                    precision = { 1f },
+                )
+            }
+        }
+        // Pressed just right of the thumbs, a drag left still moves the start, which can go that way.
+        onNodeWithTag("slider").performTouchInput {
+            down(center + Offset(4f, 0f))
+            moveBy(Offset(-width / 4f, 0f))
+            up()
+        }
+        assertEquals(25f, range.start, 1f)
+        assertEquals(50f, range.endInclusive)
+        // And pressed just left of them, a drag right moves the end.
+        range = 50f..50f
+        onNodeWithTag("slider").performTouchInput {
+            down(center - Offset(4f, 0f))
+            moveBy(Offset(width / 4f, 0f))
+            up()
+        }
+        assertEquals(50f, range.start)
+        assertEquals(75f, range.endInclusive, 1f)
+    }
 }

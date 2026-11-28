@@ -126,8 +126,10 @@ private fun BoxScope.RangeSliderSemantics(
 
 /**
  * The slider's own drag when it slows below the track: the nearer thumb at the press, moved by the pointer's sideways travel times the
- * share [precision] gives for how far below the track it is. Each new share starts from where the thumb is, so it never jumps. A press that
- * lifts without moving moves the nearer thumb there, as Material's does.
+ * share [precision] gives for how far below the track it is. Both thumbs at one place are told apart by the drag's direction, left the
+ * start and right the end, so the one chosen can always move that way. Each new share starts from where the thumb is, so it never jumps. A
+ * press that lifts without moving moves the nearer thumb there, as Material's does. Values map along Material's track, which is inset by
+ * half a thumb at each end, so a full-speed drag keeps the thumb under the pointer.
  */
 private class PrecisionDrag(
     private val value: State<ClosedFloatingPointRange<Float>>,
@@ -144,16 +146,14 @@ private class PrecisionDrag(
     @Suppress("CyclomaticComplexMethod", "LongMethod", "LoopWithTooManyJumpStatements")
     suspend fun PointerInputScope.run() = awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
-        val width = size.width.toFloat().coerceAtLeast(1f)
+        val inset = (MATERIAL_THUMB_WIDTH.toPx() / 2).coerceAtMost(size.width / 2f)
+        val track = (size.width - 2 * inset).coerceAtLeast(1f)
         val centre = size.height / 2f
-        fun x(v: Float) = (v - valueRange.start) / span.coerceAtLeast(Float.MIN_VALUE) * width
+        fun x(v: Float) = inset + (v - valueRange.start) / span.coerceAtLeast(Float.MIN_VALUE) * track
+        fun valueAt(x: Float) = valueRange.start + ((x - inset) / track).coerceIn(0f, 1f) * span
         val current = value.value
-        val start =
-            abs(down.position.x - x(current.start)) <= abs(down.position.x - x(current.endInclusive)) &&
-                // Both thumbs at one place: the one that can move that way is chosen once the drag says which way.
-                !(current.start == current.endInclusive &&
-                    current.endInclusive < valueRange.endInclusive &&
-                    down.position.x > x(current.start))
+        val merged = current.start == current.endInclusive
+        var start = abs(down.position.x - x(current.start)) <= abs(down.position.x - x(current.endInclusive))
         val onThumb = abs(down.position.x - x(if (start) current.start else current.endInclusive)) <= THUMB_REACH.toPx()
         var taken = false
         var anchorValue = 0f
@@ -164,7 +164,9 @@ private class PrecisionDrag(
             val change = event.changes.firstOrNull { it.id == down.id } ?: break
             if (!change.pressed) {
                 if (!taken && !change.isConsumed) {
-                    set(start, valueRange.start + (change.position.x / width).coerceIn(0f, 1f) * span)
+                    val to = valueAt(change.position.x)
+                    // A tap beside both thumbs at one place moves the one on that side.
+                    set(if (merged) to < current.start else start, to)
                     onFinished.value?.invoke()
                 }
                 break
@@ -175,8 +177,10 @@ private class PrecisionDrag(
                 if (moved.getDistance() < viewConfiguration.touchSlop) continue
                 if (!onThumb && abs(moved.y) > abs(moved.x)) break
                 taken = true
+                if (merged) start = moved.x < 0
                 anchorValue = if (start) value.value.start else value.value.endInclusive
-                anchorX = change.position.x
+                // From the press, so the travel within the touch slop isn't lost.
+                anchorX = down.position.x
             }
             val below = ((change.position.y - centre).coerceAtLeast(0f)).toDp()
             val now = precision.value(below)
@@ -186,7 +190,7 @@ private class PrecisionDrag(
                 anchorX = change.position.x
                 onPrecision.value(now)
             }
-            set(start, anchorValue + (change.position.x - anchorX) / width * span * factor)
+            set(start, anchorValue + (change.position.x - anchorX) / track * span * factor)
             change.consume()
         }
         if (taken) {
@@ -203,6 +207,9 @@ private class PrecisionDrag(
         )
     }
 }
+
+/** Material's thumb handle width (`SliderDefaults.Thumb`): its track starts and ends half of it in from the slider's edges. */
+private val MATERIAL_THUMB_WIDTH = 4.dp
 
 /** How near a thumb a press counts as on it, so a drag from there is the slider's whichever way it goes. */
 private val THUMB_REACH = 24.dp
