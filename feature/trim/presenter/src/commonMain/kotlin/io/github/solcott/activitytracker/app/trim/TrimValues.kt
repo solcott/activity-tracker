@@ -66,7 +66,7 @@ internal object TrimValues {
         val parts = text.split(':').map { it.toIntOrNull()?.takeIf { n -> n >= 0 } ?: return null }
         if (parts.isEmpty() || parts.size > MAX_PARTS) return null
         if (parts.drop(1).any { it >= SIXTY }) return null
-        return parts.fold(0) { total, part -> total * SIXTY + part }
+        return parts.fold(0L) { total, part -> total * SIXTY + part }.takeIf { it <= Int.MAX_VALUE }?.toInt()
     }
 
     /** `hh:mm` on the manual entry's clock, as seconds since its start (a time before the start is on the next day). */
