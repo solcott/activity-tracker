@@ -288,7 +288,10 @@ fun ActivityDetailPresenter(
             segmentCreated = uri in segmentsCreated,
             canCreateDiveSite = canCreateDiveSite(isOwn, ownRoute, it.record, it.diveSite),
             diveSiteCreated = uri in sitesCreated,
-            canTrim = TrimRules.canTrim(it.record, isOwner = isOwn, isCombinedMember = it.combinedInto != null, charts.streams?.data),
+            // Offered once the streams answer: until then a workout's sets or a multisport's legs are unknown.
+            canTrim =
+                charts.answered &&
+                    TrimRules.canTrim(it.record, isOwner = isOwn, isCombinedMember = it.combinedInto != null, charts.streams?.data),
             partners = ownGroup.shown(it.group),
             ownGroup = ownGroup.offered(it.group),
             canAddPeople = isOwn,
@@ -410,7 +413,12 @@ internal fun chartsFor(sport: String?, charts: ActivityCharts?, lifts: List<Effo
     else ChartsBuilder.forSport(charts, sport).let { it.copy(laps = namedLiftLaps(it.laps, lifts)) }
 
 /** The activity's charts, and the owner's control over who sees them. */
-internal class Charts(val charts: ActivityCharts?, val streams: GetActivityStreams.Output?) {
+internal class Charts(
+    val charts: ActivityCharts?,
+    val streams: GetActivityStreams.Output?,
+    /** Whether the streams have answered (none counts), so what they rule out (a trim of a workout with sets) is known. */
+    val answered: Boolean = false,
+) {
     /** The [own] activity has heart rate or power but no zones to split it into. */
     fun missingZones(own: Boolean): Boolean = own && charts?.missingZones() == true
 }
@@ -428,7 +436,9 @@ internal fun rememberCharts(activity: AtUri, loadKey: Int, units: UnitSystem, fe
     }
         .produceRetainedContentState<UnitSystem, Charts>(Charts(null, null), loadKey) { shownIn ->
             outcomeFlow {
-                feed.streams(activity).let { streams -> Charts(streams?.let { ChartsBuilder.buildOffMain(it, shownIn) }, streams) }
+                feed.streams(activity).let { streams ->
+                    Charts(streams?.let { ChartsBuilder.buildOffMain(it, shownIn) }, streams, answered = true)
+                }
             }
         }
     return loaded.data
