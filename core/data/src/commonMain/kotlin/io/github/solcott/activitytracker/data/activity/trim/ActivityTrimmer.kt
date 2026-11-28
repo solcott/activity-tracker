@@ -43,7 +43,10 @@ object ActivityTrimmer {
                 legs = data.legs?.filter { within(it.start, it.elapsed) }?.map { it.copy(start = moved(it.start)) },
                 laps = null,
             )
-        val sliced = ActivityStreamData.INT_CHANNELS.fold(base) { acc, channel -> channel.with(acc, channel.get(data)?.kept()) }
+        val cut = ActivityStreamData.INT_CHANNELS.fold(base) { acc, channel -> channel.with(acc, channel.get(data)?.kept()) }
+        // Distance starts again from 0 at the kept start, as if recorded from there.
+        val first = cut.distance?.firstNotNullOfOrNull { it } ?: 0
+        val sliced = cut.copy(distance = cut.distance?.map { it?.minus(first) })
         return sliced.copy(laps = data.laps?.let { laps(it, span, sliced) })
     }
 

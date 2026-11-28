@@ -25,6 +25,17 @@ class TrimDistanceTest {
     }
 
     @Test
+    fun distanceCountsFromTheFirstSample() {
+        // An activity trimmed before distance was re-based starts its distance where the old start was cut.
+        val offset = 480_000
+        val shifted = TrimFixtures.streams.copy(distance = TrimFixtures.streams.distance!!.map { it?.plus(offset) })
+        val moved = TrimDistance.of(TrimInput(TrimFixtures.start, TrimFixtures.END, shifted, emptyList()))!!
+        assertEquals(0.0, moved.at(0))
+        assertEquals(distance.total, moved.total)
+        assertEquals(STANDING_START + 100, moved.startAt(800.0))
+    }
+
+    @Test
     fun noDistanceWithoutStreamsOrRoute() {
         assertNull(TrimDistance.of(TrimInput(TrimFixtures.start, 600, null, emptyList())))
     }

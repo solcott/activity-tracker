@@ -67,6 +67,10 @@ class ActivityTrimmerTest {
         assertEquals(RIDE_END - STANDING_START, streams.time.last())
         assertEquals(streams.time.size, streams.heartRate!!.size)
         assertEquals(streams.time.size, streams.altitude!!.size)
+        // Distance starts again from 0 at the kept start, as if recorded from there.
+        assertEquals(0, streams.distance!!.first())
+        val original = TrimFixtures.streams.distance!!
+        assertEquals(original[RIDE_END / 10]!! - original[STANDING_START / 10]!!, streams.distance!!.last())
     }
 
     @Test

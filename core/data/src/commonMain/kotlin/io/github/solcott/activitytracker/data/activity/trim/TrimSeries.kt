@@ -117,8 +117,11 @@ internal class TrimSeries(
             if (fromStreams != null && (fromStreams.distance != null || input.route.size < 2)) {
                 val distance =
                     fromStreams.distance?.let { cm ->
+                        // Counted from the first sample: a device's odometer, or a trim from before distance was re-based,
+                        // can start above 0.
+                        val first = cm.firstNotNullOfOrNull { it } ?: 0
                         var last = 0.0
-                        cm.map { value -> (value?.div(CM_PER_M) ?: last).also { last = it } }
+                        cm.map { value -> (value?.minus(first)?.div(CM_PER_M) ?: last).also { last = it } }
                     }
                 return TrimSeries(
                     time = fromStreams.time,
