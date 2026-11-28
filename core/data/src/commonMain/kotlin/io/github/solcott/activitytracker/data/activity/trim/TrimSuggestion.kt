@@ -49,7 +49,7 @@ data class TrimSuggestion(val span: KeptSpan, val start: StartCut?, val end: End
         /** The suggestion for [input], or null when it has no speed or distance or nothing to cut. */
         @Suppress("CyclomaticComplexMethod", "ReturnCount") // Each way a recording has nothing to suggest.
         fun of(input: TrimInput): TrimSuggestion? {
-            val s = TrimSeries.of(input)?.takeIf { it.size >= 2 && (it.distance != null || it.speed.any { v -> v != null }) } ?: return null
+            val s = input.series?.takeIf { it.size >= 2 && (it.distance != null || it.speed.any { v -> v != null }) } ?: return null
             val end = input.endSeconds
             fun sustainedFrom(t: Int) = (s.movingSeconds(t, t + WINDOW_SECONDS) ?: 0.0) >= SUSTAINED_SECONDS
             fun sustainedTo(t: Int) = (s.movingSeconds(t - WINDOW_SECONDS, t) ?: 0.0) >= SUSTAINED_SECONDS

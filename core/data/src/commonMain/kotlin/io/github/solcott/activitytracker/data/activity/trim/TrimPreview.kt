@@ -46,6 +46,6 @@ class TrimPreview private constructor(val input: TrimInput, private val series: 
     }
 
     companion object {
-        fun of(input: TrimInput): TrimPreview = TrimPreview(input, TrimSeries.of(input))
+        fun of(input: TrimInput): TrimPreview = TrimPreview(input, input.series)
     }
 }

@@ -30,6 +30,6 @@ class TrimDistance private constructor(private val series: TrimSeries) {
 
     companion object {
         /** [input]'s distance over time, or null when nothing says how far the athlete went. */
-        fun of(input: TrimInput): TrimDistance? = TrimSeries.of(input)?.takeIf { it.distance != null && it.size >= 2 }?.let(::TrimDistance)
+        fun of(input: TrimInput): TrimDistance? = input.series?.takeIf { it.distance != null && it.size >= 2 }?.let(::TrimDistance)
     }
 }

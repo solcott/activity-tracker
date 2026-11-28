@@ -23,10 +23,20 @@ data class KeptSpan(val from: Int, val to: Int) {
     fun isWhole(input: TrimInput): Boolean = isWhole(input.endSeconds)
 
     /**
-     * The elapsed time [input] has left once cut to this span: its elapsed time less the clock time cut, never more than the span. A
-     * recording's elapsed time leaves out its pauses while its samples' times don't, so a span can't simply be its new elapsed time.
+     * The elapsed time [input] has left once cut to this span: the span less the pauses within it. A recording's elapsed time leaves out
+     * its pauses while its samples' times don't. A pause with no samples is a gap between them, placed where it is; one the device kept
+     * sampling through (an auto-pause) can't be placed, so it's taken as within the span, as little kept as the clock allows.
      */
-    fun keptElapsed(input: TrimInput): Int = (input.elapsedSeconds - (input.endSeconds - seconds)).coerceIn(0, seconds)
+    fun keptElapsed(input: TrimInput): Int {
+        val unrecorded = input.endSeconds - input.elapsedSeconds
+        if (unrecorded <= 0) return seconds
+        val series = input.series
+        val gaps = (series?.pausedSeconds(Int.MIN_VALUE, Int.MAX_VALUE) ?: 0).coerceAtMost(unrecorded)
+        val gapsWithin = (series?.pausedSeconds(from, to) ?: 0).coerceAtMost(gaps)
+        val unplaced = unrecorded - gaps
+        val leastKept = input.elapsedSeconds - (input.endSeconds - seconds)
+        return (seconds - gapsWithin - unplaced).coerceAtLeast(leastKept).coerceIn(0, seconds)
+    }
 
     companion object {
         /** The least a trim keeps: the handles never come closer than this. */
@@ -41,11 +51,14 @@ data class KeptSpan(val from: Int, val to: Int) {
 class TrimInput(val startedAt: Instant, val elapsedSeconds: Int, val streams: ActivityStreamData?, val route: List<LocationSample>) {
     /** Whether a span can be chosen by distance: the streams or the route say how far the athlete went. */
     val hasDistance: Boolean
-        get() = TrimSeries.of(this)?.distance != null
+        get() = series?.distance != null
+
+    /** These samples, read once. */
+    internal val series: TrimSeries? by lazy { TrimSeries.of(this) }
 
     /**
      * Seconds from the start to the end of the recording, the timeline a [KeptSpan] is on: the elapsed time, or the last sample's time when
      * that's later (a recording paused along the way, whose elapsed time leaves the pauses out).
      */
-    val endSeconds: Int by lazy { maxOf(elapsedSeconds, TrimSeries.of(this)?.time?.lastOrNull() ?: 0) }
+    val endSeconds: Int by lazy { maxOf(elapsedSeconds, series?.time?.lastOrNull() ?: 0) }
 }

@@ -172,4 +172,16 @@ class ActivityTrimmerTest {
             ActivityTrimmer.record(record.copy(grit = 120, movingTime = null), TrimInput(TrimFixtures.start, END, null, emptyList()), half)
         assertEquals(60, trimmed.grit)
     }
+
+    @Test
+    fun aPausedRecordingKeepsOnlyThePausesWithinTheSpan() {
+        // 10 min riding, a 10 min pause with no samples, then 50 min riding: 70 min on the clock, 60 min elapsed.
+        val times = (0..600 step 10).toList() + (1200..4200 step 10).toList()
+        val streams = ActivityStreamData(time = times, distance = times.map { it * 800 }, speed = times.map { 8000 })
+        val paused = TrimInput(TrimFixtures.start, 3600, streams, emptyList())
+
+        assertEquals(600, KeptSpan(0, 600).keptElapsed(paused))
+        assertEquals(3000, KeptSpan(1200, 4200).keptElapsed(paused))
+        assertEquals(1200, KeptSpan(0, 1800).keptElapsed(paused))
+    }
 }

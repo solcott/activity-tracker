@@ -37,7 +37,7 @@ private constructor(
 
     companion object {
         @Suppress("CyclomaticComplexMethod") // Each end and each total, cut or not.
-        fun of(input: TrimInput, span: KeptSpan, series: TrimSeries? = TrimSeries.of(input)): TrimCut {
+        fun of(input: TrimInput, span: KeptSpan, series: TrimSeries? = input.series): TrimCut {
             val end = maxOf(input.elapsedSeconds, series?.time?.lastOrNull() ?: 0)
             val kept = span.keptElapsed(input)
             val cutsStart = span.from > 0

@@ -78,6 +78,18 @@ internal class TrimSeries(
         return distance?.let { (it[i + 1] - it[i]) / dt } ?: speed[i + 1]
     }
 
+    /** Seconds between [from] and [to] spent in pauses: each gap between two samples longer than a pause's least. */
+    fun pausedSeconds(from: Int, to: Int): Int {
+        val first = indexAtOrAfter(from)
+        val last = indexAtOrBefore(to)
+        var paused = 0
+        for (i in first until last) {
+            val dt = time[i + 1] - time[i]
+            if (dt > gapLimit) paused += dt
+        }
+        return paused
+    }
+
     /** Elevation gain and loss between [from] and [to], counted as the activity's are; null without two altitudes. */
     fun gainLoss(from: Int, to: Int): GainLoss? {
         val first = indexAtOrAfter(from)
