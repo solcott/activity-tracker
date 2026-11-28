@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
@@ -66,8 +67,8 @@ fun RecordPresenter(
 
     // A paused recording is offered for trimming (feed/activity-trim) with what it suggests; recording again drops any trim, which
     // was chosen over a shorter recording.
-    var trimOffered by remember { mutableStateOf<TrimSuggestion?>(null) }
-    var trimmable by remember { mutableStateOf(false) }
+    var trimOffered by rememberRetained { mutableStateOf<TrimSuggestion?>(null) }
+    var trimmable by rememberRetained { mutableStateOf(false) }
     val trimSpan by remember { drafts.span(RECORDING_DRAFT) }.collectAsState(null)
     LaunchedEffect(recording.status, recording.recovered, type.selected) {
         if (recording.status == RecordingState.Status.Paused) {
