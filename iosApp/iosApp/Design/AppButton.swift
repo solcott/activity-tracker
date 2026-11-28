@@ -145,12 +145,16 @@ struct AppRepeatIconButton: View {
     }
 
     var body: some View {
-        Button { onStep(repeats.next(at: .now)) } label: { Image(icon, filled: false) }
-            .buttonStyle(RepeatButtonStyle { repeats.released() })
-            .buttonRepeatBehavior(.enabled)
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(Rectangle())
-            .accessibilityLabel(label)
+        Button {
+            onStep(repeats.next(at: .now))
+        } label: {
+            Image(icon, filled: false)
+        }
+        .buttonStyle(RepeatButtonStyle { repeats.released() })
+        .buttonRepeatBehavior(.enabled)
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+        .accessibilityLabel(label)
     }
 }
 
