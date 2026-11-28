@@ -7,6 +7,10 @@ import SwiftUI
 ///
 /// Each thumb is its own adjustable element for VoiceOver, named by `lowerLabel` and `upperLabel`, read with `value(_:)` of its
 /// position, and stepped by a hundredth of the range.
+///
+/// With `precision`, a drag slows as the finger moves below the track (feed/activity-trim): `precision` gives the share of full speed
+/// for the points below the track's centre, the thumb then follows that share of the finger's sideways travel from where it was when the
+/// share last changed, and `onPrecision` hears each new share and nil when the drag ends.
 struct RangeSlider: View {
     let lower: Double
     let upper: Double
@@ -14,9 +18,13 @@ struct RangeSlider: View {
     let lowerLabel: Text
     let upperLabel: Text
     let value: (Double) -> Text
+    var precision: ((CGFloat) -> Double)?
+    var onPrecision: (Double?) -> Void = { _ in }
     let onChange: (Double, Double) -> Void
 
     @Environment(\.isEnabled) private var isEnabled
+    /// A slowed drag's anchor: where the thumb was and the finger's x when the current share began, and the share.
+    @State private var slowed: (value: Double, x: CGFloat, share: Double)?
 
     private static let thumb: CGFloat = 28
     private static let track: CGFloat = 4
@@ -54,7 +62,28 @@ struct RangeSlider: View {
             .offset(x: x(position, width) - Self.thumb / 2)
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.space))
-                    .onChanged { drag in move(self.position(at: drag.location.x, width: width)) }
+                    .onChanged { drag in
+                        guard let precision else {
+                            move(self.position(at: drag.location.x, width: width))
+                            return
+                        }
+                        let share = precision(max(drag.location.y - (Self.thumb + 8) / 2, 0))
+                        if slowed == nil || slowed?.share != share {
+                            if slowed != nil || share != 1 { onPrecision(share) }
+                            slowed = (position, drag.location.x, share)
+                        }
+                        guard let anchor = slowed else { return }
+                        let room = Double(max(width - Self.thumb, 1))
+                        let span = bounds.upperBound - bounds.lowerBound
+                        let moved = anchor.value + Double(drag.location.x - anchor.x) / room * span * share
+                        move(min(max(moved, bounds.lowerBound), bounds.upperBound))
+                    }
+                    .onEnded { _ in
+                        if slowed != nil, precision != nil {
+                            slowed = nil
+                            onPrecision(nil)
+                        }
+                    }
             )
             .accessibilityElement()
             .accessibilityLabel(label)
@@ -97,6 +126,11 @@ struct RangeSlider: View {
                 value: { Text(verbatim: "\(Int($0)) m") }, onChange: { _, _ in }
             )
             .disabled(true)
+            RangeSlider(
+                lower: range.lower, upper: range.upper, bounds: 0...2_400, lowerLabel: Text(verbatim: "Start"),
+                upperLabel: Text(verbatim: "End"), value: { Text(verbatim: "\(Int($0)) m") },
+                precision: { $0 < 24 ? 1 : 0.25 }
+            ) { range = ($0, $1) }
         }
     }
 #endif
