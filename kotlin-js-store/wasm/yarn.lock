@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@garmin/fitsdk@21.221.0":
-  version "21.221.0"
-  resolved "https://registry.yarnpkg.com/@garmin/fitsdk/-/fitsdk-21.221.0.tgz#911ddf438dc9216796492f44cf6e5f294eb141f1"
-  integrity sha512-dZiBXPNFowe8VhjHUAoRMFW0sgI6SZaqb3OhOX5UjdLuRmtCoC/bXDJPOObDzyPP68CoEBLv6ueGXayT2tohjw==
+"@garmin/fitsdk@21.222.0":
+  version "21.222.0"
+  resolved "https://registry.yarnpkg.com/@garmin/fitsdk/-/fitsdk-21.222.0.tgz#0773e6722085e731fd2110d47d3f35cbef832257"
+  integrity sha512-YIo/bPfvENuBKECsAT0wWromTy66Yxw3UqRB1FuAJIs8KMoJCkVPgqnUanFxkZwcAXgIN2qXaeFeRt7rvYlB0g==
 
 "@js-joda/core@3.2.0":
   version "3.2.0"
@@ -21,6 +21,11 @@
   version "3.50.1-build1"
   resolved "https://registry.yarnpkg.com/@sqlite.org/sqlite-wasm/-/sqlite-wasm-3.50.1-build1.tgz#67dd9944b0e37ddb0ef2c8b195baa74ece838e44"
   integrity sha512-yH4M/SHN98NibniIwTVk6rwTJjy7n39l7zwWY3u+qsfZBGTi4lC1uEl2NDvIlkzsFtfCBvHBJJFJ1iuU3UzzEQ==
+
+format-util@^1.0.5:
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/format-util/-/format-util-1.0.5.tgz#1ffb450c8a03e7bccffe40643180918cc297d271"
+  integrity sha512-varLbTj0e0yVyRpqQhuWV+8hlePAgaoFRhNFj50BNjEIrw1/DphHSObtqwskVCPWNgzwPoQrZAbfa/SBiicNeg==
 
 "sqlite-wasm-worker@file:../../web/sqlite-worker/worker":
   version "0.0.0"
