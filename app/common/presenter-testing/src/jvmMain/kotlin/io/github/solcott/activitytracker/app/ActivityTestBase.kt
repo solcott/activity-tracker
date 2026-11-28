@@ -405,6 +405,8 @@ open class ActivityTestBase {
                             // Refused, as repo writes are, so they stay queued for a test to read: an outbox drain that sent one would
                             // delete it from under the test.
                             Nsid.FEED_COMMENT,
+                            Nsid.FEED_LIKE,
+                            Nsid.FEED_REPOST,
                             Nsid.FEED_POST,
                             Nsid.GRAPH_BLOCK,
                             Nsid.GRAPH_MUTE ->
